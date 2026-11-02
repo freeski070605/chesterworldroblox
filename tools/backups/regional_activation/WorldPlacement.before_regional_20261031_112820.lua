@@ -1,0 +1,5 @@
+return {
+    STUDS_PER_METER = 3.000000,
+    CENTER_X_M = 4282.888742,
+    CENTER_Z_M = 5254.972738,
+}

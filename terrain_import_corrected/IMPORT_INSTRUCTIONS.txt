@@ -1,0 +1,38 @@
+CHESTERWORLD TRUE GEOGRAPHIC ORIENTATION
+========================================================================
+NORTH = +Z
+SOUTH = -Z
+EAST  = +X
+WEST  = -X
+
+These corrected PNGs use the SAME Roblox Size and Position values as the
+previous recentered terrain import. Only the image's north/south raster
+orientation was corrected.
+
+IMPORTANT:
+1. Clear the currently imported Roblox terrain.
+2. Reimport these corrected PNGs.
+3. Use the exact same Size / Position values below.
+
+CHESTERWORLD ROBLOX TERRAIN IMPORT — RECENTERED
+========================================================================
+
+Use Terrain Editor -> Create -> Import.
+Import each heightmap using the exact Size and Position below.
+All Chester coordinates are now centered around Roblox X=0, Z=0.
+
+1. chester_height_r00_c00.png
+   SIZE     X=16384.000  Y=223.453  Z=16384.000
+   POSITION X=-4656.000  Y=107.827  Z=7570.000
+
+2. chester_height_r00_c01.png
+   SIZE     X=9312.000  Y=223.453  Z=16384.000
+   POSITION X=8192.000  Y=107.827  Z=7570.000
+
+3. chester_height_r01_c00.png
+   SIZE     X=16384.000  Y=223.453  Z=15140.000
+   POSITION X=-4656.000  Y=107.827  Z=-8192.000
+
+4. chester_height_r01_c01.png
+   SIZE     X=9312.000  Y=223.453  Z=15140.000
+   POSITION X=8192.000  Y=107.827  Z=-8192.000

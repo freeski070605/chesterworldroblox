@@ -1,0 +1,109 @@
+{
+  "version": 2,
+  "recentered": true,
+  "studs_per_meter": 3.0,
+  "world_center_local_m": {
+    "x": 4282.8887420673855,
+    "z": 5254.972738323733
+  },
+  "world_footprint_studs": {
+    "width": 25695.99999999907,
+    "depth": 31524.0
+  },
+  "global_elevation_m": {
+    "min": -1.2999999523162842,
+    "max": 73.1844711303711
+  },
+  "global_y_mapping_studs": {
+    "size": 223.45341324806213,
+    "position": 107.82670676708221
+  },
+  "chunks": [
+    {
+      "file": "chester_height_r00_c00.png",
+      "pixels": {
+        "width": 4096,
+        "height": 4096
+      },
+      "roblox_selection": {
+        "size_studs": {
+          "x": 16384.0,
+          "y": 223.45341324806213,
+          "z": 16384.0
+        },
+        "position_studs": {
+          "x": -4655.999999998603,
+          "y": 107.82670676708221,
+          "z": -7570.000000000466
+        }
+      }
+    },
+    {
+      "file": "chester_height_r00_c01.png",
+      "pixels": {
+        "width": 2328,
+        "height": 4096
+      },
+      "roblox_selection": {
+        "size_studs": {
+          "x": 9312.0,
+          "y": 223.45341324806213,
+          "z": 16384.0
+        },
+        "position_studs": {
+          "x": 8192.000000000931,
+          "y": 107.82670676708221,
+          "z": -7570.000000000466
+        }
+      }
+    },
+    {
+      "file": "chester_height_r01_c00.png",
+      "pixels": {
+        "width": 4096,
+        "height": 3785
+      },
+      "roblox_selection": {
+        "size_studs": {
+          "x": 16384.0,
+          "y": 223.45341324806213,
+          "z": 15140.0
+        },
+        "position_studs": {
+          "x": -4655.999999998603,
+          "y": 107.82670676708221,
+          "z": 8191.999999999534
+        }
+      }
+    },
+    {
+      "file": "chester_height_r01_c01.png",
+      "pixels": {
+        "width": 2328,
+        "height": 3785
+      },
+      "roblox_selection": {
+        "size_studs": {
+          "x": 9312.0,
+          "y": 223.45341324806213,
+          "z": 15140.0
+        },
+        "position_studs": {
+          "x": 8192.000000000931,
+          "y": 107.82670676708221,
+          "z": 8191.999999999534
+        }
+      }
+    }
+  ],
+  "orientation_corrected": true,
+  "geographic_axes": {
+    "north": "-Z",
+    "south": "+Z",
+    "east": "+X",
+    "west": "-X"
+  },
+  "flip_z": false,
+  "orientation_note": "Terrain reflected across Roblox Z=0: PNG vertically flipped and chunk center Z negated.",
+  "roblox_handedness_fixed": true
+}

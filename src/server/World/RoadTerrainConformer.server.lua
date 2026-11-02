@@ -1,9 +1,12 @@
 -- ChesterWorld - RoadTerrainConformer.server.lua
--- Single elevation owner for the street system.
 --
--- Ground/tunnel roads conform to Terrain.
--- Bridge / positive-layer roads receive a smooth elevated deck profile.
--- Geometry ownership stays in TileBuilderV2.
+-- SINGLE ELEVATION OWNERSHIP:
+--   * TileBuilderV2 owns the elevation of all ground/tunnel road geometry.
+--   * This script ONLY applies the grade-separated bridge profile.
+--
+-- The old conformer moved every ground-road Part after TileBuilderV2 had already
+-- fitted it to Terrain. Intersections/crosswalks/sidewalks were not moved by that
+-- second pass, which created visible triangular seams at junctions.
 --
 -- LOCKED HANDEDNESS: north=-Z, south=+Z, east=+X, west=-X.
 
@@ -120,7 +123,7 @@ local function sampleCrossSection(center, sideAxis, halfWidth)
 	return best
 end
 
-local function conformWithOffsets(part, startOffset, centerOffset, endOffset)
+local function conformBridgePart(part, startOffset, centerOffset, endOffset)
 	local axisKind, length, width, rawLongAxis = roadAxes(part)
 	local longHorizontal = horizontalUnit(rawLongAxis)
 
@@ -155,6 +158,7 @@ local function conformWithOffsets(part, startOffset, centerOffset, endOffset)
 		part.CFrame = CFrame.new(part.Position.X, targetY, part.Position.Z)
 			* (part.CFrame - part.CFrame.Position)
 		part:SetAttribute("CW_TerrainConformed", true)
+		part:SetAttribute("CW_ElevationOwner", "RoadTerrainConformer:Bridge")
 		return true, "raised"
 	end
 
@@ -186,11 +190,9 @@ local function conformWithOffsets(part, startOffset, centerOffset, endOffset)
 
 	part:SetAttribute("CW_TerrainConformed", true)
 	part:SetAttribute("CW_TerrainExtraLift", extraLift)
-	return true, "sloped"
-end
+	part:SetAttribute("CW_ElevationOwner", "RoadTerrainConformer:Bridge")
 
-local function conformGroundRoad(part)
-	return conformWithOffsets(part, 0, 0, 0)
+	return true, "sloped"
 end
 
 local function smoothstep(t)
@@ -290,7 +292,7 @@ local function conformBridgeGroup(parts)
 		local centerT = math.clamp((centerProjection - minProjection) / span, 0, 1)
 		local endT = math.clamp((centerProjection + halfProjected - minProjection) / span, 0, 1)
 
-		local ok, mode = conformWithOffsets(
+		local ok, mode = conformBridgePart(
 			part,
 			bridgeProfile(startT, clearance),
 			bridgeProfile(centerT, clearance),
@@ -315,8 +317,8 @@ end
 local roads = collectRoadParts()
 local finalRoadCount = #roads
 
-local normalRoads = {}
 local bridgeGroups = {}
+local groundPreserved = 0
 local tunnelParts = 0
 
 for _, road in ipairs(roads) do
@@ -329,66 +331,49 @@ for _, road in ipairs(roads) do
 		bridgeGroups[key] = bridgeGroups[key] or {}
 		table.insert(bridgeGroups[key], road)
 	else
-		table.insert(normalRoads, road)
+		-- TileBuilderV2 already sampled Terrain and adaptively split this road.
+		-- Do NOT move it again; junction pads/crosswalks share this same surface.
+		groundPreserved += 1
 		if isTunnel then
 			tunnelParts += 1
 		end
+		road:SetAttribute("CW_TerrainConformed", true)
+		road:SetAttribute("CW_ElevationOwner", "TileBuilderV2")
 	end
 end
 
-local conformed = 0
-local raised = 0
-local sloped = 0
-local noTerrain = 0
-local failed = 0
+local bridgeConformed = 0
+local bridgeNoTerrain = 0
+local bridgeFailed = 0
 local bridgePartCount = 0
 local bridgeGroupCount = 0
-
-for index, road in ipairs(normalRoads) do
-	local ok, mode = conformGroundRoad(road)
-
-	if ok then
-		conformed += 1
-		if mode == "raised" then
-			raised += 1
-		elseif mode == "sloped" then
-			sloped += 1
-		end
-	else
-		if mode == "no_terrain" then
-			noTerrain += 1
-		else
-			failed += 1
-		end
-	end
-
-	if index % 400 == 0 then
-		task.wait()
-	end
-end
 
 for _, parts in pairs(bridgeGroups) do
 	bridgeGroupCount += 1
 	bridgePartCount += #parts
+
 	local groupConformed, groupNoTerrain, groupFailed = conformBridgeGroup(parts)
-	conformed += groupConformed
-	noTerrain += groupNoTerrain
-	failed += groupFailed
+	bridgeConformed += groupConformed
+	bridgeNoTerrain += groupNoTerrain
+	bridgeFailed += groupFailed
+
 	task.wait()
 end
+
+local conformed = groundPreserved + bridgeConformed
 
 Workspace:SetAttribute("CW_RoadConformTotal", finalRoadCount)
 Workspace:SetAttribute("CW_RoadConformedCount", conformed)
 Workspace:SetAttribute("CW_RoadConformComplete", true)
 
 print(string.format(
-	"[ChesterWorld RoadTerrainConformer] final=%d conformed=%d sloped=%d raised=%d noTerrain=%d failed=%d bridgeGroups=%d bridgeParts=%d tunnelParts=%d",
+	"[ChesterWorld RoadTerrainConformer] final=%d groundPreserved=%d bridgeConformed=%d conformed=%d noTerrain=%d failed=%d bridgeGroups=%d bridgeParts=%d tunnelParts=%d",
 	finalRoadCount,
+	groundPreserved,
+	bridgeConformed,
 	conformed,
-	sloped,
-	raised,
-	noTerrain,
-	failed,
+	bridgeNoTerrain,
+	bridgeFailed,
 	bridgeGroupCount,
 	bridgePartCount,
 	tunnelParts

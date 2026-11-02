@@ -1,3 +1,4 @@
+local AssetService = game:GetService("AssetService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -11,11 +12,18 @@ local CENTER_Z_M = WorldConfig.WORLD_CENTER_Z_M
 
 local ROAD_YIELD_EVERY = 20
 local BUILDING_YIELD_EVERY = 40
-local INTERSECTION_YIELD_EVERY = 80
+local INTERSECTION_YIELD_EVERY = 40
+
+local POLYGON_CORE_MIN = 3.5
+local POLYGON_CORE_MAX = 9.0
+local POLYGON_MOUTH_MIN = 6.0
+local POLYGON_MOUTH_MAX = 38.0
+local POLYGON_MOUTH_OVERLAP = 1.25
+local POLYGON_LATERAL_OVERLAP = 0.75
 
 local terrainParams = RaycastParams.new()
 terrainParams.FilterType = Enum.RaycastFilterType.Include
-terrainParams.FilterDescendantsInstances = {workspace.Terrain}
+terrainParams.FilterDescendantsInstances = { workspace.Terrain }
 terrainParams.IgnoreWater = false
 
 local prepared = false
@@ -35,7 +43,6 @@ local function terrainY(xStuds, zStuds)
 		Vector3.new(0, -10000, 0),
 		terrainParams
 	)
-
 	return hit and hit.Position.Y or nil
 end
 
@@ -45,7 +52,6 @@ local function makeFolder(parent, name)
 		existing:ClearAllChildren()
 		return existing
 	end
-
 	local folder = Instance.new("Folder")
 	folder.Name = name
 	folder.Parent = parent
@@ -62,11 +68,9 @@ local function horizontalPerpendicular(a, b)
 	local dx = b.X - a.X
 	local dz = b.Z - a.Z
 	local length = math.sqrt(dx * dx + dz * dz)
-
 	if length < 0.001 then
 		return Vector3.new(1, 0, 0)
 	end
-
 	return Vector3.new(-dz / length, 0, dx / length)
 end
 
@@ -74,7 +78,6 @@ local function truthy(value)
 	if value == true then
 		return true
 	end
-
 	local text = string.lower(tostring(value or ""))
 	return text ~= ""
 		and text ~= "0"
@@ -86,27 +89,19 @@ end
 
 local function gradeLevelForRoad(road)
 	local level = tonumber(road.layer) or 0
-
 	if truthy(road.bridge) and level <= 0 then
 		level = 1
 	elseif truthy(road.tunnel) and level >= 0 then
 		level = -1
 	end
-
 	return math.clamp(math.round(level), -5, 5)
-end
-
-local function gradeKeyForRoad(road)
-	return tostring(gradeLevelForRoad(road))
 end
 
 local function gradeOffsetForRoad(road)
 	local level = gradeLevelForRoad(road)
-
 	if level > 0 then
 		return level * WorldConfig.GRADE_SEPARATION_CLEARANCE_STUDS
 	end
-
 	return 0
 end
 
@@ -118,7 +113,6 @@ local function shouldBuildSidewalk(road)
 	if truthy(road.bridge) or truthy(road.tunnel) then
 		return false
 	end
-
 	local cls = roadClass(road)
 	return cls ~= "motorway"
 		and cls ~= "motorway_link"
@@ -131,33 +125,27 @@ end
 local function safeGroundPair(x1, z1, x2, z2, surfaceOffset, gradeOffset)
 	local y1 = terrainY(x1, z1)
 	local y2 = terrainY(x2, z2)
-
 	if y1 == nil and y2 == nil then
 		return nil, nil
 	end
-
 	if y1 == nil then
 		y1 = y2
 	elseif y2 == nil then
 		y2 = y1
 	end
-
 	local totalOffset = surfaceOffset + (gradeOffset or 0)
 	local a = Vector3.new(x1, y1 + totalOffset, z1)
 	local b = Vector3.new(x2, y2 + totalOffset, z2)
-
 	local run = horizontalLength(a, b)
 	if run < 0.05 then
 		return nil, nil
 	end
-
 	if (gradeOffset or 0) == 0 then
 		local grade = math.abs(b.Y - a.Y) / run
 		if grade > WorldConfig.MAX_SURFACE_GRADE then
 			return nil, nil
 		end
 	end
-
 	return a, b
 end
 
@@ -169,7 +157,6 @@ local function colorForParent(parent)
 	elseif parent.Name == "RoadMarkings" then
 		return WorldConfig.CROSSWALK_COLOR
 	end
-
 	return nil
 end
 
@@ -177,13 +164,11 @@ local function makeStripPart(parent, name, a, b, width, thickness, material, col
 	if not a or not b then
 		return nil
 	end
-
 	local delta = b - a
 	local length = delta.Magnitude
 	if length < 0.05 then
 		return nil
 	end
-
 	local part = Instance.new("Part")
 	part.Name = name
 	part.Anchored = true
@@ -196,29 +181,24 @@ local function makeStripPart(parent, name, a, b, width, thickness, material, col
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	part.Size = Vector3.new(width, thickness, length)
 	part.CFrame = CFrame.lookAt((a + b) / 2, b, Vector3.yAxis)
-
 	local finalColor = color or colorForParent(parent)
 	if finalColor then
 		part.Color = finalColor
 	end
-
 	part.Parent = parent
 	return part
 end
 
-local function endpointKeyFromStuds(x, z, gradeKey)
+local function endpointKeyFromStuds(x, z, gradeLevel)
 	local q = WorldConfig.INTERSECTION_ENDPOINT_QUANTIZE_STUDS
-	return
-		tostring(math.floor(x / q + 0.5))
-		.. ":"
-		.. tostring(math.floor(z / q + 0.5))
-		.. ":g"
-		.. tostring(gradeKey or "0")
+	return tostring(math.floor(x / q + 0.5))
+		.. ":" .. tostring(math.floor(z / q + 0.5))
+		.. ":g" .. tostring(gradeLevel or 0)
 end
 
 local function endpointKeyFromMeters(xMeters, zMeters, road)
 	local x, z = sourceToStuds(xMeters, zMeters)
-	return endpointKeyFromStuds(x, z, gradeKeyForRoad(road))
+	return endpointKeyFromStuds(x, z, gradeLevelForRoad(road))
 end
 
 local function armKey(name, dir)
@@ -227,12 +207,120 @@ local function armKey(name, dir)
 	return string.upper(name) .. ":" .. tostring(qx) .. ":" .. tostring(qz)
 end
 
+local function cross2(a, b, c)
+	return (b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X)
+end
+
+local function convexHull(points)
+	if #points < 3 then
+		return points
+	end
+	local unique = {}
+	local seen = {}
+	for _, p in ipairs(points) do
+		local key = tostring(math.floor(p.X * 100 + 0.5)) .. ":" .. tostring(math.floor(p.Y * 100 + 0.5))
+		if not seen[key] then
+			seen[key] = true
+			table.insert(unique, p)
+		end
+	end
+	if #unique < 3 then
+		return unique
+	end
+	table.sort(unique, function(a, b)
+		if a.X == b.X then
+			return a.Y < b.Y
+		end
+		return a.X < b.X
+	end)
+	local lower = {}
+	for _, p in ipairs(unique) do
+		while #lower >= 2 and cross2(lower[#lower - 1], lower[#lower], p) <= 0 do
+			table.remove(lower)
+		end
+		table.insert(lower, p)
+	end
+	local upper = {}
+	for i = #unique, 1, -1 do
+		local p = unique[i]
+		while #upper >= 2 and cross2(upper[#upper - 1], upper[#upper], p) <= 0 do
+			table.remove(upper)
+		end
+		table.insert(upper, p)
+	end
+	table.remove(lower)
+	table.remove(upper)
+	for _, p in ipairs(upper) do
+		table.insert(lower, p)
+	end
+	return lower
+end
+
+local function polygonFromNode(node)
+	local points = {}
+	local center = Vector3.new(node.x, 0, node.z)
+	local coreRadius = math.clamp(node.maxWidth * 0.28, POLYGON_CORE_MIN, POLYGON_CORE_MAX)
+	for i = 0, 7 do
+		local angle = math.rad(i * 45)
+		table.insert(points, Vector2.new(
+			node.x + math.cos(angle) * coreRadius,
+			node.z + math.sin(angle) * coreRadius
+		))
+	end
+	local baseMouthDistance = math.clamp(
+		node.maxWidth * 0.58,
+		POLYGON_MOUTH_MIN,
+		POLYGON_MOUTH_MAX
+	)
+	for _, arm in ipairs(node.arms) do
+		local dir = arm.dir
+		local perp = Vector3.new(-dir.Z, 0, dir.X)
+		local mouthDistance = math.max(baseMouthDistance, arm.width * 0.55) + POLYGON_MOUTH_OVERLAP
+		local halfWidth = arm.width / 2 + POLYGON_LATERAL_OVERLAP
+		local mouth = center + dir * mouthDistance
+		table.insert(points, Vector2.new(mouth.X + perp.X * halfWidth, mouth.Z + perp.Z * halfWidth))
+		table.insert(points, Vector2.new(mouth.X - perp.X * halfWidth, mouth.Z - perp.Z * halfWidth))
+	end
+	return convexHull(points)
+end
+
+local function rayPolygonDistance(node, dir)
+	local polygon = node.polygon
+	if not polygon or #polygon < 3 then
+		return 0
+	end
+	local px = node.x
+	local pz = node.z
+	local rx = dir.X
+	local rz = dir.Z
+	local best = math.huge
+	for i = 1, #polygon do
+		local a = polygon[i]
+		local b = polygon[(i % #polygon) + 1]
+		local sx = b.X - a.X
+		local sz = b.Y - a.Y
+		local denom = rx * sz - rz * sx
+		if math.abs(denom) > 1e-7 then
+			local qx = a.X - px
+			local qz = a.Y - pz
+			local t = (qx * sz - qz * sx) / denom
+			local u = (qx * rz - qz * rx) / denom
+			if t >= 0 and u >= -1e-5 and u <= 1 + 1e-5 and t < best then
+				best = t
+			end
+		end
+	end
+	if best == math.huge then
+		return node.maxWidth * 0.55
+	end
+	return best
+end
+
 local function addEndpoint(nodes, tileId, xMeters, zMeters, otherXMeters, otherZMeters, road)
 	local x, z = sourceToStuds(xMeters, zMeters)
 	local ox, oz = sourceToStuds(otherXMeters, otherZMeters)
 	local gradeLevel = gradeLevelForRoad(road)
-	local key = endpointKeyFromStuds(x, z, tostring(gradeLevel))
-
+	local key = endpointKeyFromStuds(x, z, gradeLevel)
 	local node = nodes[key]
 	if not node then
 		node = {
@@ -243,34 +331,29 @@ local function addEndpoint(nodes, tileId, xMeters, zMeters, otherXMeters, otherZ
 			names = {},
 			rawArms = {},
 			arms = {},
+			polygon = nil,
 			distinctNames = 0,
 			isIntersection = false,
 			isNamedIntersection = false,
 			gradeLevel = gradeLevel,
 			ownerTile = tileId,
-			padSize = 0,
 		}
 		nodes[key] = node
 	elseif tileId < node.ownerTile then
 		node.ownerTile = tileId
 	end
-
-	local roadWidth = math.max((road.width_m or 7) * S, 3)
-
+	local roadWidth = math.max((tonumber(road.width_m) or 7) * S, 3)
 	node.xSum += x
 	node.zSum += z
 	node.count += 1
 	node.maxWidth = math.max(node.maxWidth, roadWidth)
-
 	local name = tostring(road.name or "")
 	if name ~= "" and name ~= "Road" then
 		node.names[name] = true
 	end
-
 	local dx = ox - x
 	local dz = oz - z
 	local length = math.sqrt(dx * dx + dz * dz)
-
 	if length > 0.001 then
 		table.insert(node.rawArms, {
 			name = name,
@@ -286,119 +369,76 @@ local function finalizeNodes(nodes)
 		for _ in pairs(node.names) do
 			distinctNames += 1
 		end
-
-		local uniqueArms = {}
 		local armMap = {}
-
 		for _, arm in ipairs(node.rawArms) do
 			local key = armKey(arm.name, arm.dir)
-			local existing = armMap[key]
-
-			if not existing or arm.width > existing.width then
+			local current = armMap[key]
+			if not current or arm.width > current.width then
 				armMap[key] = arm
 			end
 		end
-
+		local arms = {}
 		for _, arm in pairs(armMap) do
-			table.insert(uniqueArms, arm)
+			table.insert(arms, arm)
 		end
-
-		table.sort(uniqueArms, function(a, b)
-			local aa = math.atan2(a.dir.Z, a.dir.X)
-			local ba = math.atan2(b.dir.Z, b.dir.X)
-			return aa < ba
+		table.sort(arms, function(a, b)
+			return math.atan2(a.dir.Z, a.dir.X) < math.atan2(b.dir.Z, b.dir.X)
 		end)
-
-		node.arms = uniqueArms
 		node.rawArms = nil
+		node.arms = arms
 		node.distinctNames = distinctNames
 		node.isNamedIntersection = distinctNames >= 2
-		node.isIntersection =
-			node.gradeLevel == 0
-			and (#uniqueArms >= WorldConfig.INTERSECTION_MIN_DEGREE or node.isNamedIntersection)
-
-		node.padSize = math.clamp(
-			node.maxWidth * WorldConfig.INTERSECTION_SIZE_MULTIPLIER,
-			WorldConfig.INTERSECTION_MIN_SIZE_STUDS,
-			WorldConfig.INTERSECTION_MAX_SIZE_STUDS
-		)
+		node.isIntersection = node.gradeLevel == 0
+			and (#arms >= WorldConfig.INTERSECTION_MIN_DEGREE or node.isNamedIntersection)
+		node.x = node.xSum / math.max(node.count, 1)
+		node.z = node.zSum / math.max(node.count, 1)
+		if node.isIntersection then
+			node.polygon = polygonFromNode(node)
+		end
 	end
 end
 
 function TileBuilderV2.Prepare(tileModules)
 	globalIntersectionNodes = {}
-
 	for moduleIndex, tileModule in ipairs(tileModules) do
 		if tileModule:IsA("ModuleScript") then
 			local ok, tile = pcall(require, tileModule)
 			if ok and tile then
 				local tileId = tostring(tile.tile_id or tileModule.Name)
-
 				for roadIndex, road in ipairs(tile.roads or {}) do
 					addEndpoint(globalIntersectionNodes, tileId, road.x1, road.z1, road.x2, road.z2, road)
 					addEndpoint(globalIntersectionNodes, tileId, road.x2, road.z2, road.x1, road.z1, road)
-
-					if roadIndex % 250 == 0 then
-						task.wait()
-					end
+					if roadIndex % 250 == 0 then task.wait() end
 				end
 			end
 		end
-
-		if moduleIndex % 8 == 0 then
-			task.wait()
-		end
+		if moduleIndex % 8 == 0 then task.wait() end
 	end
-
 	finalizeNodes(globalIntersectionNodes)
 	prepared = true
-
 	local nodeCount = 0
 	local intersections = 0
 	for _, node in pairs(globalIntersectionNodes) do
 		nodeCount += 1
-		if node.isIntersection then
-			intersections += 1
-		end
+		if node.isIntersection then intersections += 1 end
 	end
-
-	print(("[ChesterWorld TileBuilderV2] prepared global road graph: nodes=%d intersections=%d"):format(
-		nodeCount,
-		intersections
-	))
+	print(("[ChesterWorld TileBuilderV2] prepared global road graph: nodes=%d intersections=%d polygonOwned=true"):format(nodeCount, intersections))
 end
 
 local function pointAlong2D(a, b, distanceFromA)
 	local dx = b.X - a.X
 	local dz = b.Z - a.Z
 	local length = math.sqrt(dx * dx + dz * dz)
-
-	if length < 0.001 then
-		return a
-	end
-
+	if length < 0.001 then return a end
 	local t = math.clamp(distanceFromA / length, 0, 1)
 	return Vector3.new(a.X + dx * t, 0, a.Z + dz * t)
 end
 
-local function distanceToSquareEdge(node, dir)
-	if not node or not node.isIntersection then
-		return 0
-	end
-
-	local half = node.padSize / 2
-	local dominant = math.max(math.abs(dir.X), math.abs(dir.Z), 0.001)
-	return half / dominant
-end
-
 local function trimDistanceForNode(node, dir, extraClearance)
-	if not node or not node.isIntersection then
-		return 0
-	end
-
+	if not node or not node.isIntersection then return 0 end
 	return math.max(
 		0,
-		distanceToSquareEdge(node, dir)
+		rayPolygonDistance(node, dir)
 			- WorldConfig.INTERSECTION_ROAD_OVERLAP_STUDS
 			+ (extraClearance or 0)
 	)
@@ -407,108 +447,47 @@ end
 local function trimmedEndpoints(road, extraClearance)
 	local x1, z1 = sourceToStuds(road.x1, road.z1)
 	local x2, z2 = sourceToStuds(road.x2, road.z2)
-
 	local a = Vector3.new(x1, 0, z1)
 	local b = Vector3.new(x2, 0, z2)
 	local length = horizontalLength(a, b)
-
-	if length < 0.05 then
-		return nil, nil
-	end
-
+	if length < 0.05 then return nil, nil end
 	local startNode = globalIntersectionNodes[endpointKeyFromMeters(road.x1, road.z1, road)]
 	local endNode = globalIntersectionNodes[endpointKeyFromMeters(road.x2, road.z2, road)]
-
 	local startDir = (b - a).Unit
 	local endDir = (a - b).Unit
-
 	local trimStart = trimDistanceForNode(startNode, startDir, extraClearance)
 	local trimEnd = trimDistanceForNode(endNode, endDir, extraClearance)
-
-	if trimStart + trimEnd >= length - 1.0 then
-		return nil, nil
-	end
-
-	local ta = pointAlong2D(a, b, trimStart)
-	local tb = pointAlong2D(b, a, trimEnd)
-	return ta, tb
+	if trimStart + trimEnd >= length - 1.0 then return nil, nil end
+	return pointAlong2D(a, b, trimStart), pointAlong2D(b, a, trimEnd)
 end
 
 local function shouldSplit(a, b, depth, surfaceOffset, gradeOffset)
-	if depth >= WorldConfig.ROAD_MAX_SUBDIVISION_DEPTH then
-		return false
-	end
-
-	if horizontalLength(a, b) > WorldConfig.ROAD_MAX_PIECE_LENGTH_STUDS then
-		return true
-	end
-
+	if depth >= WorldConfig.ROAD_MAX_SUBDIVISION_DEPTH then return false end
+	if horizontalLength(a, b) > WorldConfig.ROAD_MAX_PIECE_LENGTH_STUDS then return true end
 	local midX = (a.X + b.X) / 2
 	local midZ = (a.Z + b.Z) / 2
 	local groundMid = terrainY(midX, midZ)
-
-	if groundMid == nil then
-		return false
-	end
-
+	if groundMid == nil then return false end
 	local terrainMidY = groundMid + surfaceOffset + (gradeOffset or 0)
 	local linearMidY = (a.Y + b.Y) / 2
-
 	return math.abs(terrainMidY - linearMidY) > WorldConfig.ROAD_TERRAIN_ERROR_STUDS
 end
 
-local function buildAdaptiveCenterStrip(
-	parent,
-	name,
-	x1,
-	z1,
-	x2,
-	z2,
-	width,
-	thickness,
-	material,
-	color,
-	surfaceOffset,
-	gradeOffset,
-	depth,
-	attributes
-)
+local function buildAdaptiveCenterStrip(parent, name, x1, z1, x2, z2, width, thickness, material, color, surfaceOffset, gradeOffset, depth, attributes)
 	depth = depth or 0
 	gradeOffset = gradeOffset or 0
-
 	local a, b = safeGroundPair(x1, z1, x2, z2, surfaceOffset, gradeOffset)
-	if not a or not b then
-		return
-	end
-
+	if not a or not b then return end
 	if shouldSplit(a, b, depth, surfaceOffset, gradeOffset) then
 		local midX = (x1 + x2) / 2
 		local midZ = (z1 + z2) / 2
-
-		buildAdaptiveCenterStrip(
-			parent, name,
-			x1, z1, midX, midZ,
-			width, thickness, material, color,
-			surfaceOffset, gradeOffset,
-			depth + 1, attributes
-		)
-
-		buildAdaptiveCenterStrip(
-			parent, name,
-			midX, midZ, x2, z2,
-			width, thickness, material, color,
-			surfaceOffset, gradeOffset,
-			depth + 1, attributes
-		)
+		buildAdaptiveCenterStrip(parent, name, x1, z1, midX, midZ, width, thickness, material, color, surfaceOffset, gradeOffset, depth + 1, attributes)
+		buildAdaptiveCenterStrip(parent, name, midX, midZ, x2, z2, width, thickness, material, color, surfaceOffset, gradeOffset, depth + 1, attributes)
 		return
 	end
-
 	local part = makeStripPart(parent, name, a, b, width, thickness, material, color)
-
 	if part and attributes then
-		for key, value in pairs(attributes) do
-			part:SetAttribute(key, value)
-		end
+		for key, value in pairs(attributes) do part:SetAttribute(key, value) end
 	end
 end
 
@@ -516,7 +495,6 @@ local function roadAttributes(road, roadWidth)
 	local level = gradeLevelForRoad(road)
 	local bridge = truthy(road.bridge)
 	local tunnel = truthy(road.tunnel)
-
 	return {
 		ChesterStreet = tostring(road.name or ""),
 		RoadWidthStuds = roadWidth,
@@ -531,175 +509,99 @@ local function roadAttributes(road, roadWidth)
 end
 
 local function buildSidewalkPair(sidewalksFolder, streetName, a2D, b2D, roadWidth)
-	if not a2D or not b2D then
-		return
-	end
-
+	if not a2D or not b2D then return end
 	local perpendicular = horizontalPerpendicular(a2D, b2D)
 	local sidewalkWidth = WorldConfig.SIDEWALK_WIDTH_STUDS
-	local offsetDistance =
-		roadWidth / 2
-		+ WorldConfig.SIDEWALK_GAP_STUDS
-		+ sidewalkWidth / 2
-
+	local offsetDistance = roadWidth / 2 + WorldConfig.SIDEWALK_GAP_STUDS + sidewalkWidth / 2
 	local sidewalkSurfaceOffset = WorldConfig.SIDEWALK_HEIGHT_STUDS / 2 + 0.15
-
-	for _, sign in ipairs({-1, 1}) do
+	for _, sign in ipairs({ -1, 1 }) do
 		local offset = perpendicular * offsetDistance * sign
-
 		buildAdaptiveCenterStrip(
-			sidewalksFolder,
-			"Sidewalk",
-			a2D.X + offset.X,
-			a2D.Z + offset.Z,
-			b2D.X + offset.X,
-			b2D.Z + offset.Z,
+			sidewalksFolder, "Sidewalk",
+			a2D.X + offset.X, a2D.Z + offset.Z,
+			b2D.X + offset.X, b2D.Z + offset.Z,
 			sidewalkWidth,
 			WorldConfig.SIDEWALK_HEIGHT_STUDS,
 			WorldConfig.SIDEWALK_MATERIAL,
 			WorldConfig.SIDEWALK_COLOR,
-			sidewalkSurfaceOffset,
-			0,
-			0,
-			{
-				ChesterStreet = streetName,
-				Side = sign < 0 and "Left" or "Right",
-				CW_TileBuilderSidewalk = true,
-			}
+			sidewalkSurfaceOffset, 0, 0,
+			{ ChesterStreet = streetName, Side = sign < 0 and "Left" or "Right", CW_TileBuilderSidewalk = true }
 		)
 	end
 end
 
 local function buildCenterLine(markingsFolder, road, roadWidth)
-	if roadWidth < WorldConfig.CENTERLINE_MIN_ROAD_WIDTH_STUDS then
-		return
-	end
-
+	if roadWidth < WorldConfig.CENTERLINE_MIN_ROAD_WIDTH_STUDS then return end
 	local streetName = tostring(road.name or "")
-	if streetName == "" or streetName == "Road" then
-		return
-	end
-
+	if streetName == "" or streetName == "Road" then return end
 	local a2D, b2D = trimmedEndpoints(road, 0.5)
-	if not a2D or not b2D then
-		return
-	end
-
+	if not a2D or not b2D then return end
 	buildAdaptiveCenterStrip(
-		markingsFolder,
-		"CenterLine",
-		a2D.X, a2D.Z,
-		b2D.X, b2D.Z,
+		markingsFolder, "CenterLine",
+		a2D.X, a2D.Z, b2D.X, b2D.Z,
 		WorldConfig.CENTERLINE_WIDTH_STUDS,
 		WorldConfig.CENTERLINE_THICKNESS_STUDS,
 		WorldConfig.MARKING_MATERIAL,
 		WorldConfig.CENTERLINE_COLOR,
 		WorldConfig.CENTERLINE_SURFACE_OFFSET_STUDS,
-		gradeOffsetForRoad(road),
-		0,
-		{
-			ChesterStreet = streetName,
-			MarkingType = "CenterLine",
-			CW_GradeLevel = gradeLevelForRoad(road),
-		}
+		gradeOffsetForRoad(road), 0,
+		{ ChesterStreet = streetName, MarkingType = "CenterLine", CW_GradeLevel = gradeLevelForRoad(road) }
 	)
 end
 
 local function buildRoad(roadsFolder, sidewalksFolder, markingsFolder, road)
-	local roadWidth = math.max((road.width_m or 7) * S, 3)
+	local roadWidth = math.max((tonumber(road.width_m) or 7) * S, 3)
 	local streetName = tostring(road.name or "")
 	local a2D, b2D = trimmedEndpoints(road, 0)
-
 	if a2D and b2D then
 		buildAdaptiveCenterStrip(
 			roadsFolder,
 			streetName ~= "" and streetName or "Road",
-			a2D.X, a2D.Z,
-			b2D.X, b2D.Z,
+			a2D.X, a2D.Z, b2D.X, b2D.Z,
 			roadWidth,
 			WorldConfig.ROAD_THICKNESS_STUDS,
 			WorldConfig.ROAD_MATERIAL,
 			WorldConfig.ROAD_COLOR,
 			WorldConfig.ROAD_SURFACE_OFFSET_STUDS,
-			gradeOffsetForRoad(road),
-			0,
+			gradeOffsetForRoad(road), 0,
 			roadAttributes(road, roadWidth)
 		)
 	end
-
 	if streetName ~= "" and streetName ~= "Road" and shouldBuildSidewalk(road) then
-		local sidewalkA, sidewalkB = trimmedEndpoints(
-			road,
-			WorldConfig.SIDEWALK_INTERSECTION_EXTRA_TRIM_STUDS
-		)
-
+		local sidewalkA, sidewalkB = trimmedEndpoints(road, WorldConfig.SIDEWALK_INTERSECTION_EXTRA_TRIM_STUDS)
 		buildSidewalkPair(sidewalksFolder, streetName, sidewalkA, sidewalkB, roadWidth)
 	end
-
 	buildCenterLine(markingsFolder, road, roadWidth)
 end
 
 local function uniqueIntersectionNames(node)
 	local labels = {}
-	for name in pairs(node.names) do
-		table.insert(labels, name)
-	end
+	for name in pairs(node.names) do table.insert(labels, name) end
 	table.sort(labels)
 	return labels
 end
 
 local function buildCrosswalkForArm(markingsFolder, node, arm)
-	if arm.width < WorldConfig.CROSSWALK_MIN_ARM_WIDTH_STUDS then
-		return
-	end
-
+	if arm.width < WorldConfig.CROSSWALK_MIN_ARM_WIDTH_STUDS then return end
 	local dir = arm.dir
-	if dir.Magnitude < 0.001 then
-		return
-	end
-
-	local x = node.xSum / node.count
-	local z = node.zSum / node.count
+	if dir.Magnitude < 0.001 then return end
 	local perpendicular = Vector3.new(-dir.Z, 0, dir.X)
-
-	local baseSetback =
-		distanceToSquareEdge(node, dir)
-		+ WorldConfig.CROSSWALK_EDGE_CLEARANCE_STUDS
-
+	local baseSetback = rayPolygonDistance(node, dir) + WorldConfig.CROSSWALK_EDGE_CLEARANCE_STUDS
 	local usableWidth = math.max(arm.width - 2.0, 4.0)
 	local halfAcross = usableWidth / 2
-
 	for stripe = 0, WorldConfig.CROSSWALK_STRIPE_COUNT - 1 do
-		local along =
-			baseSetback
-			+ stripe
-				* (
-					WorldConfig.CROSSWALK_STRIPE_DEPTH_STUDS
-					+ WorldConfig.CROSSWALK_STRIPE_GAP_STUDS
-				)
-
-		local center = Vector3.new(x, 0, z) + dir * along
+		local along = baseSetback + stripe * (WorldConfig.CROSSWALK_STRIPE_DEPTH_STUDS + WorldConfig.CROSSWALK_STRIPE_GAP_STUDS)
+		local center = Vector3.new(node.x, 0, node.z) + dir * along
 		local p1 = center - perpendicular * halfAcross
 		local p2 = center + perpendicular * halfAcross
-
-		local a, b = safeGroundPair(
-			p1.X, p1.Z,
-			p2.X, p2.Z,
-			WorldConfig.CROSSWALK_SURFACE_OFFSET_STUDS,
-			0
-		)
-
+		local a, b = safeGroundPair(p1.X, p1.Z, p2.X, p2.Z, WorldConfig.CROSSWALK_SURFACE_OFFSET_STUDS, 0)
 		local stripePart = makeStripPart(
-			markingsFolder,
-			"Crosswalk",
-			a,
-			b,
+			markingsFolder, "Crosswalk", a, b,
 			WorldConfig.CROSSWALK_STRIPE_DEPTH_STUDS,
 			WorldConfig.CROSSWALK_THICKNESS_STUDS,
 			WorldConfig.MARKING_MATERIAL,
 			WorldConfig.CROSSWALK_COLOR
 		)
-
 		if stripePart then
 			stripePart:SetAttribute("MarkingType", "Crosswalk")
 			stripePart:SetAttribute("ChesterStreet", tostring(arm.name or ""))
@@ -708,10 +610,8 @@ local function buildCrosswalkForArm(markingsFolder, node, arm)
 end
 
 local function bestPerpendicularArmPair(node)
-	local bestA = nil
-	local bestB = nil
+	local bestA, bestB = nil, nil
 	local bestScore = math.huge
-
 	for i = 1, #node.arms do
 		local a = node.arms[i]
 		if a.name ~= "" and a.name ~= "Road" then
@@ -719,67 +619,46 @@ local function bestPerpendicularArmPair(node)
 				local b = node.arms[j]
 				if b.name ~= "" and b.name ~= "Road" and b.name ~= a.name then
 					local score = math.abs(a.dir:Dot(b.dir))
-					if score < bestScore then
-						bestScore = score
-						bestA = a
-						bestB = b
-					end
+					if score < bestScore then bestScore, bestA, bestB = score, a, b end
 				end
 			end
 		end
 	end
-
 	return bestA, bestB
 end
 
+local function polygonMaxRadius(node)
+	local best = 0
+	for _, p in ipairs(node.polygon or {}) do
+		local dx = p.X - node.x
+		local dz = p.Y - node.z
+		best = math.max(best, math.sqrt(dx * dx + dz * dz))
+	end
+	return best
+end
+
 local function buildStreetSign(signsFolder, node, labels)
-	if
-		not node.isNamedIntersection
-		or node.maxWidth < WorldConfig.STREET_SIGN_TRIGGER_WIDTH_STUDS
-		or #labels < 2
-	then
-		return
-	end
-
+	if not node.isNamedIntersection or node.maxWidth < WorldConfig.STREET_SIGN_TRIGGER_WIDTH_STUDS or #labels < 2 then return end
 	local armA, armB = bestPerpendicularArmPair(node)
-	if not armA or not armB then
-		return
-	end
-
+	if not armA or not armB then return end
 	local cornerDir = armA.dir + armB.dir
-	if cornerDir.Magnitude < 0.001 then
-		cornerDir = Vector3.new(1, 0, 1)
-	end
+	if cornerDir.Magnitude < 0.001 then cornerDir = Vector3.new(1, 0, 1) end
 	cornerDir = cornerDir.Unit
-
-	local x = node.xSum / node.count
-	local z = node.zSum / node.count
-	local distance = node.padSize / 2 + WorldConfig.STREET_SIGN_CORNER_CLEARANCE_STUDS
-
-	local signX = x + cornerDir.X * distance
-	local signZ = z + cornerDir.Z * distance
+	local distance = polygonMaxRadius(node) + WorldConfig.STREET_SIGN_CORNER_CLEARANCE_STUDS
+	local signX = node.x + cornerDir.X * distance
+	local signZ = node.z + cornerDir.Z * distance
 	local ground = terrainY(signX, signZ)
-
-	if ground == nil then
-		return
-	end
-
+	if ground == nil then return end
 	local poleHeight = WorldConfig.STREET_SIGN_POLE_HEIGHT_STUDS
-
 	local pole = Instance.new("Part")
 	pole.Name = "StreetSign"
 	pole.Anchored = true
 	pole.CanCollide = false
 	pole.Material = WorldConfig.SIGN_POLE_MATERIAL
 	pole.Color = WorldConfig.SIGN_POLE_COLOR
-	pole.Size = Vector3.new(
-		WorldConfig.STREET_SIGN_POLE_THICKNESS_STUDS,
-		poleHeight,
-		WorldConfig.STREET_SIGN_POLE_THICKNESS_STUDS
-	)
+	pole.Size = Vector3.new(WorldConfig.STREET_SIGN_POLE_THICKNESS_STUDS, poleHeight, WorldConfig.STREET_SIGN_POLE_THICKNESS_STUDS)
 	pole.Position = Vector3.new(signX, ground + poleHeight / 2, signZ)
 	pole.Parent = signsFolder
-
 	local billboard = Instance.new("BillboardGui")
 	billboard.Name = "StreetNames"
 	billboard.AlwaysOnTop = false
@@ -787,7 +666,6 @@ local function buildStreetSign(signsFolder, node, labels)
 	billboard.Size = UDim2.fromOffset(190, 48)
 	billboard.StudsOffset = Vector3.new(0, poleHeight / 2 + 2.5, 0)
 	billboard.Parent = pole
-
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundColor3 = WorldConfig.SIGN_BACKGROUND_COLOR
@@ -799,100 +677,131 @@ local function buildStreetSign(signsFolder, node, labels)
 	label.TextWrapped = true
 	label.Text = string.upper(labels[1] .. " / " .. labels[2])
 	label.Parent = billboard
-
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 4)
 	corner.Parent = label
-
 	pole:SetAttribute("Intersection", labels[1] .. " & " .. labels[2])
 end
 
-local function intersectionFrame(x, z, padSize)
+local function intersectionFrame(x, z, radius)
 	local centerGround = terrainY(x, z)
-	if centerGround == nil then
-		return nil
-	end
-
-	local sample = math.clamp(padSize * 0.28, 4, 12)
+	if centerGround == nil then return nil end
+	local sample = math.clamp(radius * 0.28, 4, 12)
 	local east = terrainY(x + sample, z) or centerGround
 	local west = terrainY(x - sample, z) or centerGround
 	local south = terrainY(x, z + sample) or centerGround
 	local north = terrainY(x, z - sample) or centerGround
-
-	local gradeX = math.clamp(
-		(east - west) / (sample * 2),
-		-WorldConfig.INTERSECTION_MAX_GRADE,
-		WorldConfig.INTERSECTION_MAX_GRADE
-	)
-	local gradeZ = math.clamp(
-		(south - north) / (sample * 2),
-		-WorldConfig.INTERSECTION_MAX_GRADE,
-		WorldConfig.INTERSECTION_MAX_GRADE
-	)
-
+	local gradeX = math.clamp((east - west) / (sample * 2), -WorldConfig.INTERSECTION_MAX_GRADE, WorldConfig.INTERSECTION_MAX_GRADE)
+	local gradeZ = math.clamp((south - north) / (sample * 2), -WorldConfig.INTERSECTION_MAX_GRADE, WorldConfig.INTERSECTION_MAX_GRADE)
 	local up = Vector3.new(-gradeX, 1, -gradeZ).Unit
 	local right = Vector3.new(1, gradeX, 0).Unit
 	local back = right:Cross(up).Unit
 	right = up:Cross(back).Unit
-
 	return CFrame.fromMatrix(
 		Vector3.new(x, centerGround + WorldConfig.ROAD_SURFACE_OFFSET_STUDS, z),
-		right,
-		up,
-		back
+		right, up, back
 	)
+end
+
+local function planeYAtFrame(frame, x, z, yOffset)
+	local normal = frame.UpVector
+	local planePoint = frame.Position + normal * (yOffset or 0)
+	if math.abs(normal.Y) < 0.001 then return planePoint.Y end
+	return planePoint.Y - (normal.X * (x - planePoint.X) + normal.Z * (z - planePoint.Z)) / normal.Y
+end
+
+local function makeIntersectionMesh(parent, node, labels)
+	local polygon = node.polygon
+	if not polygon or #polygon < 3 then return nil end
+	local radius = polygonMaxRadius(node)
+	local frame = intersectionFrame(node.x, node.z, radius)
+	if not frame then return nil end
+	local thickness = WorldConfig.ROAD_THICKNESS_STUDS + 0.08
+	local editable = AssetService:CreateEditableMesh()
+	if not editable then return nil end
+	local topIds = {}
+	local bottomIds = {}
+	for i, p in ipairs(polygon) do
+		local topY = planeYAtFrame(frame, p.X, p.Y, thickness / 2 + 0.03)
+		local bottomY = topY - thickness
+		topIds[i] = editable:AddVertex(Vector3.new(p.X - node.x, topY - frame.Position.Y, p.Y - node.z))
+		bottomIds[i] = editable:AddVertex(Vector3.new(p.X - node.x, bottomY - frame.Position.Y, p.Y - node.z))
+	end
+	for i = 2, #polygon - 1 do
+		editable:AddTriangle(topIds[1], topIds[i], topIds[i + 1])
+		editable:AddTriangle(bottomIds[1], bottomIds[i + 1], bottomIds[i])
+	end
+	for i = 1, #polygon do
+		local j = (i % #polygon) + 1
+		editable:AddTriangle(topIds[i], bottomIds[i], bottomIds[j])
+		editable:AddTriangle(topIds[i], bottomIds[j], topIds[j])
+	end
+	local meshPart
+	local ok = pcall(function()
+		meshPart = AssetService:CreateMeshPartAsync(
+			Content.fromObject(editable),
+			{ CollisionFidelity = Enum.CollisionFidelity.Hull }
+		)
+	end)
+	editable:Destroy()
+	if not ok or not meshPart then return nil end
+	meshPart.Name = "Intersection"
+	meshPart.Anchored = true
+	meshPart.CanCollide = true
+	meshPart.CanTouch = true
+	meshPart.CanQuery = true
+	meshPart.CastShadow = true
+	meshPart.DoubleSided = true
+	meshPart.Material = WorldConfig.INTERSECTION_MATERIAL
+	meshPart.Color = WorldConfig.INTERSECTION_COLOR
+	meshPart.Size = meshPart.MeshSize
+	meshPart.CFrame = CFrame.new(node.x, frame.Position.Y, node.z)
+	meshPart:SetAttribute("CW_IntersectionPad", true)
+	meshPart:SetAttribute("CW_IntersectionPolygon", true)
+	meshPart:SetAttribute("CW_IntersectionOwner", "TileBuilderV2")
+	meshPart:SetAttribute("CW_GradeLevel", 0)
+	if #labels > 0 then meshPart:SetAttribute("Intersection", table.concat(labels, " & ")) end
+	meshPart.Parent = parent
+	return meshPart
+end
+
+local function makeIntersectionFallback(parent, node, labels)
+	local radius = math.max(node.maxWidth * 0.55, 6)
+	local frame = intersectionFrame(node.x, node.z, radius)
+	if not frame then return nil end
+	local pad = Instance.new("Part")
+	pad.Name = "IntersectionFallback"
+	pad.Anchored = true
+	pad.CanCollide = true
+	pad.CanTouch = true
+	pad.CanQuery = true
+	pad.Material = WorldConfig.INTERSECTION_MATERIAL
+	pad.Color = WorldConfig.INTERSECTION_COLOR
+	pad.TopSurface = Enum.SurfaceType.Smooth
+	pad.BottomSurface = Enum.SurfaceType.Smooth
+	pad.Size = Vector3.new(radius * 2, WorldConfig.ROAD_THICKNESS_STUDS + 0.08, radius * 2)
+	pad.CFrame = frame
+	pad:SetAttribute("CW_IntersectionPad", true)
+	pad:SetAttribute("CW_IntersectionFallback", true)
+	if #labels > 0 then pad:SetAttribute("Intersection", table.concat(labels, " & ")) end
+	pad.Parent = parent
+	return pad
 end
 
 local function buildIntersections(parent, markingsFolder, signsFolder, tileId)
 	local processed = 0
-
 	for _, node in pairs(globalIntersectionNodes) do
 		if node.ownerTile == tileId and node.isIntersection then
 			processed += 1
-
-			local x = node.xSum / node.count
-			local z = node.zSum / node.count
-			local frame = intersectionFrame(x, z, node.padSize)
-
-			if frame then
-				local pad = Instance.new("Part")
-				pad.Name = "Intersection"
-				pad.Anchored = true
-				pad.CanCollide = true
-				pad.CanTouch = true
-				pad.CanQuery = true
-				pad.Material = WorldConfig.INTERSECTION_MATERIAL
-				pad.Color = WorldConfig.INTERSECTION_COLOR
-				pad.TopSurface = Enum.SurfaceType.Smooth
-				pad.BottomSurface = Enum.SurfaceType.Smooth
-				pad.Size = Vector3.new(
-					node.padSize,
-					WorldConfig.ROAD_THICKNESS_STUDS + 0.08,
-					node.padSize
-				)
-				pad.CFrame = frame
-				pad:SetAttribute("CW_IntersectionPad", true)
-				pad:SetAttribute("CW_GradeLevel", 0)
-				pad.Parent = parent
-
-				local labels = uniqueIntersectionNames(node)
-				if #labels > 0 then
-					pad:SetAttribute("Intersection", table.concat(labels, " & "))
-				end
-
-				if node.isNamedIntersection and node.maxWidth >= WorldConfig.CROSSWALK_TRIGGER_WIDTH_STUDS then
-					for _, arm in ipairs(node.arms) do
-						buildCrosswalkForArm(markingsFolder, node, arm)
-					end
-				end
-
-				buildStreetSign(signsFolder, node, labels)
+			local labels = uniqueIntersectionNames(node)
+			local pad = makeIntersectionMesh(parent, node, labels)
+			if not pad then makeIntersectionFallback(parent, node, labels) end
+			if node.isNamedIntersection and node.maxWidth >= WorldConfig.CROSSWALK_TRIGGER_WIDTH_STUDS then
+				for _, arm in ipairs(node.arms) do buildCrosswalkForArm(markingsFolder, node, arm) end
 			end
+			buildStreetSign(signsFolder, node, labels)
 		end
-
-		if processed > 0 and processed % INTERSECTION_YIELD_EVERY == 0 then
-			task.wait()
-		end
+		if processed > 0 and processed % INTERSECTION_YIELD_EVERY == 0 then task.wait() end
 	end
 end
 
@@ -900,15 +809,10 @@ local function buildBuilding(parent, building)
 	local heightStuds = math.max((building.height_m or 9.15) * S, 2)
 	local widthStuds = math.max((building.width_m or 5) * S, 1)
 	local depthStuds = math.max((building.depth_m or 8) * S, 1)
-
 	local x, z = sourceToStuds(building.x_m, building.z_m)
 	local groundY = terrainY(x, z)
-	if groundY == nil then
-		return
-	end
-
+	if groundY == nil then return end
 	local y = groundY + WorldConfig.BUILDING_BASE_Y_STUDS + heightStuds / 2
-
 	local part = Instance.new("Part")
 	part.Name = building.name or building.id or "Building"
 	part.Anchored = true
@@ -923,55 +827,36 @@ local function buildBuilding(parent, building)
 end
 
 function TileBuilderV2.Build(tileModule)
-	if not prepared then
-		error("TileBuilderV2.Prepare(modules) must run before Build")
-	end
-
+	if not prepared then error("TileBuilderV2.Prepare(modules) must run before Build") end
 	local tile = require(tileModule)
 	local tileId = tostring(tile.tile_id or tileModule.Name)
-
 	local workspaceRoot = workspace:FindFirstChild("ChesterWorld")
 	if not workspaceRoot then
 		workspaceRoot = Instance.new("Folder")
 		workspaceRoot.Name = "ChesterWorld"
 		workspaceRoot.Parent = workspace
 	end
-
 	local tileFolder = workspaceRoot:FindFirstChild(tileId)
-	if tileFolder then
-		tileFolder:Destroy()
-	end
-
+	if tileFolder then tileFolder:Destroy() end
 	tileFolder = Instance.new("Folder")
 	tileFolder.Name = tileId
 	tileFolder:SetAttribute("TileId", tileId)
 	tileFolder.Parent = workspaceRoot
-
 	local roadsFolder = makeFolder(tileFolder, "Roads")
 	local sidewalksFolder = makeFolder(tileFolder, "Sidewalks")
 	local intersectionsFolder = makeFolder(tileFolder, "Intersections")
 	local markingsFolder = makeFolder(tileFolder, "RoadMarkings")
 	local signsFolder = makeFolder(tileFolder, "StreetSigns")
 	local buildingsFolder = makeFolder(tileFolder, "Buildings")
-
 	for index, road in ipairs(tile.roads or {}) do
 		buildRoad(roadsFolder, sidewalksFolder, markingsFolder, road)
-
-		if index % ROAD_YIELD_EVERY == 0 then
-			task.wait()
-		end
+		if index % ROAD_YIELD_EVERY == 0 then task.wait() end
 	end
-
 	buildIntersections(intersectionsFolder, markingsFolder, signsFolder, tileId)
-
 	for index, building in ipairs(tile.buildings or {}) do
 		buildBuilding(buildingsFolder, building)
-
-		if index % BUILDING_YIELD_EVERY == 0 then
-			task.wait()
-		end
+		if index % BUILDING_YIELD_EVERY == 0 then task.wait() end
 	end
-
 	return tileFolder
 end
 

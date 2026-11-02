@@ -1,16 +1,17 @@
 -- ChesterWorld - IntersectionPadRefiner.server.lua
 --
--- FINAL INTERSECTION PAD REFINER
+-- Graph-derived intersection replacement.
 --
--- IMPORTANT:
--- The previous refiner tried to infer junction arms from already-trimmed Roblox
--- road Parts. That was unreliable and removed the visible center of many
--- intersections.
+-- The previous version could build a valid convex hull from road-mouth points
+-- that did NOT contain the actual junction center (especially skewed / T nodes).
+-- It would then destroy the square fallback pad and leave a visible hole.
 --
--- This version rebuilds the SAME raw 102-tile endpoint graph used by
--- TileBuilderV2 and derives each polygon directly from source road directions
--- and widths. The temporary square pad remains in place unless the replacement
--- mesh is built successfully.
+-- This version:
+--   * rebuilds the same raw 102-tile endpoint graph as TileBuilderV2
+--   * derives polygon mouths from source road directions + widths
+--   * adds center/core support points so every polygon contains the node center
+--   * validates center containment before replacing the fallback square pad
+--   * never deletes the fallback pad unless the mesh is successfully created
 --
 -- It does NOT move roads, terrain, sidewalks, buildings, bridges, or markings.
 
@@ -35,9 +36,12 @@ local CENTER_Z_M = WorldConfig.WORLD_CENTER_Z_M
 
 local NODE_GRID = 48
 local NODE_MATCH_RADIUS = 8
-local MOUTH_FORWARD_OVERLAP = 1.25
-local MOUTH_LATERAL_OVERLAP = 0.75
+local MOUTH_FORWARD_OVERLAP = 1.75
+local MOUTH_LATERAL_OVERLAP = 1.00
 local MIN_POLYGON_AREA = 8
+local MAX_POLYGON_AREA_MULT = 5.0
+local CORE_MIN_RADIUS = 3.0
+local CORE_MAX_RADIUS = 8.0
 
 local function sourceToStuds(xMeters, zMeters)
 	return
@@ -332,9 +336,39 @@ local function polygonArea(points)
 	return math.abs(area) * 0.5
 end
 
+local function pointInPolygon(point, polygon)
+	local inside = false
+	local j = #polygon
+
+	for i = 1, #polygon do
+		local a = polygon[i]
+		local b = polygon[j]
+		local intersects =
+			((a.Y > point.Y) ~= (b.Y > point.Y))
+			and (
+				point.X
+				< (b.X - a.X) * (point.Y - a.Y) / ((b.Y - a.Y) + 1e-9) + a.X
+			)
+		if intersects then
+			inside = not inside
+		end
+		j = i
+	end
+
+	return inside
+end
+
 local function polygonFromNode(node)
 	local points = {}
 	local center = Vector3.new(node.x, 0, node.z)
+
+	-- Small central support guarantees the hull encloses the physical node even
+	-- when only two or three source arms exist on one side of the junction.
+	local coreRadius = math.clamp(node.maxWidth * 0.22, CORE_MIN_RADIUS, CORE_MAX_RADIUS)
+	table.insert(points, Vector2.new(node.x + coreRadius, node.z))
+	table.insert(points, Vector2.new(node.x - coreRadius, node.z))
+	table.insert(points, Vector2.new(node.x, node.z + coreRadius))
+	table.insert(points, Vector2.new(node.x, node.z - coreRadius))
 
 	for _, arm in ipairs(node.arms) do
 		local dir = arm.dir
@@ -343,6 +377,7 @@ local function polygonFromNode(node)
 		local halfWidth = arm.width / 2 + MOUTH_LATERAL_OVERLAP
 		local mouth = center + dir * mouthDistance
 
+		-- Mouth edge: overlaps the already-trimmed V2 road approach.
 		table.insert(points, Vector2.new(
 			mouth.X + perp.X * halfWidth,
 			mouth.Z + perp.Z * halfWidth
@@ -350,6 +385,17 @@ local function polygonFromNode(node)
 		table.insert(points, Vector2.new(
 			mouth.X - perp.X * halfWidth,
 			mouth.Z - perp.Z * halfWidth
+		))
+
+		-- Center edge: makes the asphalt wedge run continuously from the node
+		-- center to that road mouth instead of floating outside the junction.
+		table.insert(points, Vector2.new(
+			center.X + perp.X * halfWidth,
+			center.Z + perp.Z * halfWidth
+		))
+		table.insert(points, Vector2.new(
+			center.X - perp.X * halfWidth,
+			center.Z - perp.Z * halfWidth
 		))
 	end
 
@@ -445,6 +491,7 @@ local function makePolygonMesh(pad, polygon)
 	meshPart:SetAttribute("CW_IntersectionPad", true)
 	meshPart:SetAttribute("CW_IntersectionPolygon", true)
 	meshPart:SetAttribute("CW_IntersectionGraphDerived", true)
+	meshPart:SetAttribute("CW_IntersectionCenterGuaranteed", true)
 	meshPart:SetAttribute("CW_GradeLevel", 0)
 
 	local label = pad:GetAttribute("Intersection")
@@ -471,6 +518,8 @@ local refined = 0
 local unmatched = 0
 local skipped = 0
 local failed = 0
+local centerRejected = 0
+local oversizeRejected = 0
 local totalArms = 0
 
 for index, pad in ipairs(pads) do
@@ -480,9 +529,18 @@ for index, pad in ipairs(pads) do
 		unmatched += 1
 	else
 		local polygon = polygonFromNode(node)
+		local area = polygonArea(polygon)
+		local centerInside = #polygon >= 3 and pointInPolygon(Vector2.new(node.x, node.z), polygon)
+		local maxArea = math.max(node.padSize * node.padSize * MAX_POLYGON_AREA_MULT, MIN_POLYGON_AREA)
 
-		if #polygon < 3 or polygonArea(polygon) < MIN_POLYGON_AREA then
+		if #polygon < 3 or area < MIN_POLYGON_AREA then
 			skipped += 1
+		elseif not centerInside then
+			-- Keep the original square pad instead of risking another dirt hole.
+			centerRejected += 1
+		elseif area > maxArea then
+			-- Bad source-arm geometry should never create a giant asphalt fan.
+			oversizeRejected += 1
 		else
 			local meshPart, err = makePolygonMesh(pad, polygon)
 			if meshPart then
@@ -507,12 +565,14 @@ end
 
 Workspace:SetAttribute("CW_IntersectionPadRefineComplete", true)
 
-print(("[ChesterWorld IntersectionPadRefiner] graphNodes=%d pads=%d refined=%d unmatched=%d skipped=%d failed=%d armsUsed=%d"):format(
+print(("[ChesterWorld IntersectionPadRefiner] graphNodes=%d pads=%d refined=%d unmatched=%d skipped=%d centerRejected=%d oversizeRejected=%d failed=%d armsUsed=%d centerGuaranteed=true"):format(
 	graphIntersections,
 	#pads,
 	refined,
 	unmatched,
 	skipped,
+	centerRejected,
+	oversizeRejected,
 	failed,
 	totalArms
 ))

@@ -1,0 +1,316 @@
+-- ChesterWorld — StreetFinishBuilder.server.lua
+-- STREET SYSTEM V3
+--
+-- Sidewalks and junctions are generated from SOURCE road centerlines.
+-- They are NOT generated from the ~29k rendered road pieces.
+--
+-- This script:
+--   * clears Pass 4 / 4B / 4C StreetFinish output
+--   * waits for RoadTerrainConformer
+--   * builds continuous source-derived sidewalks
+--   * terrain-conforms each sidewalk segment independently
+--   * builds small source-derived intersection fills
+--
+-- It never modifies Terrain or buildings.
+
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local StreetFinishData = require(
+	Shared:WaitForChild("StreetFinishData")
+)
+
+local world = Workspace:WaitForChild("ChesterWorld")
+local terrain = Workspace.Terrain
+
+local REQUIRED_CONFORM_RATIO = 0.95
+local WAIT_STEP = 0.5
+local MAX_WAIT = 90
+
+local SIDEWALK_WIDTH = StreetFinishData.sidewalkWidthStuds or 4.5
+local SIDEWALK_THICKNESS = 0.55
+local SIDEWALK_SURFACE_LIFT = 0.34
+local SIDEWALK_LONG_OVERLAP = 0.20
+
+local PAD_THICKNESS = 0.34
+local PAD_SURFACE_LIFT = 0.30
+
+local RAY_START_Y = 2048
+local RAY_DISTANCE = 4096
+
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Include
+rayParams.FilterDescendantsInstances = {terrain}
+rayParams.IgnoreWater = false
+
+
+local function terrainY(x, z)
+	local result = Workspace:Raycast(
+		Vector3.new(x, RAY_START_Y, z),
+		Vector3.new(0, -RAY_DISTANCE, 0),
+		rayParams
+	)
+
+	return result and result.Position.Y or nil
+end
+
+
+local function collectRoadParts()
+	local roads = {}
+
+	for _, tile in ipairs(world:GetChildren()) do
+		local folder = tile:FindFirstChild("Roads")
+
+		if folder then
+			for _, obj in ipairs(folder:GetDescendants()) do
+				if obj:IsA("BasePart") then
+					table.insert(roads, obj)
+				end
+			end
+		end
+	end
+
+	return roads
+end
+
+
+local function waitForConformer()
+	local elapsed = 0
+	local lastCount = -1
+	local stable = 0
+
+	while elapsed < MAX_WAIT do
+		local roads = collectRoadParts()
+		local total = #roads
+		local conformed = 0
+
+		for _, road in ipairs(roads) do
+			if road:GetAttribute("CW_TerrainConformed") == true then
+				conformed += 1
+			end
+		end
+
+		local ratio = total > 0 and conformed / total or 0
+
+		if total > 0 and total == lastCount then
+			stable += 1
+		else
+			stable = 0
+			lastCount = total
+		end
+
+		if total > 0 and stable >= 2 and ratio >= REQUIRED_CONFORM_RATIO then
+			return total, conformed, ratio
+		end
+
+		task.wait(WAIT_STEP)
+		elapsed += WAIT_STEP
+	end
+
+	local roads = collectRoadParts()
+	local conformed = 0
+
+	for _, road in ipairs(roads) do
+		if road:GetAttribute("CW_TerrainConformed") == true then
+			conformed += 1
+		end
+	end
+
+	local ratio = #roads > 0 and conformed / #roads or 0
+	return #roads, conformed, ratio
+end
+
+
+local function resetStreetFinish()
+	local old = world:FindFirstChild("StreetFinish")
+	if old then
+		old:Destroy()
+	end
+
+	local root = Instance.new("Folder")
+	root.Name = "StreetFinish"
+	root.Parent = world
+
+	local sidewalks = Instance.new("Folder")
+	sidewalks.Name = "SourceSidewalks"
+	sidewalks.Parent = root
+
+	local pads = Instance.new("Folder")
+	pads.Name = "SourceIntersectionPads"
+	pads.Parent = root
+
+	return sidewalks, pads
+end
+
+
+local function buildSidewalk(segment, parent)
+	local x1 = segment.x1
+	local z1 = segment.z1
+	local x2 = segment.x2
+	local z2 = segment.z2
+
+	local y1 = terrainY(x1, z1)
+	local y2 = terrainY(x2, z2)
+
+	local mx = (x1 + x2) / 2
+	local mz = (z1 + z2) / 2
+	local ym = terrainY(mx, mz)
+
+	if not y1 or not y2 or not ym then
+		return false
+	end
+
+	local top1 = y1 + SIDEWALK_SURFACE_LIFT
+	local top2 = y2 + SIDEWALK_SURFACE_LIFT
+	local topMid = ym + SIDEWALK_SURFACE_LIFT
+
+	local expectedMid = (top1 + top2) / 2
+	local extraLift = math.max(0, topMid - expectedMid)
+
+	local p1 = Vector3.new(x1, top1, z1)
+	local p2 = Vector3.new(x2, top2, z2)
+
+	local delta = p2 - p1
+	local length = delta.Magnitude
+
+	if length < 0.5 then
+		return false
+	end
+
+	local center = (p1 + p2) / 2 + Vector3.new(
+		0,
+		extraLift - SIDEWALK_THICKNESS / 2,
+		0
+	)
+
+	local lookTarget = center + delta.Unit
+
+	local part = Instance.new("Part")
+	part.Name = "CW_SourceSidewalk"
+	part.Anchored = true
+	part.CanCollide = true
+	part.CanTouch = false
+	part.CanQuery = true
+	part.CastShadow = false
+	part.Material = Enum.Material.Concrete
+	part.Color = Color3.fromRGB(145, 145, 139)
+
+	part.Size = Vector3.new(
+		SIDEWALK_WIDTH,
+		SIDEWALK_THICKNESS,
+		length + SIDEWALK_LONG_OVERLAP
+	)
+
+	part.CFrame = CFrame.lookAt(
+		center,
+		lookTarget,
+		Vector3.yAxis
+	)
+
+	part:SetAttribute("CW_StreetSystemV3", true)
+	part.Parent = parent
+
+	return true
+end
+
+
+local function buildPad(junction, parent)
+	local x = junction.x
+	local z = junction.z
+	local size = junction.size
+
+	local centerY = terrainY(x, z)
+	if not centerY then
+		return false
+	end
+
+	local half = size * 0.35
+
+	local samples = {
+		centerY,
+		terrainY(x + half, z),
+		terrainY(x - half, z),
+		terrainY(x, z + half),
+		terrainY(x, z - half),
+	}
+
+	local highest = centerY
+	for _, y in ipairs(samples) do
+		if y and y > highest then
+			highest = y
+		end
+	end
+
+	local pad = Instance.new("Part")
+	pad.Name = "CW_SourceIntersectionFill"
+	pad.Anchored = true
+	pad.CanCollide = false
+	pad.CanTouch = false
+	pad.CanQuery = true
+	pad.CastShadow = false
+	pad.Material = Enum.Material.Asphalt
+	pad.Color = Color3.fromRGB(72, 74, 78)
+
+	pad.Size = Vector3.new(
+		size,
+		PAD_THICKNESS,
+		size
+	)
+
+	pad.Position = Vector3.new(
+		x,
+		highest + PAD_SURFACE_LIFT - PAD_THICKNESS / 2,
+		z
+	)
+
+	pad:SetAttribute("CW_StreetSystemV3", true)
+	pad.Parent = parent
+
+	return true
+end
+
+
+local roadCount, conformedCount, ratio = waitForConformer()
+local sidewalkFolder, padFolder = resetStreetFinish()
+
+local sidewalks = 0
+local sidewalkNoTerrain = 0
+
+for index, segment in ipairs(StreetFinishData.segments) do
+	if buildSidewalk(segment, sidewalkFolder) then
+		sidewalks += 1
+	else
+		sidewalkNoTerrain += 1
+	end
+
+	if index % 400 == 0 then
+		task.wait()
+	end
+end
+
+local pads = 0
+local padNoTerrain = 0
+
+for index, junction in ipairs(StreetFinishData.junctions) do
+	if buildPad(junction, padFolder) then
+		pads += 1
+	else
+		padNoTerrain += 1
+	end
+
+	if index % 300 == 0 then
+		task.wait()
+	end
+end
+
+print(string.format(
+	"[ChesterWorld StreetSystemV3] roads=%d conformed=%d ratio=%.4f sourceSidewalks=%d sidewalkNoTerrain=%d junctionPads=%d padNoTerrain=%d",
+	roadCount,
+	conformedCount,
+	ratio,
+	sidewalks,
+	sidewalkNoTerrain,
+	pads,
+	padNoTerrain
+))

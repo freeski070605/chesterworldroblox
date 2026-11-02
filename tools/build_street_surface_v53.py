@@ -1,0 +1,582 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import json
+import math
+import shutil
+from pathlib import Path
+
+from shapely.geometry import (
+    GeometryCollection,
+    LineString,
+    MultiLineString,
+    MultiPolygon,
+    Polygon,
+    box,
+    shape,
+)
+from shapely.ops import triangulate, unary_union
+
+ROOT = Path(r"E:\ChesterWorld")
+PROJECT = Path(r"E:\code\chesterworld-roblox")
+
+TILE_ROOT = ROOT / "Data" / "18_RegionalTiles_StreetV3"
+TILES_DIR = TILE_ROOT / "Tiles"
+
+OUT_DIR = ROOT / "Data" / "20_StreetSurfaceV53"
+OUT_DIR.mkdir(parents=True, exist_ok=True)
+
+LUA_DIR = PROJECT / "src" / "shared" / "StreetSurfaceTilesV53"
+REPORT = OUT_DIR / "street_surface_v53_report.json"
+
+STUDS_PER_METER = 3.0
+CENTER_X_M = 6347.889
+CENTER_Z_M = 7201.973
+
+# Every original regional tile is ~1000m (~3000 studs), which exceeds Roblox's
+# 2048-stud MeshPart extent limit. Split each tile into 2x2 subtiles.
+SUBDIVISIONS = 2
+
+SIMPLIFY_M = 0.12
+MAX_EDGE_M = 7.0
+MIN_TRIANGLE_AREA_M2 = 0.025
+
+MAX_VERTICES_PER_SURFACE = 50000
+MAX_TOTAL_TRIANGLES = 300000
+
+# Hard guard below the engine's 2048-stud extent ceiling.
+MAX_SURFACE_EXTENT_STUDS = 1800.0
+
+BRIDGE_TRUE = {"yes", "true", "1"}
+TUNNEL_TRUE = {"yes", "true", "1"}
+
+
+def load_json(path: Path):
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def clean(value):
+    if value is None:
+        return ""
+    text = str(value).strip().lower()
+    return "" if text in {"", "none", "null", "nan"} else text
+
+
+def road_width(props):
+    for key in (
+        "generator_width_m",
+        "generator_render_width_m",
+        "width_m",
+        "width",
+    ):
+        try:
+            value = float(props.get(key))
+            if 1.0 <= value <= 80.0:
+                return value
+        except Exception:
+            pass
+    return 6.0
+
+
+def lines_from_geom(geom):
+    if geom is None or geom.is_empty:
+        return []
+    if isinstance(geom, LineString):
+        return [geom]
+    if isinstance(geom, MultiLineString):
+        return [g for g in geom.geoms if not g.is_empty]
+    if isinstance(geom, GeometryCollection):
+        result = []
+        for g in geom.geoms:
+            result.extend(lines_from_geom(g))
+        return result
+    return []
+
+
+def polygons_from_geom(geom):
+    if geom is None or geom.is_empty:
+        return []
+    if isinstance(geom, Polygon):
+        return [geom]
+    if isinstance(geom, MultiPolygon):
+        return [g for g in geom.geoms if not g.is_empty]
+    if isinstance(geom, GeometryCollection):
+        result = []
+        for g in geom.geoms:
+            result.extend(polygons_from_geom(g))
+        return result
+    return []
+
+
+def densify_ring(coords, max_edge):
+    coords = list(coords)
+    if len(coords) < 2:
+        return coords
+
+    result = []
+
+    for i in range(len(coords) - 1):
+        ax, ay = coords[i][:2]
+        bx, by = coords[i + 1][:2]
+
+        dx = bx - ax
+        dy = by - ay
+        dist = math.hypot(dx, dy)
+        steps = max(1, int(math.ceil(dist / max_edge)))
+
+        for step in range(steps):
+            t = step / steps
+            result.append((
+                ax + dx * t,
+                ay + dy * t,
+            ))
+
+    result.append(tuple(coords[-1][:2]))
+    return result
+
+
+def densify_polygon(poly):
+    exterior = densify_ring(poly.exterior.coords, MAX_EDGE_M)
+
+    holes = [
+        densify_ring(ring.coords, MAX_EDGE_M)
+        for ring in poly.interiors
+    ]
+
+    result = Polygon(exterior, holes)
+
+    if not result.is_valid:
+        result = result.buffer(0)
+
+    return result
+
+
+def triangulate_polygon(poly):
+    result = []
+
+    if poly.is_empty or poly.area < MIN_TRIANGLE_AREA_M2:
+        return result
+
+    try:
+        poly = poly.simplify(
+            SIMPLIFY_M,
+            preserve_topology=True,
+        )
+    except Exception:
+        pass
+
+    poly = densify_polygon(poly)
+
+    for tri in triangulate(poly):
+        if tri.is_empty or tri.area < MIN_TRIANGLE_AREA_M2:
+            continue
+
+        try:
+            inside_area = tri.intersection(poly).area
+        except Exception:
+            continue
+
+        if tri.area <= 0:
+            continue
+
+        if inside_area / tri.area < 0.985:
+            continue
+
+        if not poly.covers(tri.representative_point()):
+            continue
+
+        coords = list(tri.exterior.coords)
+
+        if len(coords) < 4:
+            continue
+
+        result.append([
+            tuple(coords[0][:2]),
+            tuple(coords[1][:2]),
+            tuple(coords[2][:2]),
+        ])
+
+    return result
+
+
+def roblox_xz(local_x, local_z):
+    return (
+        (local_x - CENTER_X_M) * STUDS_PER_METER,
+        -(local_z - CENTER_Z_M) * STUDS_PER_METER,
+    )
+
+
+def lua_num(value):
+    return f"{float(value):.3f}"
+
+
+def write_module(
+    path,
+    surface_id,
+    source_tile,
+    origin_x,
+    origin_z,
+    vertices,
+    triangles,
+):
+    lines = [
+        "-- Generated by build_street_surface_v53.py",
+        "-- 2x2 sub-tile road surface; extents kept below Roblox 2048-stud limit.",
+        "return {",
+        f'\tsurfaceId = "{surface_id}",',
+        f'\tsourceTile = "{source_tile}",',
+        f"\toriginX = {lua_num(origin_x)},",
+        f"\toriginZ = {lua_num(origin_z)},",
+        "\tvertices = {",
+    ]
+
+    flat_vertices = []
+    for x, z in vertices:
+        flat_vertices.extend((x, z))
+
+    chunk = []
+    for value in flat_vertices:
+        chunk.append(lua_num(value))
+        if len(chunk) >= 16:
+            lines.append("\t\t" + ",".join(chunk) + ",")
+            chunk = []
+    if chunk:
+        lines.append("\t\t" + ",".join(chunk) + ",")
+
+    lines += [
+        "\t},",
+        "\ttriangles = {",
+    ]
+
+    flat_triangles = []
+    for a, b, c in triangles:
+        flat_triangles.extend((a, b, c))
+
+    chunk = []
+    for value in flat_triangles:
+        chunk.append(str(int(value)))
+        if len(chunk) >= 24:
+            lines.append("\t\t" + ",".join(chunk) + ",")
+            chunk = []
+    if chunk:
+        lines.append("\t\t" + ",".join(chunk) + ",")
+
+    lines += [
+        "\t},",
+        "}",
+        "",
+    ]
+
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def main():
+    print("=" * 96)
+    print("CHESTERWORLD STREET SURFACE V5.3 - 2x2 SUBTILE MESH DATA")
+    print("=" * 96)
+
+    if not TILES_DIR.exists():
+        raise SystemExit(f"Missing Street V3 tiles: {TILES_DIR}")
+
+    tile_files = sorted(TILES_DIR.glob("*.json"))
+
+    if len(tile_files) != 102:
+        raise SystemExit(
+            f"Expected 102 Street V3 tile JSON files, found {len(tile_files)}"
+        )
+
+    if LUA_DIR.exists():
+        shutil.rmtree(LUA_DIR)
+    LUA_DIR.mkdir(parents=True, exist_ok=True)
+
+    stats = []
+    total_vertices = 0
+    total_triangles = 0
+    total_surfaces = 0
+    total_bridge_tunnel_skipped = 0
+    max_extent_x = 0.0
+    max_extent_z = 0.0
+
+    for tile_index, tile_path in enumerate(tile_files, start=1):
+        data = load_json(tile_path)
+
+        tile_id = str(
+            data.get("tile_id")
+            or data.get("id")
+            or tile_path.stem
+        )
+
+        bounds = data.get("local_bounds_m") or {}
+        min_x = float(bounds["min_x"])
+        min_z = float(bounds["min_z"])
+        max_x = float(bounds["max_x"])
+        max_z = float(bounds["max_z"])
+
+        roads = (
+            (data.get("layers") or {})
+            .get("roads", [])
+        )
+
+        road_polys = []
+        skipped_bridge_tunnel = 0
+
+        for feature in roads:
+            props = feature.get("properties") or {}
+
+            bridge = clean(props.get("osm_bridge"))
+            tunnel = clean(props.get("osm_tunnel"))
+
+            if bridge in BRIDGE_TRUE or tunnel in TUNNEL_TRUE:
+                skipped_bridge_tunnel += 1
+                continue
+
+            try:
+                geom = shape(feature.get("geometry"))
+            except Exception:
+                continue
+
+            width = road_width(props)
+
+            for line in lines_from_geom(geom):
+                if line.length < 0.4:
+                    continue
+
+                try:
+                    poly = line.buffer(
+                        width / 2.0,
+                        cap_style=2,
+                        join_style=2,
+                        mitre_limit=3.0,
+                    )
+                except Exception:
+                    continue
+
+                if not poly.is_empty:
+                    road_polys.append(poly)
+
+        total_bridge_tunnel_skipped += skipped_bridge_tunnel
+
+        if not road_polys:
+            continue
+
+        try:
+            road_union = unary_union(road_polys)
+        except Exception as error:
+            raise RuntimeError(
+                f"Road union failed for {tile_id}: {error}"
+            )
+
+        tile_width = max_x - min_x
+        tile_depth = max_z - min_z
+        step_x = tile_width / SUBDIVISIONS
+        step_z = tile_depth / SUBDIVISIONS
+
+        built_for_tile = 0
+
+        for sr in range(SUBDIVISIONS):
+            for sc in range(SUBDIVISIONS):
+                cell_min_x = min_x + sc * step_x
+                cell_max_x = (
+                    max_x
+                    if sc == SUBDIVISIONS - 1
+                    else min_x + (sc + 1) * step_x
+                )
+
+                cell_min_z = min_z + sr * step_z
+                cell_max_z = (
+                    max_z
+                    if sr == SUBDIVISIONS - 1
+                    else min_z + (sr + 1) * step_z
+                )
+
+                cell = box(
+                    cell_min_x,
+                    cell_min_z,
+                    cell_max_x,
+                    cell_max_z,
+                )
+
+                try:
+                    clipped = road_union.intersection(cell)
+                except Exception as error:
+                    raise RuntimeError(
+                        f"Clip failed for {tile_id} sub {sr},{sc}: {error}"
+                    )
+
+                triangles_xy = []
+
+                for poly in polygons_from_geom(clipped):
+                    triangles_xy.extend(
+                        triangulate_polygon(poly)
+                    )
+
+                if not triangles_xy:
+                    continue
+
+                center_local_x = (cell_min_x + cell_max_x) / 2.0
+                center_local_z = (cell_min_z + cell_max_z) / 2.0
+
+                origin_x, origin_z = roblox_xz(
+                    center_local_x,
+                    center_local_z,
+                )
+
+                vertex_map = {}
+                vertices = []
+                triangles = []
+
+                def vertex_index(local_x, local_z):
+                    rx, rz = roblox_xz(local_x, local_z)
+
+                    rel_x = rx - origin_x
+                    rel_z = rz - origin_z
+
+                    key = (
+                        round(rel_x, 3),
+                        round(rel_z, 3),
+                    )
+
+                    existing = vertex_map.get(key)
+                    if existing is not None:
+                        return existing
+
+                    idx = len(vertices) + 1
+                    vertex_map[key] = idx
+                    vertices.append(key)
+                    return idx
+
+                for tri in triangles_xy:
+                    ids = [
+                        vertex_index(*tri[0]),
+                        vertex_index(*tri[1]),
+                        vertex_index(*tri[2]),
+                    ]
+
+                    if len(set(ids)) < 3:
+                        continue
+
+                    triangles.append(tuple(ids))
+
+                if not vertices or not triangles:
+                    continue
+
+                xs = [v[0] for v in vertices]
+                zs = [v[1] for v in vertices]
+
+                extent_x = max(xs) - min(xs)
+                extent_z = max(zs) - min(zs)
+
+                max_extent_x = max(max_extent_x, extent_x)
+                max_extent_z = max(max_extent_z, extent_z)
+
+                if extent_x > MAX_SURFACE_EXTENT_STUDS:
+                    raise RuntimeError(
+                        f"{tile_id} sub {sr},{sc} X extent "
+                        f"{extent_x:.1f} exceeds {MAX_SURFACE_EXTENT_STUDS:.1f}"
+                    )
+
+                if extent_z > MAX_SURFACE_EXTENT_STUDS:
+                    raise RuntimeError(
+                        f"{tile_id} sub {sr},{sc} Z extent "
+                        f"{extent_z:.1f} exceeds {MAX_SURFACE_EXTENT_STUDS:.1f}"
+                    )
+
+                if len(vertices) > MAX_VERTICES_PER_SURFACE:
+                    raise RuntimeError(
+                        f"{tile_id} sub {sr},{sc} has {len(vertices):,} vertices, "
+                        f"exceeding {MAX_VERTICES_PER_SURFACE:,}."
+                    )
+
+                surface_id = f"{tile_id}_s{sr}{sc}"
+
+                module_path = LUA_DIR / f"{surface_id}.lua"
+
+                write_module(
+                    module_path,
+                    surface_id,
+                    tile_id,
+                    origin_x,
+                    origin_z,
+                    vertices,
+                    triangles,
+                )
+
+                stats.append({
+                    "surface": surface_id,
+                    "source_tile": tile_id,
+                    "sub_row": sr,
+                    "sub_col": sc,
+                    "vertices": len(vertices),
+                    "triangles": len(triangles),
+                    "extent_x_studs": round(extent_x, 3),
+                    "extent_z_studs": round(extent_z, 3),
+                })
+
+                total_vertices += len(vertices)
+                total_triangles += len(triangles)
+                total_surfaces += 1
+                built_for_tile += 1
+
+        print(
+            f"[{tile_index:03d}/102] {tile_id}: "
+            f"{built_for_tile} surface chunk(s)"
+        )
+
+    if total_triangles > MAX_TOTAL_TRIANGLES:
+        raise RuntimeError(
+            f"V5.3 total triangle budget exceeded: "
+            f"{total_triangles:,} > {MAX_TOTAL_TRIANGLES:,}"
+        )
+
+    report = {
+        "schema": "chesterworld.street_surface.v5.3",
+        "source_tiles": str(TILES_DIR),
+        "tile_json_count": len(tile_files),
+        "subdivisions_per_axis": SUBDIVISIONS,
+        "surface_modules": total_surfaces,
+        "total_vertices": total_vertices,
+        "total_triangles": total_triangles,
+        "bridge_tunnel_records_skipped": total_bridge_tunnel_skipped,
+        "max_extent_x_studs": round(max_extent_x, 3),
+        "max_extent_z_studs": round(max_extent_z, 3),
+        "engine_extent_limit_studs": 2048.0,
+        "guard_extent_limit_studs": MAX_SURFACE_EXTENT_STUDS,
+        "max_vertices_per_surface": max(
+            (item["vertices"] for item in stats),
+            default=0,
+        ),
+        "max_triangles_per_surface": max(
+            (item["triangles"] for item in stats),
+            default=0,
+        ),
+        "budgets": {
+            "max_vertices_per_surface": MAX_VERTICES_PER_SURFACE,
+            "max_total_triangles": MAX_TOTAL_TRIANGLES,
+        },
+        "surfaces": stats,
+    }
+
+    REPORT.write_text(
+        json.dumps(report, indent=2),
+        encoding="utf-8",
+    )
+
+    print()
+    print("=" * 96)
+    print("STREET SURFACE V5.3 DATA READY")
+    print("=" * 96)
+    print(f"Source tile JSON:      {len(tile_files):,}")
+    print(f"Surface modules:       {total_surfaces:,}")
+    print(f"Total vertices:        {total_vertices:,}")
+    print(f"Total triangles:       {total_triangles:,}")
+    print(f"Max X extent:          {max_extent_x:,.1f} studs")
+    print(f"Max Z extent:          {max_extent_z:,.1f} studs")
+    print(f"Roblox hard limit:     2,048.0 studs")
+    print(f"V5.3 safety guard:     {MAX_SURFACE_EXTENT_STUDS:,.1f} studs")
+    print(f"Lua output:            {LUA_DIR}")
+    print(f"Report:                {REPORT}")
+    print("=" * 96)
+
+
+if __name__ == "__main__":
+    main()

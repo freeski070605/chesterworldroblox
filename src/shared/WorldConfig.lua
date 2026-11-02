@@ -16,7 +16,10 @@ WorldConfig.ROAD_SURFACE_OFFSET_STUDS = 0.30
 WorldConfig.SIDEWALK_HEIGHT_STUDS = 0.65
 WorldConfig.SIDEWALK_WIDTH_STUDS = 5.0
 WorldConfig.SIDEWALK_GAP_STUDS = 0.10
-WorldConfig.SIDEWALK_INTERSECTION_TRIM_STUDS = 14.0
+
+-- Sidewalks stop farther back than asphalt at a junction so they do not cut
+-- across the intersection surface.
+WorldConfig.SIDEWALK_INTERSECTION_EXTRA_TRIM_STUDS = 4.0
 
 WorldConfig.ROAD_MAX_PIECE_LENGTH_STUDS = 120
 WorldConfig.ROAD_TERRAIN_ERROR_STUDS = 1.10
@@ -25,16 +28,36 @@ WorldConfig.ROAD_MAX_SUBDIVISION_DEPTH = 5
 -- Reject terrain samples that would make an obviously broken road slab.
 WorldConfig.MAX_SURFACE_GRADE = 0.40
 
+-- ============================================================
+-- INTERSECTIONS
+-- ============================================================
+
 WorldConfig.INTERSECTION_ENDPOINT_QUANTIZE_STUDS = 3.0
 WorldConfig.INTERSECTION_MIN_DEGREE = 3
-WorldConfig.INTERSECTION_SIZE_MULTIPLIER = 1.20
+
+-- Pads are intentionally compact. Roads are trimmed exactly to the square
+-- boundary, so a large multiplier is no longer needed to hide overlaps.
+WorldConfig.INTERSECTION_SIZE_MULTIPLIER = 1.05
+WorldConfig.INTERSECTION_MIN_SIZE_STUDS = 12.0
+WorldConfig.INTERSECTION_MAX_SIZE_STUDS = 72.0
+WorldConfig.INTERSECTION_ROAD_OVERLAP_STUDS = 1.0
+WorldConfig.INTERSECTION_MAX_GRADE = 0.16
 
 -- ============================================================
--- PHASE 2C — PRODUCTION STREET READABILITY
+-- GRADE SEPARATION / BRIDGES
 -- ============================================================
 
--- Only wider corridors receive center lines. Chester residential streets
--- generally remain visually clean instead of getting fake markings everywhere.
+-- Default deck clearance for bridge/layer +1 segments. Higher positive layers
+-- stack by this amount. Ground and tunnel roads remain terrain-following.
+WorldConfig.GRADE_SEPARATION_CLEARANCE_STUDS = 18.0
+
+-- Bridge groups ramp up/down over this fraction of their source span.
+WorldConfig.BRIDGE_RAMP_FRACTION = 0.20
+
+-- ============================================================
+-- PRODUCTION STREET READABILITY
+-- ============================================================
+
 WorldConfig.CENTERLINE_MIN_ROAD_WIDTH_STUDS = 30.0
 WorldConfig.CENTERLINE_WIDTH_STUDS = 0.65
 WorldConfig.CENTERLINE_THICKNESS_STUDS = 0.09
@@ -48,10 +71,9 @@ WorldConfig.CROSSWALK_STRIPE_DEPTH_STUDS = 1.55
 WorldConfig.CROSSWALK_STRIPE_GAP_STUDS = 1.35
 WorldConfig.CROSSWALK_THICKNESS_STUDS = 0.09
 WorldConfig.CROSSWALK_SURFACE_OFFSET_STUDS = 0.60
-WorldConfig.CROSSWALK_BASE_SETBACK_STUDS = 10.0
+WorldConfig.CROSSWALK_EDGE_CLEARANCE_STUDS = 2.0
 
 -- Street-name poles are limited to named intersections involving a wider road.
--- This keeps the whole-city object count under control.
 WorldConfig.STREET_SIGN_TRIGGER_WIDTH_STUDS = 30.0
 WorldConfig.STREET_SIGN_POLE_HEIGHT_STUDS = 13.0
 WorldConfig.STREET_SIGN_POLE_THICKNESS_STUDS = 0.45

@@ -1,0 +1,15 @@
+return {
+    {name="Chester Rural Cmty",x1=3553.570,z1=3002.619,x2=3510.931,z2=2961.213},
+    {name="Chester Rural Cmty",x1=3510.931,z1=2961.213,x2=3422.077,z2=2904.000},
+    {name="Chester Rural Cmty",x1=3422.077,z1=2904.000,x2=3376.859,z2=2859.529},
+    {name="Chester Rural Cmty",x1=3376.859,z1=2859.529,x2=3356.246,z2=2818.396},
+    {name="Chester Rural Cmty",x1=3356.246,z1=2818.396,x2=3348.962,z2=2767.505},
+    {name="Chester Rural Cmty",x1=3348.962,z1=2767.505,x2=3357.000,z2=2718.789},
+    {name="Chester Rural Cmty",x1=3357.000,z1=2718.789,x2=3382.128,z2=2675.573},
+    {name="Chester Rural Cmty",x1=3382.128,z1=2675.573,x2=3419.380,z2=2640.533},
+    {name="Chester Rural Cmty",x1=3419.380,z1=2640.533,x2=3450.128,z2=2619.340},
+    {name="Chester Rural Cmty",x1=3450.128,z1=2619.340,x2=3547.228,z2=2587.194},
+    {name="Chester Rural Cmty",x1=3547.228,z1=2587.194,x2=3641.923,z2=2593.803},
+    {name="Chester Rural Cmty",x1=3547.228,z1=2587.194,x2=3520.798,z2=2446.850},
+    {name="Upland Avenue",x1=3139.531,z1=2485.094,x2=3228.521,z2=2472.950},
+}

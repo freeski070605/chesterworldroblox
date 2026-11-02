@@ -1,0 +1,1 @@
+print("[ChesterWorld] Client loaded.")

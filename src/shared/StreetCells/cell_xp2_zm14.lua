@@ -1,0 +1,15 @@
+return {
+    {name="Commodore John Barry",x1=1057.614,z1=-8172.073,x2=1421.765,z2=-8638.398},
+    {name="Commodore John Barry",x1=1435.001,z1=-8586.421,x2=1082.260,z2=-8150.819},
+    {name="Chester Riverfront",x1=1119.780,z1=-8119.101,x2=1207.086,z2=-8044.440},
+    {name="Chester Riverfront",x1=1207.086,z1=-8044.440,x2=1229.668,z2=-8015.524},
+    {name="Chester Riverfront",x1=1229.668,z1=-8015.524,x2=1257.823,z2=-7993.626},
+    {name="Chester Riverfront",x1=1257.823,z1=-7993.626,x2=1261.872,z2=-7984.795},
+    {name="Chester Riverfront",x1=1261.872,z1=-7984.795,x2=1262.612,z2=-7940.330},
+    {name="Chester Riverfront",x1=1262.612,z1=-7940.330,x2=1277.524,z2=-7916.382},
+    {name="Chester Riverfront",x1=1277.524,z1=-7916.382,x2=1296.189,z2=-7906.726},
+    {name="Chester Riverfront",x1=1296.189,z1=-7906.726,x2=1339.077,z2=-7904.916},
+    {name="Chester Riverfront",x1=1339.077,z1=-7904.916,x2=1359.277,z2=-7898.429},
+    {name="Chester Riverfront",x1=1359.277,z1=-7898.429,x2=1494.769,z2=-7802.197},
+    {name="Chester Riverfront",x1=1494.769,z1=-7802.197,x2=1518.908,z2=-7770.868},
+}

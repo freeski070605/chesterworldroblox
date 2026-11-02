@@ -1,0 +1,18 @@
+return {
+    {name="Chester Riverfront",x1=187.220,z1=-9030.086,x2=68.760,z2=-8839.627},
+    {name="Stadium",x1=-180.803,z1=-8546.902,x2=34.339,z2=-8827.253},
+    {name="Chester Riverfront",x1=68.760,z1=-8839.627,x2=68.319,z2=-8822.244},
+    {name="Chester Riverfront",x1=68.319,z1=-8822.244,x2=80.211,z2=-8802.580},
+    {name="Chester Riverfront",x1=80.211,z1=-8802.580,x2=227.545,z2=-8701.897},
+    {name="Chester Riverfront",x1=227.545,z1=-8701.897,x2=250.061,z2=-8694.542},
+    {name="Chester Riverfront",x1=250.061,z1=-8694.542,x2=276.400,z2=-8699.202},
+    {name="Chester Riverfront",x1=276.400,z1=-8699.202,x2=291.875,z2=-8710.231},
+    {name="Chester Riverfront",x1=291.875,z1=-8710.231,x2=373.422,z2=-8822.427},
+    {name="Chester Riverfront",x1=373.422,z1=-8822.427,x2=396.107,z2=-8837.375},
+    {name="Chester Riverfront",x1=396.107,z1=-8837.375,x2=422.237,z2=-8845.149},
+    {name="Chester Riverfront",x1=422.237,z1=-8845.149,x2=494.197,z2=-8847.170},
+    {name="Chester Riverfront",x1=494.197,z1=-8847.170,x2=538.253,z2=-8840.657},
+    {name="Chester Riverfront",x1=538.253,z1=-8840.657,x2=591.667,z2=-8824.292},
+    {name="Chester Riverfront",x1=591.667,z1=-8824.292,x2=622.224,z2=-8810.228},
+    {name="Cr Chester Secondary",x1=-805.036,z1=-8412.166,x2=260.647,z2=-7687.100},
+}

@@ -1,184 +1,199 @@
 -- ChesterWorld - IntersectionPadRefiner.server.lua
 --
--- Replaces TileBuilderV2's temporary square intersection pads with compact
--- convex polygons derived from the ACTUAL rendered road approaches.
+-- FINAL INTERSECTION PAD REFINER
 --
--- Why this exists:
---   TileBuilderV2 now owns road geometry correctly, but an axis-aligned square
---   pad still looks wrong at angled/T/offset Chester intersections.
+-- IMPORTANT:
+-- The previous refiner tried to infer junction arms from already-trimmed Roblox
+-- road Parts. That was unreliable and removed the visible center of many
+-- intersections.
 --
--- This refiner:
---   * waits until all 102 tiles are built
---   * indexes the endpoints of rendered ground-road Parts
---   * finds the real approach arms around each intersection pad
---   * builds a convex asphalt prism from those approach widths/directions
---   * keeps existing road approaches, sidewalks, crosswalks and signs
---   * destroys the old square pad only after the polygon mesh succeeds
+-- This version rebuilds the SAME raw 102-tile endpoint graph used by
+-- TileBuilderV2 and derives each polygon directly from source road directions
+-- and widths. The temporary square pad remains in place unless the replacement
+-- mesh is built successfully.
 --
--- It does NOT move roads, Terrain, buildings, bridges or sidewalks.
+-- It does NOT move roads, terrain, sidewalks, buildings, bridges, or markings.
 
 local AssetService = game:GetService("AssetService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
-local world = Workspace:WaitForChild("ChesterWorld")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local WorldConfig = require(Shared:WaitForChild("WorldConfig"))
+local WorldData = Shared:WaitForChild("WorldData")
+local Tiles = WorldData:WaitForChild("Tiles")
 
 while Workspace:GetAttribute("CW_BootstrapComplete") ~= true do
 	task.wait(0.20)
 end
 
-local GRID_SIZE = 72
-local ENDPOINT_PAD_EXTRA = 8
-local ROAD_OVERLAP = 1.8
-local LATERAL_OVERLAP = 0.65
+local world = Workspace:WaitForChild("ChesterWorld")
+
+local S = WorldConfig.STUDS_PER_METER
+local CENTER_X_M = WorldConfig.WORLD_CENTER_X_M
+local CENTER_Z_M = WorldConfig.WORLD_CENTER_Z_M
+
+local NODE_GRID = 48
+local NODE_MATCH_RADIUS = 8
+local MOUTH_FORWARD_OVERLAP = 1.25
+local MOUTH_LATERAL_OVERLAP = 0.75
 local MIN_POLYGON_AREA = 8
 
-local endpointGrid = {}
+local function sourceToStuds(xMeters, zMeters)
+	return
+		(xMeters - CENTER_X_M) * S,
+		-(zMeters - CENTER_Z_M) * S
+end
+
+local function truthy(value)
+	if value == true then
+		return true
+	end
+
+	local text = string.lower(tostring(value or ""))
+	return text ~= ""
+		and text ~= "0"
+		and text ~= "false"
+		and text ~= "no"
+		and text ~= "none"
+		and text ~= "nil"
+end
+
+local function gradeLevelForRoad(road)
+	local level = tonumber(road.layer) or 0
+
+	if truthy(road.bridge) and level <= 0 then
+		level = 1
+	elseif truthy(road.tunnel) and level >= 0 then
+		level = -1
+	end
+
+	return math.clamp(math.round(level), -5, 5)
+end
+
+local function endpointKeyFromStuds(x, z, gradeLevel)
+	local q = WorldConfig.INTERSECTION_ENDPOINT_QUANTIZE_STUDS
+	return
+		tostring(math.floor(x / q + 0.5))
+		.. ":"
+		.. tostring(math.floor(z / q + 0.5))
+		.. ":g"
+		.. tostring(gradeLevel or 0)
+end
+
+local function armKey(name, dir)
+	local qx = math.floor(dir.X * 20 + (dir.X >= 0 and 0.5 or -0.5))
+	local qz = math.floor(dir.Z * 20 + (dir.Z >= 0 and 0.5 or -0.5))
+	return string.upper(name) .. ":" .. tostring(qx) .. ":" .. tostring(qz)
+end
+
+local nodes = {}
+
+local function addEndpoint(tileId, xMeters, zMeters, otherXMeters, otherZMeters, road)
+	local gradeLevel = gradeLevelForRoad(road)
+	if gradeLevel ~= 0 then
+		return
+	end
+
+	local x, z = sourceToStuds(xMeters, zMeters)
+	local ox, oz = sourceToStuds(otherXMeters, otherZMeters)
+	local key = endpointKeyFromStuds(x, z, gradeLevel)
+
+	local node = nodes[key]
+	if not node then
+		node = {
+			xSum = 0,
+			zSum = 0,
+			count = 0,
+			maxWidth = 0,
+			names = {},
+			rawArms = {},
+			arms = {},
+			ownerTile = tileId,
+			isIntersection = false,
+			padSize = 0,
+		}
+		nodes[key] = node
+	elseif tileId < node.ownerTile then
+		node.ownerTile = tileId
+	end
+
+	local width = math.max((tonumber(road.width_m) or 7) * S, 3)
+	local name = tostring(road.name or "")
+
+	node.xSum += x
+	node.zSum += z
+	node.count += 1
+	node.maxWidth = math.max(node.maxWidth, width)
+
+	if name ~= "" and name ~= "Road" then
+		node.names[name] = true
+	end
+
+	local dx = ox - x
+	local dz = oz - z
+	local length = math.sqrt(dx * dx + dz * dz)
+
+	if length > 0.001 then
+		table.insert(node.rawArms, {
+			name = name,
+			width = width,
+			dir = Vector3.new(dx / length, 0, dz / length),
+		})
+	end
+end
+
+local modules = Tiles:GetChildren()
+table.sort(modules, function(a, b)
+	return a.Name < b.Name
+end)
+
+for moduleIndex, module in ipairs(modules) do
+	if module:IsA("ModuleScript") then
+		local ok, tile = pcall(require, module)
+		if ok and tile then
+			local tileId = tostring(tile.tile_id or module.Name)
+
+			for roadIndex, road in ipairs(tile.roads or {}) do
+				addEndpoint(tileId, road.x1, road.z1, road.x2, road.z2, road)
+				addEndpoint(tileId, road.x2, road.z2, road.x1, road.z1, road)
+
+				if roadIndex % 300 == 0 then
+					task.wait()
+				end
+			end
+		end
+	end
+
+	if moduleIndex % 10 == 0 then
+		task.wait()
+	end
+end
+
+local nodeGrid = {}
 
 local function gridCoord(v)
-	return math.floor(v / GRID_SIZE)
+	return math.floor(v / NODE_GRID)
 end
 
 local function gridKey(gx, gz)
 	return tostring(gx) .. ":" .. tostring(gz)
 end
 
-local function horizontal(v)
-	local h = Vector3.new(v.X, 0, v.Z)
-	if h.Magnitude < 0.001 then
-		return nil
-	end
-	return h.Unit
-end
+local graphIntersections = 0
 
-local function insertEndpoint(point, dir, width, street, sourcePart)
-	local key = gridKey(gridCoord(point.X), gridCoord(point.Z))
-	local bucket = endpointGrid[key]
-	if not bucket then
-		bucket = {}
-		endpointGrid[key] = bucket
+for _, node in pairs(nodes) do
+	local distinctNames = 0
+	for _ in pairs(node.names) do
+		distinctNames += 1
 	end
 
-	table.insert(bucket, {
-		point = point,
-		dir = dir,
-		width = width,
-		street = street,
-		part = sourcePart,
-	})
-end
-
-local function roadLongAxis(part)
-	-- TileBuilderV2 road strips always store width on X and length on Z.
-	local axis = horizontal(part.CFrame.LookVector)
-	if not axis then
-		return nil, nil
-	end
-	return axis, part.Size.Z
-end
-
-local roadPartCount = 0
-
-for _, tile in ipairs(world:GetChildren()) do
-	local roads = tile:FindFirstChild("Roads")
-	if roads then
-		for _, part in ipairs(roads:GetDescendants()) do
-			if part:IsA("BasePart") then
-				local grade = tonumber(part:GetAttribute("CW_GradeLevel")) or 0
-				local bridge = part:GetAttribute("CW_Bridge") == true
-				local tunnel = part:GetAttribute("CW_Tunnel") == true
-
-				-- Intersection pads exist only at at-grade nodes. Do not let an
-				-- overpass/tunnel become an arm of the ground intersection polygon.
-				if grade == 0 and not bridge and not tunnel then
-					local axis, length = roadLongAxis(part)
-					if axis and length and length > 0.1 then
-						local half = length / 2
-						local pA = part.Position - axis * half
-						local pB = part.Position + axis * half
-						local width = tonumber(part:GetAttribute("RoadWidthStuds")) or part.Size.X
-						local street = tostring(part:GetAttribute("ChesterStreet") or part.Name or "")
-
-						-- Direction points AWAY from the endpoint into the road corridor.
-						insertEndpoint(pA, axis, width, street, part)
-						insertEndpoint(pB, -axis, width, street, part)
-						roadPartCount += 1
-					end
-				end
-			end
-		end
-	end
-end
-
-local function nearbyEndpoints(center, radius)
-	local result = {}
-	local minGX = gridCoord(center.X - radius)
-	local maxGX = gridCoord(center.X + radius)
-	local minGZ = gridCoord(center.Z - radius)
-	local maxGZ = gridCoord(center.Z + radius)
-
-	for gx = minGX, maxGX do
-		for gz = minGZ, maxGZ do
-			local bucket = endpointGrid[gridKey(gx, gz)]
-			if bucket then
-				for _, endpoint in ipairs(bucket) do
-					local dx = endpoint.point.X - center.X
-					local dz = endpoint.point.Z - center.Z
-					local distance = math.sqrt(dx * dx + dz * dz)
-					if distance <= radius then
-						table.insert(result, endpoint)
-					end
-				end
-			end
-		end
-	end
-
-	return result
-end
-
-local function directionKey(street, dir)
-	local qx = math.floor(dir.X * 16 + (dir.X >= 0 and 0.5 or -0.5))
-	local qz = math.floor(dir.Z * 16 + (dir.Z >= 0 and 0.5 or -0.5))
-	return string.upper(street) .. ":" .. tostring(qx) .. ":" .. tostring(qz)
-end
-
-local function dedupeArms(center, endpoints, searchRadius)
 	local armMap = {}
-
-	for _, endpoint in ipairs(endpoints) do
-		local radial = horizontal(endpoint.point - center)
-		if radial then
-			-- Endpoint should lie near the pad perimeter and the road should
-			-- continue outward in roughly the same direction.
-			local alignment = radial:Dot(endpoint.dir)
-			local distance = Vector2.new(
-				endpoint.point.X - center.X,
-				endpoint.point.Z - center.Z
-			).Magnitude
-
-			if alignment >= 0.70 and distance <= searchRadius then
-				local key = directionKey(endpoint.street, radial)
-				local existing = armMap[key]
-
-				-- Adaptive road splitting can place more than one endpoint from
-				-- the same approach inside the search radius. The true intersection
-				-- endpoint is the CLOSEST valid one to the pad center. If two are
-				-- effectively tied, keep the wider rendered road.
-				if
-					not existing
-					or distance < existing.distance - 0.25
-					or (
-						math.abs(distance - existing.distance) <= 0.25
-						and endpoint.width > existing.width
-					)
-				then
-					armMap[key] = {
-						dir = radial,
-						width = endpoint.width,
-						street = endpoint.street,
-						distance = distance,
-					}
-				end
-			end
+	for _, arm in ipairs(node.rawArms) do
+		local key = armKey(arm.name, arm.dir)
+		local current = armMap[key]
+		if not current or arm.width > current.width then
+			armMap[key] = arm
 		end
 	end
 
@@ -191,7 +206,61 @@ local function dedupeArms(center, endpoints, searchRadius)
 		return math.atan2(a.dir.Z, a.dir.X) < math.atan2(b.dir.Z, b.dir.X)
 	end)
 
-	return arms
+	node.rawArms = nil
+	node.arms = arms
+	node.x = node.xSum / math.max(node.count, 1)
+	node.z = node.zSum / math.max(node.count, 1)
+	node.padSize = math.clamp(
+		node.maxWidth * WorldConfig.INTERSECTION_SIZE_MULTIPLIER,
+		WorldConfig.INTERSECTION_MIN_SIZE_STUDS,
+		WorldConfig.INTERSECTION_MAX_SIZE_STUDS
+	)
+	node.isIntersection =
+		#arms >= WorldConfig.INTERSECTION_MIN_DEGREE
+		or distinctNames >= 2
+
+	if node.isIntersection then
+		graphIntersections += 1
+		local key = gridKey(gridCoord(node.x), gridCoord(node.z))
+		local bucket = nodeGrid[key]
+		if not bucket then
+			bucket = {}
+			nodeGrid[key] = bucket
+		end
+		table.insert(bucket, node)
+	end
+end
+
+local function nearestNode(point)
+	local gx = gridCoord(point.X)
+	local gz = gridCoord(point.Z)
+	local best = nil
+	local bestDistance = NODE_MATCH_RADIUS
+
+	for ix = gx - 1, gx + 1 do
+		for iz = gz - 1, gz + 1 do
+			local bucket = nodeGrid[gridKey(ix, iz)]
+			if bucket then
+				for _, node in ipairs(bucket) do
+					local dx = node.x - point.X
+					local dz = node.z - point.Z
+					local distance = math.sqrt(dx * dx + dz * dz)
+					if distance < bestDistance then
+						bestDistance = distance
+						best = node
+					end
+				end
+			end
+		end
+	end
+
+	return best, bestDistance
+end
+
+local function distanceToSquareEdge(node, dir)
+	local half = node.padSize / 2
+	local dominant = math.max(math.abs(dir.X), math.abs(dir.Z), 0.001)
+	return half / dominant
 end
 
 local function cross2(a, b, c)
@@ -204,12 +273,14 @@ local function convexHull(points)
 	end
 
 	local unique = {}
-	local keyed = {}
+	local seen = {}
 
 	for _, p in ipairs(points) do
-		local key = tostring(math.floor(p.X * 100 + 0.5)) .. ":" .. tostring(math.floor(p.Y * 100 + 0.5))
-		if not keyed[key] then
-			keyed[key] = true
+		local key = tostring(math.floor(p.X * 100 + 0.5))
+			.. ":"
+			.. tostring(math.floor(p.Y * 100 + 0.5))
+		if not seen[key] then
+			seen[key] = true
 			table.insert(unique, p)
 		end
 	end
@@ -244,7 +315,6 @@ local function convexHull(points)
 
 	table.remove(lower)
 	table.remove(upper)
-
 	for _, p in ipairs(upper) do
 		table.insert(lower, p)
 	end
@@ -262,23 +332,24 @@ local function polygonArea(points)
 	return math.abs(area) * 0.5
 end
 
-local function polygonFromArms(center, arms)
+local function polygonFromNode(node)
 	local points = {}
+	local center = Vector3.new(node.x, 0, node.z)
 
-	for _, arm in ipairs(arms) do
+	for _, arm in ipairs(node.arms) do
 		local dir = arm.dir
 		local perp = Vector3.new(-dir.Z, 0, dir.X)
-		local reach = arm.distance + ROAD_OVERLAP
-		local halfWidth = arm.width / 2 + LATERAL_OVERLAP
-		local nose = center + dir * reach
+		local mouthDistance = distanceToSquareEdge(node, dir) + MOUTH_FORWARD_OVERLAP
+		local halfWidth = arm.width / 2 + MOUTH_LATERAL_OVERLAP
+		local mouth = center + dir * mouthDistance
 
 		table.insert(points, Vector2.new(
-			nose.X + perp.X * halfWidth,
-			nose.Z + perp.Z * halfWidth
+			mouth.X + perp.X * halfWidth,
+			mouth.Z + perp.Z * halfWidth
 		))
 		table.insert(points, Vector2.new(
-			nose.X - perp.X * halfWidth,
-			nose.Z - perp.Z * halfWidth
+			mouth.X - perp.X * halfWidth,
+			mouth.Z - perp.Z * halfWidth
 		))
 	end
 
@@ -290,7 +361,7 @@ local function planeYAt(pad, x, z, topSurface)
 	local planePoint = pad.Position
 
 	if topSurface then
-		planePoint += normal * (pad.Size.Y / 2 + 0.025)
+		planePoint += normal * (pad.Size.Y / 2 + 0.03)
 	end
 
 	if math.abs(normal.Y) < 0.001 then
@@ -335,7 +406,6 @@ local function makePolygonMesh(pad, polygon)
 		))
 	end
 
-	-- Convex hull is ordered counter-clockwise. Fan triangulation is exact.
 	for i = 2, #polygon - 1 do
 		editable:AddTriangle(topIds[1], topIds[i], topIds[i + 1])
 		editable:AddTriangle(bottomIds[1], bottomIds[i + 1], bottomIds[i])
@@ -374,6 +444,7 @@ local function makePolygonMesh(pad, polygon)
 	meshPart.CFrame = CFrame.new(centerX, centerY, centerZ)
 	meshPart:SetAttribute("CW_IntersectionPad", true)
 	meshPart:SetAttribute("CW_IntersectionPolygon", true)
+	meshPart:SetAttribute("CW_IntersectionGraphDerived", true)
 	meshPart:SetAttribute("CW_GradeLevel", 0)
 
 	local label = pad:GetAttribute("Intersection")
@@ -385,7 +456,6 @@ local function makePolygonMesh(pad, polygon)
 end
 
 local pads = {}
-
 for _, tile in ipairs(world:GetChildren()) do
 	local intersections = tile:FindFirstChild("Intersections")
 	if intersections then
@@ -398,27 +468,28 @@ for _, tile in ipairs(world:GetChildren()) do
 end
 
 local refined = 0
+local unmatched = 0
 local skipped = 0
 local failed = 0
 local totalArms = 0
 
 for index, pad in ipairs(pads) do
-	local center = pad.Position
-	local searchRadius = math.max(pad.Size.X, pad.Size.Z) * 0.78 + ENDPOINT_PAD_EXTRA
-	local endpoints = nearbyEndpoints(center, searchRadius)
-	local arms = dedupeArms(center, endpoints, searchRadius)
+	local node = nearestNode(pad.Position)
 
-	if #arms >= 2 then
-		local polygon = polygonFromArms(center, arms)
+	if not node then
+		unmatched += 1
+	else
+		local polygon = polygonFromNode(node)
 
-		if #polygon >= 3 and polygonArea(polygon) >= MIN_POLYGON_AREA then
+		if #polygon < 3 or polygonArea(polygon) < MIN_POLYGON_AREA then
+			skipped += 1
+		else
 			local meshPart, err = makePolygonMesh(pad, polygon)
-
 			if meshPart then
 				meshPart.Parent = pad.Parent
 				pad:Destroy()
 				refined += 1
-				totalArms += #arms
+				totalArms += #node.arms
 			else
 				failed += 1
 				warn(("[ChesterWorld IntersectionPadRefiner] %s failed: %s"):format(
@@ -426,11 +497,7 @@ for index, pad in ipairs(pads) do
 					tostring(err)
 				))
 			end
-		else
-			skipped += 1
 		end
-	else
-		skipped += 1
 	end
 
 	if index % 40 == 0 then
@@ -440,11 +507,12 @@ end
 
 Workspace:SetAttribute("CW_IntersectionPadRefineComplete", true)
 
-print(("[ChesterWorld IntersectionPadRefiner] pads=%d refined=%d skipped=%d failed=%d roadPartsIndexed=%d armsUsed=%d"):format(
+print(("[ChesterWorld IntersectionPadRefiner] graphNodes=%d pads=%d refined=%d unmatched=%d skipped=%d failed=%d armsUsed=%d"):format(
+	graphIntersections,
 	#pads,
 	refined,
+	unmatched,
 	skipped,
 	failed,
-	roadPartCount,
 	totalArms
 ))

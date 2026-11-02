@@ -10,7 +10,7 @@ local Tiles = WorldData:WaitForChild("Tiles")
 local StreetData = require(Shared:WaitForChild("StreetData"))
 local WorldPlacement = require(Shared:WaitForChild("WorldPlacement"))
 
-local TileBuilder = require(script.Parent.World:WaitForChild("TileBuilder"))
+local TileBuilder = require(script.Parent.World:WaitForChild("TileBuilderV2"))
 
 local terrainParams = RaycastParams.new()
 terrainParams.FilterType = Enum.RaycastFilterType.Include
@@ -75,6 +75,11 @@ print(("[ChesterWorld] Prioritizing spawn tile near r%02d c%02d."):format(
 	spawnRow,
 	spawnColumn
 ))
+
+-- Build one global road graph before any tile renders. This prevents tile-edge
+-- intersections from being missed and guarantees that each junction is owned
+-- and rendered exactly once.
+TileBuilder.Prepare(modules)
 
 local spawnReady = false
 local spawnConnectionsReady = false

@@ -159,10 +159,17 @@ local function dedupeArms(center, endpoints, searchRadius)
 				local key = directionKey(endpoint.street, radial)
 				local existing = armMap[key]
 
+				-- Adaptive road splitting can place more than one endpoint from
+				-- the same approach inside the search radius. The true intersection
+				-- endpoint is the CLOSEST valid one to the pad center. If two are
+				-- effectively tied, keep the wider rendered road.
 				if
 					not existing
-					or endpoint.width > existing.width
-					or distance > existing.distance
+					or distance < existing.distance - 0.25
+					or (
+						math.abs(distance - existing.distance) <= 0.25
+						and endpoint.width > existing.width
+					)
 				then
 					armMap[key] = {
 						dir = radial,

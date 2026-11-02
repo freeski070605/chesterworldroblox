@@ -1,12 +1,13 @@
 -- ChesterWorld - RoadTerrainConformer.server.lua
 --
 -- SINGLE ELEVATION OWNERSHIP:
---   * TileBuilderV2 owns the elevation of all ground/tunnel road geometry.
---   * This script ONLY applies the grade-separated bridge profile.
+--   * TileBuilderV2 owns all at-grade / underpass road elevation.
+--   * This script ONLY shapes positive-grade bridge groups.
 --
--- The old conformer moved every ground-road Part after TileBuilderV2 had already
--- fitted it to Terrain. Intersections/crosswalks/sidewalks were not moved by that
--- second pass, which created visible triangular seams at junctions.
+-- Bridge rule:
+--   Do NOT follow terrain underneath every bridge Part. That reproduces ground
+--   bumps/cuts in the elevated deck. Each bridge group now gets one continuous
+--   start-to-end baseline, with a smooth clearance profile across the span.
 --
 -- LOCKED HANDEDNESS: north=-Z, south=+Z, east=+X, west=-X.
 
@@ -17,10 +18,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local WorldConfig = require(Shared:WaitForChild("WorldConfig"))
 
 local SURFACE_LIFT = 0.22
-local MIN_SLOPE_LENGTH = 8
 local RAY_START_Y = 2048
 local RAY_DISTANCE = 4096
-local END_FRACTION = 0.44
 local WIDTH_FRACTION = 0.38
 
 Workspace:SetAttribute("CW_RoadConformComplete", false)
@@ -73,10 +72,12 @@ local function horizontalUnit(v)
 end
 
 local function roadAxes(part)
-	if part.Size.X >= part.Size.Z then
-		return "X", part.Size.X, part.Size.Z, part.CFrame.RightVector
-	else
+	-- TileBuilderV2 strips use width on X and longitudinal distance on Z.
+	-- Keep the generic fallback for safety.
+	if part.Size.Z >= part.Size.X then
 		return "Z", part.Size.Z, part.Size.X, part.CFrame.LookVector
+	else
+		return "X", part.Size.X, part.Size.Z, part.CFrame.RightVector
 	end
 end
 
@@ -123,78 +124,6 @@ local function sampleCrossSection(center, sideAxis, halfWidth)
 	return best
 end
 
-local function conformBridgePart(part, startOffset, centerOffset, endOffset)
-	local axisKind, length, width, rawLongAxis = roadAxes(part)
-	local longHorizontal = horizontalUnit(rawLongAxis)
-
-	if not longHorizontal then
-		return false, "bad_axis"
-	end
-
-	local sideHorizontal = Vector3.new(-longHorizontal.Z, 0, longHorizontal.X)
-	local centerXZ = Vector3.new(part.Position.X, 0, part.Position.Z)
-	local endpointOffset = longHorizontal * (length * END_FRACTION)
-	local startXZ = centerXZ - endpointOffset
-	local endXZ = centerXZ + endpointOffset
-	local halfWidth = width / 2
-
-	local startGround = sampleCrossSection(startXZ, sideHorizontal, halfWidth)
-	local centerGround = sampleCrossSection(centerXZ, sideHorizontal, halfWidth)
-	local endGround = sampleCrossSection(endXZ, sideHorizontal, halfWidth)
-
-	if not startGround or not centerGround or not endGround then
-		return false, "no_terrain"
-	end
-
-	local halfThickness = part.Size.Y / 2
-	local yOffset = halfThickness + SURFACE_LIFT
-
-	local startY = startGround + yOffset + (startOffset or 0)
-	local centerY = centerGround + yOffset + (centerOffset or 0)
-	local endY = endGround + yOffset + (endOffset or 0)
-
-	if length < MIN_SLOPE_LENGTH then
-		local targetY = math.max(startY, centerY, endY)
-		part.CFrame = CFrame.new(part.Position.X, targetY, part.Position.Z)
-			* (part.CFrame - part.CFrame.Position)
-		part:SetAttribute("CW_TerrainConformed", true)
-		part:SetAttribute("CW_ElevationOwner", "RoadTerrainConformer:Bridge")
-		return true, "raised"
-	end
-
-	local horizontalDistance = (endXZ - startXZ).Magnitude
-	if horizontalDistance < 0.001 then
-		return false, "too_short"
-	end
-
-	local rise = endY - startY
-	local run = horizontalDistance
-	local long3 = Vector3.new(
-		longHorizontal.X * run,
-		rise,
-		longHorizontal.Z * run
-	).Unit
-
-	local endpointMidY = (startY + endY) / 2
-	local extraLift = math.max(0, centerY - endpointMidY)
-
-	part.CFrame = buildFrameForAxis(
-		Vector3.new(
-			part.Position.X,
-			endpointMidY + extraLift,
-			part.Position.Z
-		),
-		axisKind,
-		long3
-	)
-
-	part:SetAttribute("CW_TerrainConformed", true)
-	part:SetAttribute("CW_TerrainExtraLift", extraLift)
-	part:SetAttribute("CW_ElevationOwner", "RoadTerrainConformer:Bridge")
-
-	return true, "sloped"
-end
-
 local function smoothstep(t)
 	t = math.clamp(t, 0, 1)
 	return t * t * (3 - 2 * t)
@@ -203,8 +132,8 @@ end
 local function bridgeProfile(t, clearance)
 	local rampFraction = math.clamp(
 		WorldConfig.BRIDGE_RAMP_FRACTION or 0.20,
-		0.05,
-		0.45
+		0.08,
+		0.42
 	)
 
 	if t <= rampFraction then
@@ -252,66 +181,137 @@ local function dominantDirection(parts)
 	return reference or Vector3.new(1, 0, 0)
 end
 
+local function lerp(a, b, t)
+	return a + (b - a) * math.clamp(t, 0, 1)
+end
+
 local function conformBridgeGroup(parts)
 	local direction = dominantDirection(parts)
-	local projections = {}
+	local info = {}
 	local minProjection = math.huge
 	local maxProjection = -math.huge
+	local startWorld = nil
+	local endWorld = nil
+	local startWidth = 0
+	local endWidth = 0
 	local clearance = 0
 
 	for _, part in ipairs(parts) do
-		local projection = part.Position.X * direction.X + part.Position.Z * direction.Z
-		projections[part] = projection
-		minProjection = math.min(minProjection, projection)
-		maxProjection = math.max(maxProjection, projection)
+		local axisKind, length, width, rawAxis = roadAxes(part)
+		local axis = horizontalUnit(rawAxis) or direction
+		if axis:Dot(direction) < 0 then
+			axis = -axis
+		end
+
+		local half = length / 2
+		local center = Vector3.new(part.Position.X, 0, part.Position.Z)
+		local p0 = center - axis * half
+		local p1 = center + axis * half
+		local proj0 = p0.X * direction.X + p0.Z * direction.Z
+		local proj1 = p1.X * direction.X + p1.Z * direction.Z
+
+		if proj1 < proj0 then
+			p0, p1 = p1, p0
+			proj0, proj1 = proj1, proj0
+		end
+
+		info[part] = {
+			axisKind = axisKind,
+			axis = axis,
+			length = length,
+			width = width,
+			p0 = p0,
+			p1 = p1,
+			proj0 = proj0,
+			proj1 = proj1,
+		}
+
+		if proj0 < minProjection then
+			minProjection = proj0
+			startWorld = p0
+			startWidth = width
+		end
+		if proj1 > maxProjection then
+			maxProjection = proj1
+			endWorld = p1
+			endWidth = width
+		end
+
 		clearance = math.max(
 			clearance,
 			tonumber(part:GetAttribute("CW_GradeClearanceStuds")) or 0
 		)
 	end
 
+	if not startWorld or not endWorld then
+		return 0, 0, #parts
+	end
+
 	if clearance <= 0 then
 		clearance = WorldConfig.GRADE_SEPARATION_CLEARANCE_STUDS or 18
 	end
 
+	local startSide = Vector3.new(-direction.Z, 0, direction.X)
+	local endSide = startSide
+	local startGround = sampleCrossSection(startWorld, startSide, math.max(startWidth / 2, 1))
+	local endGround = sampleCrossSection(endWorld, endSide, math.max(endWidth / 2, 1))
+
+	if not startGround or not endGround then
+		return 0, #parts, 0
+	end
+
 	local span = math.max(maxProjection - minProjection, 1)
 	local conformed = 0
-	local noTerrain = 0
 	local failed = 0
 
-	for _, part in ipairs(parts) do
-		local _, length, _, rawAxis = roadAxes(part)
-		local axis = horizontalUnit(rawAxis) or direction
-		if axis:Dot(direction) < 0 then
-			axis = -axis
-		end
+	for part, data in pairs(info) do
+		local startT = math.clamp((data.proj0 - minProjection) / span, 0, 1)
+		local endT = math.clamp((data.proj1 - minProjection) / span, 0, 1)
+		local centerT = (startT + endT) / 2
 
-		local halfProjected = math.abs(axis:Dot(direction)) * length * END_FRACTION
-		local centerProjection = projections[part]
-		local startT = math.clamp((centerProjection - halfProjected - minProjection) / span, 0, 1)
-		local centerT = math.clamp((centerProjection - minProjection) / span, 0, 1)
-		local endT = math.clamp((centerProjection + halfProjected - minProjection) / span, 0, 1)
+		local halfThickness = part.Size.Y / 2
+		local surfaceOffset = halfThickness + SURFACE_LIFT
 
-		local ok, mode = conformBridgePart(
-			part,
-			bridgeProfile(startT, clearance),
-			bridgeProfile(centerT, clearance),
-			bridgeProfile(endT, clearance)
-		)
+		local startY =
+			lerp(startGround, endGround, startT)
+			+ surfaceOffset
+			+ bridgeProfile(startT, clearance)
 
-		if ok then
-			conformed += 1
-			part:SetAttribute("CW_BridgeProfiled", true)
+		local endY =
+			lerp(startGround, endGround, endT)
+			+ surfaceOffset
+			+ bridgeProfile(endT, clearance)
+
+		local run = (data.p1 - data.p0).Magnitude
+		if run < 0.001 then
+			failed += 1
 		else
-			if mode == "no_terrain" then
-				noTerrain += 1
-			else
-				failed += 1
-			end
+			local rise = endY - startY
+			local long3 = Vector3.new(
+				data.axis.X * run,
+				rise,
+				data.axis.Z * run
+			).Unit
+
+			part.CFrame = buildFrameForAxis(
+				Vector3.new(
+					part.Position.X,
+					(startY + endY) / 2,
+					part.Position.Z
+				),
+				data.axisKind,
+				long3
+			)
+
+			part:SetAttribute("CW_TerrainConformed", true)
+			part:SetAttribute("CW_BridgeProfiled", true)
+			part:SetAttribute("CW_BridgeProfileT", centerT)
+			part:SetAttribute("CW_ElevationOwner", "RoadTerrainConformer:SmoothBridge")
+			conformed += 1
 		end
 	end
 
-	return conformed, noTerrain, failed
+	return conformed, 0, failed
 end
 
 local roads = collectRoadParts()
@@ -331,8 +331,8 @@ for _, road in ipairs(roads) do
 		bridgeGroups[key] = bridgeGroups[key] or {}
 		table.insert(bridgeGroups[key], road)
 	else
-		-- TileBuilderV2 already sampled Terrain and adaptively split this road.
-		-- Do NOT move it again; junction pads/crosswalks share this same surface.
+		-- Ground roads and the road underneath an overpass stay exactly where
+		-- TileBuilderV2 put them. This keeps junctions/sidewalks/markings aligned.
 		groundPreserved += 1
 		if isTunnel then
 			tunnelParts += 1
@@ -367,7 +367,7 @@ Workspace:SetAttribute("CW_RoadConformedCount", conformed)
 Workspace:SetAttribute("CW_RoadConformComplete", true)
 
 print(string.format(
-	"[ChesterWorld RoadTerrainConformer] final=%d groundPreserved=%d bridgeConformed=%d conformed=%d noTerrain=%d failed=%d bridgeGroups=%d bridgeParts=%d tunnelParts=%d",
+	"[ChesterWorld RoadTerrainConformer] final=%d groundPreserved=%d bridgeConformed=%d conformed=%d noTerrain=%d failed=%d bridgeGroups=%d bridgeParts=%d tunnelParts=%d smoothDecks=true",
 	finalRoadCount,
 	groundPreserved,
 	bridgeConformed,

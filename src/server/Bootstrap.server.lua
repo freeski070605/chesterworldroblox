@@ -10,7 +10,7 @@ local Tiles = WorldData:WaitForChild("Tiles")
 local StreetData = require(Shared:WaitForChild("StreetData"))
 local WorldPlacement = require(Shared:WaitForChild("WorldPlacement"))
 
-local TileBuilder = require(script.Parent.World:WaitForChild("TileBuilderV2"))
+local TileBuilder = require(script.Parent.World:WaitForChild("TileBuilderV3"))
 
 local terrainParams = RaycastParams.new()
 terrainParams.FilterType = Enum.RaycastFilterType.Include

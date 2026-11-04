@@ -246,6 +246,22 @@ for i,upper in ipairs(bridge) do
     if i%30==0 then task.wait() end
 end
 
+-- Validate underside against the terrain surface along each elevated slab.
+-- A road may clear the street underneath yet still intersect a ridge.
+local bridgeTerrainIntrusions=0
+for _,road in ipairs(bridge) do
+    local a,b=endpoints(road)
+    for _,p in ipairs({a,road.Position,b}) do
+        local ground=terrainY(p.X,p.Z)
+        local underside=p.Y-road.Size.Y/2-DECK_THICKNESS
+        if ground and underside<ground+0.25 then
+            road:SetAttribute("CW_BridgeTerrainIntrusion",true)
+            bridgeTerrainIntrusions+=1
+            break
+        end
+    end
+end
+
 -- A tagged tunnel whose terrain rises through its roadway needs an engineered
 -- cut/portal. We DO NOT destroy imported regional terrain automatically.
 local tunnelObstructions=0
@@ -268,14 +284,18 @@ end
 Workspace:SetAttribute("CW_HighwayFinishComplete",true)
 Workspace:SetAttribute("CW_HighwayClearanceFailures",tooLow)
 Workspace:SetAttribute("CW_HighwayTunnelObstructions",tunnelObstructions)
+Workspace:SetAttribute("CW_HighwayBridgeTerrainIntrusions",bridgeTerrainIntrusions)
 
-print(("[ChesterWorld HighwayFinish] bridgeRoadParts=%d rampRoadParts=%d deckSlabs=%d guardrails=%d supports=%d crossings=%d minClearance=%.1f lowClearance=%d tunnelObstructions=%d")
+print(("[ChesterWorld HighwayFinish] bridgeRoadParts=%d rampRoadParts=%d deckSlabs=%d guardrails=%d supports=%d crossings=%d minClearance=%.1f lowClearance=%d tunnelObstructions=%d bridgeTerrainIntrusions=%d")
     :format(#bridge,#ramps,deckCount,railCount,pierCount,crossings,
-    minClearance==math.huge and -1 or minClearance,tooLow,tunnelObstructions))
+    minClearance==math.huge and -1 or minClearance,tooLow,tunnelObstructions,bridgeTerrainIntrusions))
 
 if tooLow>0 then
     warn("[ChesterWorld HighwayFinish] LOW CLEARANCE: "..
         table.concat(clearancePairs,"; "))
+end
+if bridgeTerrainIntrusions>0 then
+    warn(("[ChesterWorld HighwayFinish] %d elevated bridge segments intersect terrain; check the highlighted CW_BridgeTerrainIntrusion Parts."):format(bridgeTerrainIntrusions))
 end
 if tunnelObstructions>0 then
     warn(("[ChesterWorld HighwayFinish] %d tunnel segments have terrain intrusions. No destructive terrain edits were made."):format(tunnelObstructions))

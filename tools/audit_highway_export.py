@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import math
 import re
-from collections import Counter, defaultdict
+from collections import Counter
 from pathlib import Path
 
 PROJECT = Path(__file__).resolve().parents[1]
@@ -79,7 +79,7 @@ def main():
     highway = [r for r in roads if "i 95" in str(r["name"]).lower()
                or "i-95" in str(r["name"]).lower()
                or "motorway" in str(r["road_class"]).lower()]
-    bridge_groups = defaultdict(int)
+    bridge_groups = Counter()
     for road in roads:
         if road["bridge"] or road["layer"] > 0:
             bridge_groups[str(road["grade_group"])] += 1

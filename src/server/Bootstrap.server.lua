@@ -76,10 +76,19 @@ print(("[ChesterWorld] Prioritizing spawn tile near r%02d c%02d."):format(
 	spawnColumn
 ))
 
+-- Optional Studio preview: graph still reads every tile, but only nearby
+-- tiles are rendered for a fast 9th/Kerlin intersection check.
+local quickStreetPreview = workspace:GetAttribute("CW_QuickStreetPreview") == true
+local tileBuildCount = quickStreetPreview and math.min(#modules, 5) or #modules
+
 -- Build one global road graph before any tile renders. This prevents tile-edge
 -- intersections from being missed and guarantees that each junction is owned
 -- and rendered exactly once.
 TileBuilder.Prepare(modules)
+if quickStreetPreview then
+    if TileBuilder.SetExpectedTiles then TileBuilder.SetExpectedTiles(tileBuildCount) end
+    warn(("[ChesterWorld] QUICK STREET PREVIEW builds %d/%d tiles near spawn; disable CW_QuickStreetPreview for full map."):format(tileBuildCount, #modules))
+end
 
 local spawnReady = false
 local spawnConnectionsReady = false
@@ -147,7 +156,8 @@ local function enableSpawn()
 	))
 end
 
-for index, module in ipairs(modules) do
+for index = 1, tileBuildCount do
+    local module = modules[index]
 	if module:IsA("ModuleScript") then
 		task.wait()
 
@@ -163,8 +173,8 @@ for index, module in ipairs(modules) do
 			enableSpawn()
 		end
 
-		if index % 5 == 0 or index == #modules then
-			print(("[ChesterWorld] Built %d/%d tiles."):format(index, #modules))
+		if index % 5 == 0 or index == tileBuildCount then
+			print(("[ChesterWorld] Built %d/%d tiles."):format(index, tileBuildCount))
 		end
 
 		task.wait()

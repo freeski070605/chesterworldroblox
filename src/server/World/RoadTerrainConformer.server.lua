@@ -467,8 +467,21 @@ local function conformComponent(parts, groupKey)
     -- than silently pretending the designed 10% ramp grade was achieved.
     local maxLeftGrade = 1.5 * math.abs(targetLift - startLift) / (span * fraction)
     local maxRightGrade = 1.5 * math.abs(targetLift - endLift) / (span * fraction)
-    if math.max(maxLeftGrade, maxRightGrade) > 0.20 then
+    local worstGrade = math.max(maxLeftGrade,maxRightGrade)
+    if worstGrade > 0.20 then
         stats.steepGroups += 1
+        -- Report the physical impossibility instead of labeling a smooth
+        -- interpolation as a safe highway ramp.
+        if stats.steepGroups <= 12 then
+            warn(("[ChesterWorld UnsafeBridgeProfile] name=%s group=%s x=%.1f z=%.1f span=%.1f studs maxGrade=%.1f%% rampStart=%.1f rampEnd=%.1f peakLift=%.1f"):format(
+                bridgeName,groupKey,
+                (lowPoint.X+highPoint.X)/2,(lowPoint.Z+highPoint.Z)/2,
+                span,worstGrade*100,startLength,endLength,targetLift))
+        end
+        for _, rec in ipairs(records) do
+            rec.part:SetAttribute("CW_HighwayUnsafeGrade",true)
+            rec.part:SetAttribute("CW_HighwayMaxGrade",worstGrade)
+        end
     end
     -- Track unresolved terrain and lower-road requirements distinctly.
     local terrainUnresolved = 0

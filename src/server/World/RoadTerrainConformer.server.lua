@@ -376,6 +376,7 @@ local stats = {
     crossingChecks = 0, clearanceWarnings = 0, steepGroups = 0,
     terrainClearanceWarnings = 0, terrainEndpointEstimates = 0,
     insufficientApproachLength = 0, gradeLimitedParts = 0,
+    actualSteepParts = 0, baselineSteepGroups = 0,
 }
 
 local function conformComponent(parts, groupKey)
@@ -575,6 +576,31 @@ local function conformComponent(parts, groupKey)
         end
     end
 
+    -- Absolute roadway grade includes the REAL bare-earth baseline.
+    -- Limiting only artificial lift doesn't make a naturally steep hillside
+    -- driveable. Measure the fully rendered segment endpoints as well.
+    local actualMaxGrade, segmentSteep = 0, 0
+    for _, rec in ipairs(records) do
+        local a, b = endpoints(rec.part)
+        local horizontal = hdist(a, b)
+        if horizontal > 0.1 then
+            local grade = math.abs(a.Y-b.Y)/horizontal
+            actualMaxGrade = math.max(actualMaxGrade, grade)
+            if grade > MAX_GRADE * 1.15 then
+                segmentSteep += 1
+                rec.part:SetAttribute("CW_HighwayUnsafeGrade", true)
+                rec.part:SetAttribute("CW_HighwayMaxGrade", grade)
+                -- Skip structural dressing on places that still require
+                -- terrain reconstruction / surveyed bridge endpoint levels.
+                rec.part:SetAttribute("CW_GradeLimited", true)
+            end
+        end
+    end
+    if segmentSteep > 0 then
+        stats.actualSteepParts += segmentSteep
+        stats.baselineSteepGroups += 1
+    end
+
     -- A bridge's tagged source span can be short. Report unsafe profiles rather
     -- than silently pretending the designed 10% ramp grade was achieved.
     local maxLeftGrade = 1.5 * math.abs(targetLift - startLift) / (span * fraction)
@@ -768,14 +794,15 @@ Workspace:SetAttribute("CW_RoadConformTotal", #allRoads)
 Workspace:SetAttribute("CW_RoadConformedCount", conformed)
 Workspace:SetAttribute("CW_RoadConformComplete", true)
 
-print(("[ChesterWorld RoadTerrainConformer] final=%d groundPreserved=%d bridgeConformed=%d conformed=%d noTerrain=%d failed=%d bridgeGroups=%d sourceBridgeGroups=%d bridgeComponents=%d bridgeParts=%d tunnelParts=%d rampParts=%d rampGroups=%d marked=%d crossingChecks=%d clearanceWarnings=%d terrainClearanceWarnings=%d terrainEndpointEstimates=%d steepGroups=%d gradeLimitedGroups=%d gradeLimitedParts=%d smoothDecks=true")
+print(("[ChesterWorld RoadTerrainConformer] final=%d groundPreserved=%d bridgeConformed=%d conformed=%d noTerrain=%d failed=%d bridgeGroups=%d sourceBridgeGroups=%d bridgeComponents=%d bridgeParts=%d tunnelParts=%d rampParts=%d rampGroups=%d marked=%d crossingChecks=%d clearanceWarnings=%d terrainClearanceWarnings=%d terrainEndpointEstimates=%d steepGroups=%d gradeLimitedGroups=%d gradeLimitedParts=%d actualSteepParts=%d baselineSteepGroups=%d smoothDecks=true")
     :format(#allRoads, #atGrade-stats.rampParts, stats.bridgeConformed,
     conformed, stats.bridgeNoTerrain, stats.failed, stats.groups,
     sourceBridgeGroups, stats.components, stats.bridgeParts, stats.tunnelParts,
     stats.rampParts, stats.rampGroups, stats.marked, stats.crossingChecks,
     stats.clearanceWarnings, stats.terrainClearanceWarnings,
     stats.terrainEndpointEstimates,stats.steepGroups,
-    stats.insufficientApproachLength,stats.gradeLimitedParts))
+    stats.insufficientApproachLength,stats.gradeLimitedParts,
+    stats.actualSteepParts,stats.baselineSteepGroups))
 if stats.clearanceWarnings > 0 then
     warn(("[ChesterWorld Highway] %d bridge crossings need additional surveyed vertical data / ramp length to guarantee clearance."):format(stats.clearanceWarnings))
 end

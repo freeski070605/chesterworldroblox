@@ -802,7 +802,15 @@ local function buildCenterLine(markingsFolder, road, roadWidth)
         WorldConfig.CENTERLINE_COLOR,
         WorldConfig.CENTERLINE_SURFACE_OFFSET_STUDS,
         gradeOffsetForRoad(road), 0,
-        { ChesterStreet = streetName, MarkingType = "CenterLine", CW_GradeLevel = gradeLevelForRoad(road) }
+        {
+            ChesterStreet = streetName,
+            MarkingType = "CenterLine",
+            CW_GradeLevel = gradeLevelForRoad(road),
+            CW_GradeGroup = tostring(road.grade_group or ""),
+            CW_Bridge = truthy(road.bridge),
+            CW_Tunnel = truthy(road.tunnel),
+            CW_RoadClass = tostring(road.road_class or ""),
+        }
     )
 end
 

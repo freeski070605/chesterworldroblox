@@ -350,6 +350,22 @@ local function conformComponent(parts, groupKey)
             end
         end
     end
+    -- Ensure the underside of the bridge is not swallowed by unsmoothed
+    -- imported terrain between its endpoint samples. Check 1/4, 1/2, 3/4
+    -- along each part; this does NOT modify terrain.
+    local deckDepth = Config.HIGHWAY_DECK_THICKNESS_STUDS or 1.6
+    for _, rec in ipairs(records) do
+        for _, fractionAlong in ipairs({0.25, 0.5, 0.75}) do
+            local point = rec.a:Lerp(rec.b, fractionAlong)
+            local gy = terrainY(point.X, point.Z)
+            if gy then
+                local t = math.clamp((point.X*direction.X+point.Z*direction.Z-low)/span,0,1)
+                local baseline = lerp(startGround, endGround, t)
+                    + ROAD_OFFSET - rec.part.Size.Y/2 - deckDepth
+                targetLift = math.max(targetLift, gy + 2.5 - baseline)
+            end
+        end
+    end
     targetLift = math.clamp(targetLift, nominalClearance, math.max(MAX_LIFT, nominalClearance))
     stats.crossingChecks += #crossings
 

@@ -294,6 +294,47 @@ local function polygonFromNode(node)
 	return convexHull(points)
 end
 
+-- Query the EXACT convex paving polygon at any lateral offset.
+-- Used for both full-width road mouths and correctly set-back zebra crossings.
+local function rayPolygonExitAtOffset(node, dir, offset)
+    local polygon = node.polygon
+    if not polygon or #polygon < 3 then return nil end
+    local perpendicular = Vector3.new(-dir.Z, 0, dir.X)
+    local px = node.x + perpendicular.X * offset
+    local pz = node.z + perpendicular.Z * offset
+    local rx, rz = dir.X, dir.Z
+    local farthest = nil
+    for i = 1, #polygon do
+        local a = polygon[i]
+        local b = polygon[(i % #polygon) + 1]
+        local sx, sz = b.X - a.X, b.Y - a.Y
+        local denom = rx * sz - rz * sx
+        if math.abs(denom) > 1e-7 then
+            local qx, qz = a.X - px, a.Y - pz
+            local t = (qx * sz - qz * sx) / denom
+            local u = (qx * rz - qz * rx) / denom
+            if t >= 0 and u >= -1e-5 and u <= 1 + 1e-5 then
+                if not farthest or t > farthest then farthest = t end
+            end
+        end
+    end
+    return farthest
+end
+
+local function polygonArmBoundary(node, dir, halfWidth, useFarthest)
+    local middle = rayPolygonExitAtOffset(node, dir, 0)
+    if not middle then return node.maxWidth * 0.55 end
+    if not halfWidth or halfWidth < 0.1 then return middle end
+    local left = rayPolygonExitAtOffset(node, dir, -halfWidth) or middle
+    local right = rayPolygonExitAtOffset(node, dir, halfWidth) or middle
+    if useFarthest then
+        return math.max(middle, left, right)
+    end
+    -- For the pavement approach, the nearest polygon edge determines where
+    -- a full-width rectangular road can begin without leaving a dirt wedge.
+    return math.min(middle, left, right)
+end
+
 local function rayPolygonDistance(node, dir)
 	local polygon = node.polygon
 	if not polygon or #polygon < 3 then
@@ -460,14 +501,14 @@ local function pointAlong2D(a, b, distanceFromA)
 	return Vector3.new(a.X + dx * t, 0, a.Z + dz * t)
 end
 
-local function trimDistanceForNode(node, dir, extraClearance)
-	if not node or not node.isIntersection then return 0 end
-	return math.max(
-		0,
-		rayPolygonDistance(node, dir)
-			- WorldConfig.INTERSECTION_ROAD_OVERLAP_STUDS
-			+ (extraClearance or 0)
-	)
+local function trimDistanceForNode(node, dir, extraClearance, halfWidth)
+    if not node or not node.isIntersection then return 0 end
+    -- Roads must reach the nearest edge across their FULL width. Centerline-
+    -- only trimming previously left triangular holes on diagonal approaches.
+    local boundary = polygonArmBoundary(node, dir, halfWidth or 0, false)
+    return math.max(0,
+        boundary - WorldConfig.INTERSECTION_ROAD_OVERLAP_STUDS
+        + (extraClearance or 0))
 end
 
 local function trimmedEndpoints(road, extraClearance)
@@ -487,8 +528,14 @@ local function trimmedEndpoints(road, extraClearance)
         startClearance = extraClearance.start or 0
         endClearance = extraClearance.finish or 0
     end
-	local trimStart = trimDistanceForNode(startNode, startDir, startClearance)
-	local trimEnd = trimDistanceForNode(endNode, endDir, endClearance)
+    -- A painted centerline has negligible width. Asphalt/sidewalk approaches
+    -- use both pavement edges to prevent gaps beside skewed junctions.
+    local halfWidth = 0
+    if type(extraClearance) ~= "table" then
+        halfWidth = math.max((tonumber(road.width_m) or 7) * S / 2 - 0.25, 1)
+    end
+	local trimStart = trimDistanceForNode(startNode, startDir, startClearance, halfWidth)
+	local trimEnd = trimDistanceForNode(endNode, endDir, endClearance, halfWidth)
 	if trimStart + trimEnd >= length - 1.0 then return nil, nil end
 	return pointAlong2D(a, b, trimStart), pointAlong2D(b, a, trimEnd)
 end
@@ -637,7 +684,13 @@ local function buildCrosswalkForArm(markingsFolder, node, arm)
 	local dir = arm.dir
 	if dir.Magnitude < 0.001 then return end
 	local perpendicular = Vector3.new(-dir.Z, 0, dir.X)
-	local baseSetback = rayPolygonDistance(node, dir) + WorldConfig.CROSSWALK_EDGE_CLEARANCE_STUDS
+    -- Start AFTER the farthest polygon corner across the complete zebra width.
+    -- Measuring only the center previously let half the crosswalk sit on the
+    -- junction asphalt at diagonal/skewed approaches.
+    local usableWidth = math.max(arm.width - 2.0, 4.0)
+    local halfAcross = usableWidth / 2
+    local baseSetback = polygonArmBoundary(node, dir, halfAcross, true)
+        + WorldConfig.CROSSWALK_EDGE_CLEARANCE_STUDS
     local stripeSpan = WorldConfig.CROSSWALK_STRIPE_COUNT * WorldConfig.CROSSWALK_STRIPE_DEPTH_STUDS
         + (WorldConfig.CROSSWALK_STRIPE_COUNT - 1) * WorldConfig.CROSSWALK_STRIPE_GAP_STUDS
     -- A short source segment cannot fit a crosswalk before its next junction.
@@ -659,8 +712,6 @@ local function buildCrosswalkForArm(markingsFolder, node, arm)
             end
         end
     end
-	local usableWidth = math.max(arm.width - 2.0, 4.0)
-	local halfAcross = usableWidth / 2
 	for stripe = 0, WorldConfig.CROSSWALK_STRIPE_COUNT - 1 do
 		local along = baseSetback + stripe * (WorldConfig.CROSSWALK_STRIPE_DEPTH_STUDS + WorldConfig.CROSSWALK_STRIPE_GAP_STUDS)
 		local center = Vector3.new(node.x, 0, node.z) + dir * along

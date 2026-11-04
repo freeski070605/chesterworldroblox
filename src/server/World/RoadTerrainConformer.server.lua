@@ -347,6 +347,28 @@ end
 
 local profilesByGroup = {}
 local rampsByGroup = {}
+
+-- Source grade_group is usually a single county feature ID. Adjacent pieces
+-- of the SAME elevated roadway often get different IDs; profiling each one
+-- creates dozens of 24-60 stud "bridges" with no room for a real slope.
+-- Group by normalized name + elevation layer, then split by actual shared
+-- endpoints. Two parallel carriageways remain separate unless connected.
+local corridorBridges = {}
+local sourceBridgeGroups = 0
+for _, group in pairs(bridges) do
+    sourceBridgeGroups += 1
+    for _, part in ipairs(group) do
+        local level = tonumber(part:GetAttribute("CW_GradeLevel")) or 0
+        local cleanName = normalizedRoadName(attr(part, "ChesterStreet"))
+        local key = cleanName .. ":elevation:" .. tostring(level)
+        if cleanName == "" or cleanName == "road" then
+            key = attr(part, "CW_GradeGroup")
+        end
+        corridorBridges[key] = corridorBridges[key] or {}
+        table.insert(corridorBridges[key], part)
+    end
+end
+
 local stats = {
     groups = 0, components = 0, bridgeParts = 0, bridgeConformed = 0,
     bridgeNoTerrain = 0, failed = 0, tunnelParts = tunnelParts,
@@ -587,8 +609,13 @@ local function conformComponent(parts, groupKey)
         end
     end
 
+    local sourceGroups = {}
+    for _, part in ipairs(parts) do
+        local originalGroup = attr(part, "CW_GradeGroup")
+        if originalGroup ~= "" then sourceGroups[originalGroup] = true end
+    end
     local profile = {
-        group = groupKey, parts = parts,
+        group = groupKey, sourceGroups = sourceGroups, parts = parts,
         atXZ = atXZ, low = low, high = high,
         centerY = centerY, direction = direction,
         start = lowPoint, finish = highPoint,
@@ -644,7 +671,7 @@ local function conformComponent(parts, groupKey)
     return profile
 end
 
-for key, group in pairs(bridges) do
+for key, group in pairs(corridorBridges) do
     stats.groups += 1
     stats.bridgeParts += #group
     for _, component in ipairs(components(group)) do
@@ -682,7 +709,12 @@ local function profileDistance(profile, position)
 end
 
 for _, profile in ipairs(profilesByGroup) do
-    local marks = marksByGroup[profile.group] or {}
+    local marks = {}
+    for originalGroup in pairs(profile.sourceGroups) do
+        for _, marking in ipairs(marksByGroup[originalGroup] or {}) do
+            table.insert(marks, marking)
+        end
+    end
     for _, marking in ipairs(marks) do
         local a, b = endpoints(marking)
         local halfWidth = marking.Size.X
@@ -736,10 +768,10 @@ Workspace:SetAttribute("CW_RoadConformTotal", #allRoads)
 Workspace:SetAttribute("CW_RoadConformedCount", conformed)
 Workspace:SetAttribute("CW_RoadConformComplete", true)
 
-print(("[ChesterWorld RoadTerrainConformer] final=%d groundPreserved=%d bridgeConformed=%d conformed=%d noTerrain=%d failed=%d bridgeGroups=%d bridgeComponents=%d bridgeParts=%d tunnelParts=%d rampParts=%d rampGroups=%d marked=%d crossingChecks=%d clearanceWarnings=%d terrainClearanceWarnings=%d terrainEndpointEstimates=%d steepGroups=%d gradeLimitedGroups=%d gradeLimitedParts=%d smoothDecks=true")
+print(("[ChesterWorld RoadTerrainConformer] final=%d groundPreserved=%d bridgeConformed=%d conformed=%d noTerrain=%d failed=%d bridgeGroups=%d sourceBridgeGroups=%d bridgeComponents=%d bridgeParts=%d tunnelParts=%d rampParts=%d rampGroups=%d marked=%d crossingChecks=%d clearanceWarnings=%d terrainClearanceWarnings=%d terrainEndpointEstimates=%d steepGroups=%d gradeLimitedGroups=%d gradeLimitedParts=%d smoothDecks=true")
     :format(#allRoads, #atGrade-stats.rampParts, stats.bridgeConformed,
     conformed, stats.bridgeNoTerrain, stats.failed, stats.groups,
-    stats.components, stats.bridgeParts, stats.tunnelParts,
+    sourceBridgeGroups, stats.components, stats.bridgeParts, stats.tunnelParts,
     stats.rampParts, stats.rampGroups, stats.marked, stats.crossingChecks,
     stats.clearanceWarnings, stats.terrainClearanceWarnings,
     stats.terrainEndpointEstimates,stats.steepGroups,

@@ -257,21 +257,43 @@ for i,upper in ipairs(bridge) do
     if i%30==0 then task.wait() end
 end
 
--- Validate underside against the terrain surface along each elevated slab.
--- A road may clear the street underneath yet still intersect a ridge.
+-- Inspect the actual bridge MIDSPAN and report its X/Z instead of
+-- treating embankment contact at every piece's terminal as an overpass failure.
+-- This is a non-destructive audit: no terrain edits, no artificial grade fixes.
 local bridgeTerrainIntrusions=0
+local bridgeTerminalContacts=0
+local intrusionDetails={}
 for _,road in ipairs(bridge) do
     local a,b=endpoints(road)
-    for _,p in ipairs({a,road.Position,b}) do
+    local terminalHit=false
+    local midspanHit=false
+    local worstGap=math.huge
+    for _,t in ipairs({0,0.2,0.4,0.5,0.6,0.8,1}) do
+        local p=a:Lerp(b,t)
         local ground=terrainY(p.X,p.Z)
         local underside=p.Y-road.Size.Y/2-DECK_THICKNESS
         if ground and underside<ground+0.25 then
-            road:SetAttribute("CW_BridgeTerrainIntrusion",true)
-            bridgeTerrainIntrusions+=1
-            break
+            local deficit=(ground+0.25)-underside
+            if t==0 or t==1 then
+                terminalHit=true
+            else
+                midspanHit=true
+                worstGap=math.min(worstGap, -deficit)
+            end
         end
     end
+    if midspanHit then
+        road:SetAttribute("CW_BridgeTerrainIntrusion",true)
+        bridgeTerrainIntrusions+=1
+        table.insert(intrusionDetails,{
+            road=road, gap=worstGap, x=road.Position.X, z=road.Position.Z,
+        })
+    elseif terminalHit then
+        road:SetAttribute("CW_BridgeTerminalEmbankmentContact",true)
+        bridgeTerminalContacts+=1
+    end
 end
+table.sort(intrusionDetails,function(a,b) return a.gap<b.gap end)
 
 -- A tagged tunnel whose terrain rises through its roadway needs an engineered
 -- cut/portal. We DO NOT destroy imported regional terrain automatically.
@@ -296,10 +318,12 @@ Workspace:SetAttribute("CW_HighwayFinishComplete",true)
 Workspace:SetAttribute("CW_HighwayClearanceFailures",tooLow)
 Workspace:SetAttribute("CW_HighwayTunnelObstructions",tunnelObstructions)
 Workspace:SetAttribute("CW_HighwayBridgeTerrainIntrusions",bridgeTerrainIntrusions)
+Workspace:SetAttribute("CW_HighwayBridgeEmbankmentContacts",bridgeTerminalContacts)
+Workspace:SetAttribute("CW_HighwayCrossingsVerified",crossings>0)
 
-print(("[ChesterWorld HighwayFinish] bridgeRoadParts=%d rampRoadParts=%d deckSlabs=%d guardrails=%d supports=%d crossings=%d minClearance=%.1f lowClearance=%d tunnelObstructions=%d bridgeTerrainIntrusions=%d unprofiledBridgeParts=%d")
+print(("[ChesterWorld HighwayFinish] bridgeRoadParts=%d rampRoadParts=%d deckSlabs=%d guardrails=%d supports=%d crossings=%d minClearance=%.1f lowClearance=%d tunnelObstructions=%d bridgeTerrainIntrusions=%d terminalEmbankmentContacts=%d unprofiledBridgeParts=%d crossingsVerified=%s")
     :format(#bridge,#ramps,deckCount,railCount,pierCount,crossings,
-    minClearance==math.huge and -1 or minClearance,tooLow,tunnelObstructions,bridgeTerrainIntrusions,#unprofiledBridges))
+    minClearance==math.huge and -1 or minClearance,tooLow,tunnelObstructions,bridgeTerrainIntrusions,bridgeTerminalContacts,#unprofiledBridges,tostring(crossings>0)))
 
 if tooLow>0 then
     warn("[ChesterWorld HighwayFinish] LOW CLEARANCE: "..
@@ -309,7 +333,19 @@ if #unprofiledBridges>0 then
     warn(("[ChesterWorld HighwayFinish] %d bridge road parts could not be height-profiled (missing Terrain samples)."):format(#unprofiledBridges))
 end
 if bridgeTerrainIntrusions>0 then
-    warn(("[ChesterWorld HighwayFinish] %d elevated bridge segments intersect terrain; check the highlighted CW_BridgeTerrainIntrusion Parts."):format(bridgeTerrainIntrusions))
+    warn(("[ChesterWorld HighwayFinish] %d elevated bridge segments still intersect terrain in their interior. Worst locations:"):format(bridgeTerrainIntrusions))
+    for index=1,math.min(15,#intrusionDetails) do
+        local item=intrusionDetails[index]
+        warn(("[ChesterWorld HighwayIssue] road=%s x=%.1f z=%.1f intrusion=%.1f studs group=%s")
+            :format(item.road.Name,item.x,item.z,-item.gap,
+                tostring(item.road:GetAttribute("CW_GradeGroup") or "")))
+    end
+end
+if crossings==0 then
+    warn("[ChesterWorld HighwayFinish] NO GROUND-ROAD CROSSINGS DETECTED: underpass clearances have NOT been verified. Rail/stream crossings are not represented in Road tiles.")
+end
+if bridgeTerminalContacts>0 then
+    print(("[ChesterWorld HighwayFinish] %d additional bridge parts contact embankments at their ends only."):format(bridgeTerminalContacts))
 end
 if tunnelObstructions>0 then
     warn(("[ChesterWorld HighwayFinish] %d tunnel segments have terrain intrusions. No destructive terrain edits were made."):format(tunnelObstructions))

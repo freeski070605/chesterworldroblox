@@ -1,0 +1,61 @@
+{
+    "created_client_date":  "2026-11-04",
+    "baseline_commit":  "f6560a3697a6086ee53238e4c4fdd5faa65a948d",
+    "files":  [
+                  {
+                      "path":  "baseline_build.rbxmx",
+                      "sha256":  "DD48017FA579D68561B14DC89407C612CBBD78DB2D1348F2DD94F5D53313C380",
+                      "bytes":  24725898
+                  },
+                  {
+                      "path":  "source_tile_r07_c07.json",
+                      "sha256":  "BCA094AF20F6F5506A32463F6A294F044DF5EBE32F4C0390143FEC747F0A5F9B",
+                      "bytes":  502692
+                  },
+                  {
+                      "path":  "studio_baseline_diagnostic.txt",
+                      "sha256":  "A0500CDAAD4610AF8339735E10B2FF7A2799CA4EFE40446E686EBB1094E60F85",
+                      "bytes":  85175
+                  },
+                  {
+                      "path":  "src/server/World/HighwayInfrastructure.server.lua",
+                      "sha256":  "584AA45254022C0A68C3F3D44C11E5C3FBD44839E8CA1B4BDDE56278547CDA4F",
+                      "bytes":  15292
+                  },
+                  {
+                      "path":  "src/server/World/KerlinGeometryDiagnostic.lua",
+                      "sha256":  "500FBF336966B62A24601F10E7D296BF958D25DC608CA8B89900110BF33CDA44",
+                      "bytes":  27654
+                  },
+                  {
+                      "path":  "src/server/World/RoadTerrainConformer.server.lua",
+                      "sha256":  "EFCC754AEC6E99A71202BFBD7255B7032EE97BFF6E6106BEBFD10D1617C64BDB",
+                      "bytes":  35361
+                  },
+                  {
+                      "path":  "src/server/World/TileBuilderV2.lua",
+                      "sha256":  "4F06434105EA1CC55AD5254EF5852CE33FB42740F6CC7A51AC526EB52BD61D3A",
+                      "bytes":  46734
+                  },
+                  {
+                      "path":  "src/server/World/TileBuilderV3.lua",
+                      "sha256":  "1D6C400D86A3798AA0DD3A54A0A404D420DC201CDCCF852313BDC1BB1851981E",
+                      "bytes":  2029
+                  },
+                  {
+                      "path":  "src/shared/WorldConfig.lua",
+                      "sha256":  "49EDD14CA06CCA4245B5947345E73ABB2816E9ED2FA5E7730A656FE2E435443F",
+                      "bytes":  5030
+                  },
+                  {
+                      "path":  "src/shared/WorldData/Tiles/tile_r07_c07.lua",
+                      "sha256":  "14B246C105EE4E5C23B8AA58EDAEB65D1B886328E3B44EB63697B018411B5619",
+                      "bytes":  55607
+                  },
+                  {
+                      "path":  "tools/package_roblox_street_v4_world.py",
+                      "sha256":  "8C31860D6D5D34439E1AFC39B4EF4A4C58227771762DA5D03CA03FEB31EDE152",
+                      "bytes":  17477
+                  }
+              ]
+}

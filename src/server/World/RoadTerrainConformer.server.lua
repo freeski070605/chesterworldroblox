@@ -350,12 +350,35 @@ local function conformComponent(parts, groupKey)
             end
         end
     end
-    targetLift = math.clamp(targetLift, nominalClearance, MAX_LIFT)
+    targetLift = math.clamp(targetLift, nominalClearance, math.max(MAX_LIFT, nominalClearance))
     stats.crossingChecks += #crossings
 
     -- Smooth transition inside the tagged bridge region. Approach roads, when
     -- available, absorb much of the climb without touching city intersections.
     local fraction = math.clamp(Config.BRIDGE_RAMP_FRACTION or 0.38, 0.20, 0.49)
+
+    -- Crossing clearance must be checked at the crossing's station, NOT only
+    -- against the highest plateau. If it lies on a ramp, solve for the deck
+    -- peak needed to clear that lower road at the actual intersection point.
+    -- Never exceed MAX_LIFT; impossible crossings stay flagged by the audit.
+    for _, crossing in ipairs(crossings) do
+        local t = crossing.t
+        local ease = 1
+        local terminalLift = 0
+        if t < fraction then
+            ease = smoothstep(t / fraction)
+            terminalLift = startLift
+        elseif t > 1 - fraction then
+            ease = smoothstep((1 - t) / fraction)
+            terminalLift = endLift
+        end
+        if ease > 0.001 then
+            local requestedPeak = (crossing.needed
+                - terminalLift * (1 - ease)) / ease
+            targetLift = math.clamp(math.max(targetLift, requestedPeak),
+                nominalClearance, math.max(MAX_LIFT, nominalClearance))
+        end
+    end
     local function liftAt(t)
         if t < fraction then
             return lerp(startLift, targetLift, smoothstep(t / fraction))

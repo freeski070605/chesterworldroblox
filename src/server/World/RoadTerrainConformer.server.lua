@@ -353,6 +353,7 @@ local stats = {
     rampParts = 0, rampGroups = 0, marked = 0,
     crossingChecks = 0, clearanceWarnings = 0, steepGroups = 0,
     terrainClearanceWarnings = 0, terrainEndpointEstimates = 0,
+    insufficientApproachLength = 0, gradeLimitedParts = 0,
 }
 
 local function conformComponent(parts, groupKey)
@@ -486,6 +487,38 @@ local function conformComponent(parts, groupKey)
                 nominalClearance, math.max(MAX_LIFT, nominalClearance))
         end
     end
+    -- HARD SLOPE CAP: a 25-stud county bridge can NOT gain 18 studs in
+    -- its 9-stud transition section. Prior code warned but still GENERATED
+    -- a 100%-300% rise. Respect capacity on BOTH approaches first.
+    -- Smoothstep has a peak derivative of 1.5. Its allowed height change
+    -- is therefore distance * MAX_GRADE / 1.5.
+    local requestedLift = targetLift
+    local innerCapacity = (span * fraction) * MAX_GRADE / 1.5
+    local outerStartCapacity = startLength * MAX_GRADE / 1.5
+    local outerEndCapacity = endLength * MAX_GRADE / 1.5
+    local feasiblePeak = math.max(0, math.min(requestedLift,
+        innerCapacity + outerStartCapacity,
+        innerCapacity + outerEndCapacity))
+    local noApproachClearance = requestedLift - feasiblePeak > 0.5
+    targetLift = feasiblePeak
+    startLift = math.min(targetLift, outerStartCapacity)
+    endLift = math.min(targetLift, outerEndCapacity)
+    if noApproachClearance then
+        stats.insufficientApproachLength += 1
+        stats.gradeLimitedParts += #parts
+        for _, rec in ipairs(records) do
+            rec.part:SetAttribute("CW_GradeLimited", true)
+            rec.part:SetAttribute("CW_RequestedDeckLift", requestedLift)
+            rec.part:SetAttribute("CW_AchievableDeckLift", targetLift)
+        end
+        if stats.insufficientApproachLength <= 12 then
+            warn(("[ChesterWorld BridgeGradeLimited] name=%s group=%s x=%.1f z=%.1f span=%.1f requested=%.1f feasible=%.1f rampStart=%.1f rampEnd=%.1f"):format(
+                bridgeName, groupKey,
+                (lowPoint.X+highPoint.X)/2, (lowPoint.Z+highPoint.Z)/2,
+                span, requestedLift, targetLift, startLength, endLength))
+        end
+    end
+
     local function liftAt(t)
         if t < fraction then
             return lerp(startLift, targetLift, smoothstep(t / fraction))
@@ -703,13 +736,14 @@ Workspace:SetAttribute("CW_RoadConformTotal", #allRoads)
 Workspace:SetAttribute("CW_RoadConformedCount", conformed)
 Workspace:SetAttribute("CW_RoadConformComplete", true)
 
-print(("[ChesterWorld RoadTerrainConformer] final=%d groundPreserved=%d bridgeConformed=%d conformed=%d noTerrain=%d failed=%d bridgeGroups=%d bridgeComponents=%d bridgeParts=%d tunnelParts=%d rampParts=%d rampGroups=%d marked=%d crossingChecks=%d clearanceWarnings=%d terrainClearanceWarnings=%d terrainEndpointEstimates=%d steepGroups=%d smoothDecks=true")
+print(("[ChesterWorld RoadTerrainConformer] final=%d groundPreserved=%d bridgeConformed=%d conformed=%d noTerrain=%d failed=%d bridgeGroups=%d bridgeComponents=%d bridgeParts=%d tunnelParts=%d rampParts=%d rampGroups=%d marked=%d crossingChecks=%d clearanceWarnings=%d terrainClearanceWarnings=%d terrainEndpointEstimates=%d steepGroups=%d gradeLimitedGroups=%d gradeLimitedParts=%d smoothDecks=true")
     :format(#allRoads, #atGrade-stats.rampParts, stats.bridgeConformed,
     conformed, stats.bridgeNoTerrain, stats.failed, stats.groups,
     stats.components, stats.bridgeParts, stats.tunnelParts,
     stats.rampParts, stats.rampGroups, stats.marked, stats.crossingChecks,
     stats.clearanceWarnings, stats.terrainClearanceWarnings,
-    stats.terrainEndpointEstimates,stats.steepGroups))
+    stats.terrainEndpointEstimates,stats.steepGroups,
+    stats.insufficientApproachLength,stats.gradeLimitedParts))
 if stats.clearanceWarnings > 0 then
     warn(("[ChesterWorld Highway] %d bridge crossings need additional surveyed vertical data / ramp length to guarantee clearance."):format(stats.clearanceWarnings))
 end

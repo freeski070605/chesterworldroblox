@@ -200,16 +200,30 @@ local function makeStripPart(parent, name, a, b, width, thickness, material, col
 	return part
 end
 
-local function endpointKeyFromStuds(x, z, gradeLevel)
+local function endpointKeyFromStuds(x, z, gradeLevel, connectionGroup)
 	local q = WorldConfig.INTERSECTION_ENDPOINT_QUANTIZE_STUDS
-	return tostring(math.floor(x / q + 0.5))
+	local key = tostring(math.floor(x / q + 0.5))
 		.. ":" .. tostring(math.floor(z / q + 0.5))
 		.. ":g" .. tostring(gradeLevel or 0)
+	-- A source crossing may share X/Z and numeric layer without being a
+	-- routable junction. The optional group separates only that endpoint;
+	-- it does not change the road's vertical position.
+	if connectionGroup and connectionGroup ~= "" then
+		return key .. ":c" .. tostring(connectionGroup)
+	end
+	return key
 end
 
-local function endpointKeyFromMeters(xMeters, zMeters, road)
+local function endpointConnectionGroup(road, endpointIndex)
+	if endpointIndex == 1 then
+		return road.node1_connection_group
+	end
+	return road.node2_connection_group
+end
+
+local function endpointKeyFromMeters(xMeters, zMeters, road, endpointIndex)
 	local x, z = sourceToStuds(xMeters, zMeters)
-	return endpointKeyFromStuds(x, z, gradeLevelForRoad(road))
+	return endpointKeyFromStuds(x, z, gradeLevelForRoad(road), endpointConnectionGroup(road, endpointIndex))
 end
 
 local function armKey(name, dir)
@@ -368,11 +382,11 @@ local function rayPolygonDistance(node, dir)
 	return best
 end
 
-local function addEndpoint(nodes, tileId, xMeters, zMeters, otherXMeters, otherZMeters, road)
+local function addEndpoint(nodes, tileId, xMeters, zMeters, otherXMeters, otherZMeters, road, endpointIndex)
 	local x, z = sourceToStuds(xMeters, zMeters)
 	local ox, oz = sourceToStuds(otherXMeters, otherZMeters)
 	local gradeLevel = gradeLevelForRoad(road)
-	local key = endpointKeyFromStuds(x, z, gradeLevel)
+	local key = endpointKeyFromStuds(x, z, gradeLevel, endpointConnectionGroup(road, endpointIndex))
 	local node = nodes[key]
 	if not node then
 		node = {
@@ -399,10 +413,10 @@ local function addEndpoint(nodes, tileId, xMeters, zMeters, otherXMeters, otherZ
 	node.xSum += x
 	node.zSum += z
 	node.count += 1
-    local peerKey = endpointKeyFromStuds(ox, oz, gradeLevel)
+    local peerKey = endpointKeyFromStuds(ox, oz, gradeLevel, endpointConnectionGroup(road, 3 - endpointIndex))
     node.links[peerKey] = math.sqrt((ox-x)^2 + (oz-z)^2)
 	node.maxWidth = math.max(node.maxWidth, roadWidth)
-	local name = tostring(road.name or "")
+	local name = tostring(road.junction_name or road.name or "")
 	if name ~= "" and name ~= "Road" then
 		node.names[name] = true
 	end
@@ -606,8 +620,8 @@ function TileBuilderV2.Prepare(tileModules)
 			if ok and tile then
 				local tileId = tostring(tile.tile_id or tileModule.Name)
 				for roadIndex, road in ipairs(tile.roads or {}) do
-					addEndpoint(globalIntersectionNodes, tileId, road.x1, road.z1, road.x2, road.z2, road)
-					addEndpoint(globalIntersectionNodes, tileId, road.x2, road.z2, road.x1, road.z1, road)
+					addEndpoint(globalIntersectionNodes, tileId, road.x1, road.z1, road.x2, road.z2, road, 1)
+					addEndpoint(globalIntersectionNodes, tileId, road.x2, road.z2, road.x1, road.z1, road, 2)
 					if roadIndex % 250 == 0 then task.wait() end
 				end
 			end
@@ -661,8 +675,8 @@ local function trimmedEndpoints(road, extraClearance)
 	local b = Vector3.new(x2, 0, z2)
 	local length = horizontalLength(a, b)
 	if length < 0.05 then return nil, nil end
-	local startNode = globalIntersectionNodes[endpointKeyFromMeters(road.x1, road.z1, road)]
-	local endNode = globalIntersectionNodes[endpointKeyFromMeters(road.x2, road.z2, road)]
+	local startNode = globalIntersectionNodes[endpointKeyFromMeters(road.x1, road.z1, road, 1)]
+	local endNode = globalIntersectionNodes[endpointKeyFromMeters(road.x2, road.z2, road, 2)]
 	local startDir = (b - a).Unit
 	local endDir = (a - b).Unit
 	local startClearance = extraClearance
@@ -785,9 +799,9 @@ local function buildCenterLine(markingsFolder, road, roadWidth)
     end
 
     local startNode = globalIntersectionNodes[
-        endpointKeyFromMeters(road.x1, road.z1, road)]
+        endpointKeyFromMeters(road.x1, road.z1, road, 1)]
     local endNode = globalIntersectionNodes[
-        endpointKeyFromMeters(road.x2, road.z2, road)]
+        endpointKeyFromMeters(road.x2, road.z2, road, 2)]
     local a2D, b2D = trimmedEndpoints(road, {
         start = clearance(startNode, startDir),
         finish = clearance(endNode, endDir),

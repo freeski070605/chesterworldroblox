@@ -1,0 +1,17 @@
+return {
+    tile_id = "tile_r08_c03",
+    roads = {
+        {name="Concord",x1=3231.117,z1=8000,x2=3205.124,z2=8025.941,width_m=12,road_class="secondary",bridge=false,tunnel=false,layer=0,grade_group="county:18065:g0",source="county"},
+        {name="Concord",x1=3178.735,z1=8052.276,x2=3153.01,z2=8077.949,width_m=12,road_class="secondary",bridge=false,tunnel=false,layer=0,grade_group="county:18065:g0",source="county"},
+        {name="Road",x1=3071.988,z1=8114.047,x2=3055.702,z2=8095.412,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580092185:g0",source="osm"},
+        {name="Road",x1=3055.702,z1=8095.412,x2=3088.251,z2=8060.782,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580092185:g0",source="osm"},
+        {name="Road",x1=3088.251,z1=8060.782,x2=3108.935,z2=8076.371,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580092185:g0",source="osm"},
+        {name="Baldwin Run",x1=3154.51,z1=8079.307,x2=3153.01,z2=8077.949,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:20692:g0",source="county"},
+        {name="Road",x1=3028.662,z1=8158.233,x2=3014.202,z2=8141.092,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580092186:g0",source="osm"},
+        {name="Road",x1=3014.202,z1=8141.092,x2=3038.391,z2=8116.019,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580092186:g0",source="osm"},
+        {name="Road",x1=3038.391,z1=8116.019,x2=3056.614,z2=8129.737,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580092186:g0",source="osm"},
+        {name="Concord",x1=3153.01,z1=8077.949,x2=3000,z2=8236.174,width_m=12,road_class="secondary",bridge=false,tunnel=false,layer=0,grade_group="county:14362:g0",source="county"},
+    },
+    buildings = {
+    },
+}

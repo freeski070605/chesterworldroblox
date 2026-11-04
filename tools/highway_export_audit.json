@@ -1,0 +1,58 @@
+{
+  "tile_modules": 102,
+  "roads": 19965,
+  "bridge_segments": 382,
+  "tunnel_segments": 10,
+  "ground_segments": 19573,
+  "bridge_source_groups": 184,
+  "ramp_link_segments": 1123,
+  "i95_or_motorway_segments": 1644,
+  "kerlin_250m": {
+    "roads": 83,
+    "bridge_segments": 0,
+    "tunnel_segments": 0,
+    "ramp_segments": 5
+  },
+  "largest_bridge_groups": [
+    [
+      "county:26635:g1",
+      43
+    ],
+    [
+      "county:26181:g1",
+      23
+    ],
+    [
+      "county:26182:g1",
+      22
+    ],
+    [
+      "county:26098:g1",
+      12
+    ],
+    [
+      "county:27083:g1",
+      11
+    ],
+    [
+      "county:26563:g1",
+      11
+    ],
+    [
+      "county:66:g1",
+      10
+    ],
+    [
+      "county:20476:g1",
+      7
+    ],
+    [
+      "county:18064:g1",
+      7
+    ],
+    [
+      "county:754:g1",
+      7
+    ]
+  ]
+}

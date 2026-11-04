@@ -1,0 +1,100 @@
+{
+  "rail_source_features": 75,
+  "bridge_source_segments": 382,
+  "horizontal_bridge_rail_crossings": 10,
+  "near_i95_kerlin": [],
+  "vertical_clearance_verified": false,
+  "notes": "Rail is not included in Roblox Roads; a horizontal crossing cannot establish actual underpass elevation or clearance.",
+  "crossings": [
+    {
+      "source_x_m": 6532.033,
+      "source_z_m": 4706.526,
+      "road": "Commodore John Barry",
+      "rail": "Rail",
+      "grade_group": "county:21227:g1",
+      "horizontal_overlap_only": true,
+      "vertical_clearance_verified": false
+    },
+    {
+      "source_x_m": 6108.514,
+      "source_z_m": 5296.951,
+      "road": "Commodore John Barry",
+      "rail": "Rail",
+      "grade_group": "county:21327:g1",
+      "horizontal_overlap_only": true,
+      "vertical_clearance_verified": false
+    },
+    {
+      "source_x_m": 8271.369,
+      "source_z_m": 7895.938,
+      "road": "Crosby St Pedestrian",
+      "rail": "Rail",
+      "grade_group": "county:21309:g1",
+      "horizontal_overlap_only": true,
+      "vertical_clearance_verified": false
+    },
+    {
+      "source_x_m": 8416.17,
+      "source_z_m": 7972.338,
+      "road": "Edgmont Ave",
+      "rail": "Rail",
+      "grade_group": "county:21313:g1",
+      "horizontal_overlap_only": true,
+      "vertical_clearance_verified": false
+    },
+    {
+      "source_x_m": 8462.485,
+      "source_z_m": 7996.623,
+      "road": "Madison St",
+      "rail": "Rail",
+      "grade_group": "county:21412:g1",
+      "horizontal_overlap_only": true,
+      "vertical_clearance_verified": false
+    },
+    {
+      "source_x_m": 8600.335,
+      "source_z_m": 8068.808,
+      "road": "Upland St",
+      "rail": "Rail",
+      "grade_group": "county:21414:g1",
+      "horizontal_overlap_only": true,
+      "vertical_clearance_verified": false
+    },
+    {
+      "source_x_m": 8758.848,
+      "source_z_m": 8152.275,
+      "road": "Potter St",
+      "rail": "Rail",
+      "grade_group": "county:20712:g1",
+      "horizontal_overlap_only": true,
+      "vertical_clearance_verified": false
+    },
+    {
+      "source_x_m": 9032.707,
+      "source_z_m": 8306.531,
+      "road": "Chestnut St",
+      "rail": "Rail",
+      "grade_group": "county:21430:g1",
+      "horizontal_overlap_only": true,
+      "vertical_clearance_verified": false
+    },
+    {
+      "source_x_m": 9067.929,
+      "source_z_m": 8328.269,
+      "road": "Csx Phila Subdivision",
+      "rail": "Rail",
+      "grade_group": "county:754:g1",
+      "horizontal_overlap_only": true,
+      "vertical_clearance_verified": false
+    },
+    {
+      "source_x_m": 9287.931,
+      "source_z_m": 8486.222,
+      "road": "Melrose Ave",
+      "rail": "Rail",
+      "grade_group": "county:21436:g1",
+      "horizontal_overlap_only": true,
+      "vertical_clearance_verified": false
+    }
+  ]
+}

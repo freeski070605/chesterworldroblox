@@ -1,7 +1,7 @@
 return {
     tile_id = "tile_r02_c00",
     roads = {
-        {name="Blueball",x1=1000,z1=2057.337,x2=900.99,z2=2221.603,width_m=10},
+        {name="Blueball",x1=1000,z1=2057.337,x2=900.99,z2=2221.603,width_m=10,road_class="tertiary",bridge=false,tunnel=false,layer=0,grade_group="county:18130:g0",source="county"},
     },
     buildings = {
         {id="210397",name="210397",x_m=978.154,z_m=2004.493,width_m=5.161,depth_m=0.747,yaw_deg=-90.824,height_m=9.15},

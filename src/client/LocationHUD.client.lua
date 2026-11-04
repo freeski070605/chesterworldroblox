@@ -7,7 +7,13 @@ local player = Players.LocalPlayer
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GeoOrientation = require(Shared:WaitForChild("GeoOrientation"))
 
-local world = Workspace:WaitForChild("ChesterWorld")
+-- Regional Bootstrap prepares the complete road graph before creating
+-- ChesterWorld. A bounded wait avoids false "Infinite yield possible" spam.
+local world = Workspace:WaitForChild("ChesterWorld", 180)
+if not world then
+    warn("[ChesterWorld HUD] World didn't initialize within 180 seconds.")
+    return
+end
 
 local SEARCH_RADIUS = 95
 local INTERSECTION_DISTANCE = 38

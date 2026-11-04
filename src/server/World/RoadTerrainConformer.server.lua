@@ -287,6 +287,7 @@ local stats = {
     bridgeNoTerrain = 0, failed = 0, tunnelParts = tunnelParts,
     rampParts = 0, rampGroups = 0, marked = 0,
     crossingChecks = 0, clearanceWarnings = 0, steepGroups = 0,
+    terrainClearanceWarnings = 0,
 }
 
 local function conformComponent(parts, groupKey)
@@ -350,23 +351,32 @@ local function conformComponent(parts, groupKey)
             end
         end
     end
-    -- Ensure the underside of the bridge is not swallowed by unsmoothed
-    -- imported terrain between its endpoint samples. Check 1/4, 1/2, 3/4
-    -- along each part; this does NOT modify terrain.
+    -- The previous solver checked the HIGH point only, yet some decks were
+    -- still embedded on their sloping quarters. Record actual requirements
+    -- at each bridge station and solve for the lifted envelope at THAT t.
+    -- Ends are abutments and may be buried in the bank; we sample a little
+    -- inside the span to avoid incorrectly requiring an elevated terminal.
+    local terrainRequirements = {}
     local deckDepth = Config.HIGHWAY_DECK_THICKNESS_STUDS or 1.6
     for _, rec in ipairs(records) do
-        for _, fractionAlong in ipairs({0.25, 0.5, 0.75}) do
+        for _, fractionAlong in ipairs({0.15, 0.35, 0.5, 0.65, 0.85}) do
             local point = rec.a:Lerp(rec.b, fractionAlong)
             local gy = terrainY(point.X, point.Z)
             if gy then
-                local t = math.clamp((point.X*direction.X+point.Z*direction.Z-low)/span,0,1)
-                local baseline = lerp(startGround, endGround, t)
-                    + ROAD_OFFSET - rec.part.Size.Y/2 - deckDepth
-                targetLift = math.max(targetLift, gy + 2.5 - baseline)
+                local t = math.clamp(
+                    (point.X*direction.X + point.Z*direction.Z-low)/span,0,1)
+                if t > 0.025 and t < 0.975 then
+                    local baseline = lerp(startGround,endGround,t)
+                        + ROAD_OFFSET-rec.part.Size.Y/2-deckDepth
+                    table.insert(terrainRequirements,{
+                        t=t,needed=gy+1.0-baseline,
+                    })
+                end
             end
         end
     end
-    targetLift = math.clamp(targetLift, nominalClearance, math.max(MAX_LIFT, nominalClearance))
+    targetLift = math.clamp(targetLift,nominalClearance,
+        math.max(MAX_LIFT,nominalClearance))
     stats.crossingChecks += #crossings
 
     -- Smooth transition inside the tagged bridge region. Approach roads, when
@@ -377,7 +387,14 @@ local function conformComponent(parts, groupKey)
     -- against the highest plateau. If it lies on a ramp, solve for the deck
     -- peak needed to clear that lower road at the actual intersection point.
     -- Never exceed MAX_LIFT; impossible crossings stay flagged by the audit.
-    for _, crossing in ipairs(crossings) do
+    local allRequirements = {}
+    for _, requirement in ipairs(crossings) do
+        table.insert(allRequirements,requirement)
+    end
+    for _, requirement in ipairs(terrainRequirements) do
+        table.insert(allRequirements,requirement)
+    end
+    for _, crossing in ipairs(allRequirements) do
         local t = crossing.t
         local ease = 1
         local terminalLift = 0
@@ -436,6 +453,14 @@ local function conformComponent(parts, groupKey)
     if math.max(maxLeftGrade, maxRightGrade) > 0.20 then
         stats.steepGroups += 1
     end
+    -- Track unresolved terrain and lower-road requirements distinctly.
+    local terrainUnresolved = 0
+    for _, requirement in ipairs(terrainRequirements) do
+        if liftAt(requirement.t) + 0.25 < requirement.needed then
+            terrainUnresolved += 1
+        end
+    end
+    stats.terrainClearanceWarnings += terrainUnresolved
     for _, crossing in ipairs(crossings) do
         if liftAt(crossing.t) + 0.5 < crossing.needed then
             stats.clearanceWarnings += 1
@@ -591,12 +616,12 @@ Workspace:SetAttribute("CW_RoadConformTotal", #allRoads)
 Workspace:SetAttribute("CW_RoadConformedCount", conformed)
 Workspace:SetAttribute("CW_RoadConformComplete", true)
 
-print(("[ChesterWorld RoadTerrainConformer] final=%d groundPreserved=%d bridgeConformed=%d conformed=%d noTerrain=%d failed=%d bridgeGroups=%d bridgeComponents=%d bridgeParts=%d tunnelParts=%d rampParts=%d rampGroups=%d marked=%d crossingChecks=%d clearanceWarnings=%d steepGroups=%d smoothDecks=true")
+print(("[ChesterWorld RoadTerrainConformer] final=%d groundPreserved=%d bridgeConformed=%d conformed=%d noTerrain=%d failed=%d bridgeGroups=%d bridgeComponents=%d bridgeParts=%d tunnelParts=%d rampParts=%d rampGroups=%d marked=%d crossingChecks=%d clearanceWarnings=%d terrainClearanceWarnings=%d steepGroups=%d smoothDecks=true")
     :format(#allRoads, #atGrade-stats.rampParts, stats.bridgeConformed,
     conformed, stats.bridgeNoTerrain, stats.failed, stats.groups,
     stats.components, stats.bridgeParts, stats.tunnelParts,
     stats.rampParts, stats.rampGroups, stats.marked, stats.crossingChecks,
-    stats.clearanceWarnings, stats.steepGroups))
+    stats.clearanceWarnings, stats.terrainClearanceWarnings,stats.steepGroups))
 if stats.clearanceWarnings > 0 then
     warn(("[ChesterWorld Highway] %d bridge crossings need additional surveyed vertical data / ramp length to guarantee clearance."):format(stats.clearanceWarnings))
 end

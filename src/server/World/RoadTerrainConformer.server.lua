@@ -102,6 +102,22 @@ local function highwayRoad(part)
         or string.find(name, "i-95", 1, true) ~= nil
 end
 
+-- Names from county and OSM often vary only in punctuation/suffix.
+-- Match continuity by actual road name without joining unrelated streets.
+local function normalizedRoadName(name)
+    local value = string.lower(tostring(name or ""))
+    value = value:gsub("[^%w%s]", " "):gsub("%s+", " ")
+    value = value:gsub("^%s+", ""):gsub("%s+$", "")
+    local suffixes = {
+        "%s+street$", "%s+st$", "%s+avenue$", "%s+ave$",
+        "%s+boulevard$", "%s+blvd$", "%s+road$", "%s+rd$",
+    }
+    for _, suffix in ipairs(suffixes) do
+        value = value:gsub(suffix, "")
+    end
+    return value
+end
+
 local function collectParts(folderName)
     local result = {}
     for _, tile in ipairs(world:GetChildren()) do
@@ -152,7 +168,14 @@ for _, part in ipairs(allRoads) do
         if part:GetAttribute("CW_Tunnel") == true or level < 0 then
             tunnelParts += 1
         end
-        if highwayRoad(part) and level == 0 then
+        -- All bridge types need realistic approaches, not just I-95.
+        -- Index named ground roads; the chain search below still requires
+        -- name/direction agreement, so cross streets cannot be pulled upward.
+        local cls = string.lower(attr(part, "CW_RoadClass"))
+        if level == 0 and part:GetAttribute("CW_Tunnel") ~= true
+            and normalizedRoadName(attr(part, "ChesterStreet")) ~= ""
+            and normalizedRoadName(attr(part, "ChesterStreet")) ~= "road"
+            and cls ~= "service" and cls ~= "alley" then
             local a, b = endpoints(part)
             addEndpoint(approachIndex, a, part)
             addEndpoint(approachIndex, b, part)
@@ -256,7 +279,9 @@ local function findApproachChain(terminal, outward, bridgeName)
                 if away and hdist(far, current) > 0.5 then
                     local dot = away:Dot(outward)
                     local partName = attr(part, "ChesterStreet")
-                    local matchName = partName == bridgeName
+                    local matchName =
+                        normalizedRoadName(partName) ~= ""
+                        and normalizedRoadName(partName) == normalizedRoadName(bridgeName)
                     local cls = string.lower(attr(part, "CW_RoadClass"))
                     local isLink = cls == "motorway_link" or cls == "trunk_link"
                     local bridgeI95 = string.find(string.lower(bridgeName),
@@ -337,10 +362,11 @@ local function conformComponent(parts, groupKey)
     local bridgeName = attr(parts[1], "ChesterStreet")
     local rampStart, startLength = {}, 0
     local rampEnd, endLength = {}, 0
-    if highwayRoad(parts[1]) then
-        rampStart, startLength = findApproachChain(lowPoint, -direction, bridgeName)
-        rampEnd, endLength = findApproachChain(highPoint, direction, bridgeName)
-    end
+    -- This applies to I-95 AND short local overpasses such as Macdade,
+    -- Flower and Melrose. With no valid matching continuation, leave it
+    -- flagged rather than attaching an unrelated roadway.
+    rampStart, startLength = findApproachChain(lowPoint, -direction, bridgeName)
+    rampEnd, endLength = findApproachChain(highPoint, direction, bridgeName)
 
     -- A smoothstep transition has a maximum derivative of 1.5.
     -- Limit bridge terminal lift to what an actual adjacent ramp can absorb.

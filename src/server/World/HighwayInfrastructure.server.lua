@@ -56,7 +56,7 @@ local function lineIntersection(a, b, c, d)
     return nil
 end
 
-local bridge, lower, ramps, unprofiledBridges = {}, {}, {}, {}
+local bridge, lower, ramps, unprofiledBridges, gradeLimited = {}, {}, {}, {}, {}
 for _, tile in ipairs(world:GetChildren()) do
     local roads=tile:FindFirstChild("Roads")
     if roads then
@@ -65,6 +65,9 @@ for _, tile in ipairs(world:GetChildren()) do
                 local level=tonumber(part:GetAttribute("CW_GradeLevel")) or 0
                 if part:GetAttribute("CW_BridgeProfiled") == true then
                     table.insert(bridge,part)
+                    if part:GetAttribute("CW_GradeLimited") == true then
+                        table.insert(gradeLimited,part)
+                    end
                 elseif part:GetAttribute("CW_RampProfiled") == true then
                     table.insert(ramps,part)
                 elseif part:GetAttribute("CW_Bridge")==true or level>0 then
@@ -170,7 +173,13 @@ local function canPier(point,height)
 end
 
 local visuallyRaised={}
-for _,part in ipairs(bridge) do table.insert(visuallyRaised,part) end
+for _,part in ipairs(bridge) do
+    -- Do not decorate a structurally unresolved grade with fake piers and
+    -- parapets. It remains in the road audit and in-game road geometry.
+    if part:GetAttribute("CW_GradeLimited") ~= true then
+        table.insert(visuallyRaised,part)
+    end
+end
 for _,part in ipairs(ramps) do
     if (part:GetAttribute("CW_RampLiftCenter") or 0)>5 then
         table.insert(visuallyRaised,part)
@@ -324,13 +333,16 @@ Workspace:SetAttribute("CW_HighwayBridgeTerrainIntrusions",bridgeTerrainIntrusio
 Workspace:SetAttribute("CW_HighwayBridgeEmbankmentContacts",bridgeTerminalContacts)
 Workspace:SetAttribute("CW_HighwayCrossingsVerified",crossings>0)
 
-print(("[ChesterWorld HighwayFinish] bridgeRoadParts=%d rampRoadParts=%d deckSlabs=%d guardrails=%d supports=%d crossings=%d minClearance=%.1f lowClearance=%d tunnelObstructions=%d bridgeTerrainIntrusions=%d terminalEmbankmentContacts=%d unprofiledBridgeParts=%d crossingsVerified=%s")
+print(("[ChesterWorld HighwayFinish] bridgeRoadParts=%d rampRoadParts=%d deckSlabs=%d guardrails=%d supports=%d crossings=%d minClearance=%.1f lowClearance=%d tunnelObstructions=%d bridgeTerrainIntrusions=%d terminalEmbankmentContacts=%d unprofiledBridgeParts=%d gradeLimitedBridgeParts=%d crossingsVerified=%s")
     :format(#bridge,#ramps,deckCount,railCount,pierCount,crossings,
-    minClearance==math.huge and -1 or minClearance,tooLow,tunnelObstructions,bridgeTerrainIntrusions,bridgeTerminalContacts,#unprofiledBridges,tostring(crossings>0)))
+    minClearance==math.huge and -1 or minClearance,tooLow,tunnelObstructions,bridgeTerrainIntrusions,bridgeTerminalContacts,#unprofiledBridges,#gradeLimited,tostring(crossings>0)))
 
 if tooLow>0 then
     warn("[ChesterWorld HighwayFinish] LOW CLEARANCE: "..
         table.concat(clearancePairs,"; "))
+end
+if #gradeLimited>0 then
+    warn(("[ChesterWorld HighwayFinish] %d short bridge parts lack enough aligned ramp distance for the requested clearance; fake deck supports are suppressed."):format(#gradeLimited))
 end
 if #unprofiledBridges>0 then
     warn(("[ChesterWorld HighwayFinish] %d bridge road parts could not be height-profiled (missing Terrain samples)."):format(#unprofiledBridges))

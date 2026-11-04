@@ -726,6 +726,9 @@ function TileBuilderV2.Prepare(tileModules)
 	})
 	if HighwayProfile.Enabled() then
 		print(("[ChesterWorld HighwayProfile] %s seconds=%.1f"):format(HighwayProfile.Summary(), os.clock() - profileStart))
+		for _, line in ipairs(HighwayProfile.Stats().pinConflictList) do
+			warn("[ChesterWorld HighwayProfilePinConflict] " .. line)
+		end
 	end
 	for index, entry in ipairs(entries) do
 		local road = entry.road

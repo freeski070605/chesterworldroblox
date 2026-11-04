@@ -146,12 +146,13 @@ local function resetStats()
 		crossingsOver = 0, crossingsUnder = 0, crossingsRegistry = 0,
 		crossingsCorridor = 0, crossingsUnresolved = 0, crossingsDem = 0,
 		crossingsLayer = 0, vertexSplits = 0,
-		notchFilledStations = 0, spikeCutStations = 0,
+		notchFilledStations = 0, spikeCutStations = 0, cutStationsKept = 0, bridgeTagsDropped = 0,
 		bridgeTagStations = 0, maxNotchFill = 0, maxSpikeCut = 0,
 		spanStations = 0, fillStations = 0, gradeStations = 0,
 		spans = 0, cutStations = 0, worstCut = 0,
 		gradeViolations = 0, worstGrade = 0,
-		clearanceShort = 0, worstClearanceShort = 0, pins = 0,
+		clearanceShort = 0, worstClearanceShort = 0, pins = 0, pinConflicts = 0,
+		pinConflictList = {},
 		unresolvedList = {}, clearanceList = {}, spanList = {},
 	}
 end
@@ -545,26 +546,26 @@ function HighwayProfile.Prepare(entries, opts)
 			freewayVertices[vkey(node.x, node.z)] = true
 		end
 	end
-	for vertex in pairs(freewayVertices) do
-		do
-			do
-				for _, ref in ipairs(otherByVertex[vertex] or {}) do
-					local road = ref.item.road
-					local explicit = ref.e == 1 and road.node1_connection_group or road.node2_connection_group
-					overrides[road] = overrides[road] or {}
-					if not explicit and not overrides[road][ref.e] then
-						overrides[road][ref.e] = "HWX"
-						local oldKey = ref.e == 1 and ref.item.k1 or ref.item.k2
-						otherArmsAtKey[oldKey] = (otherArmsAtKey[oldKey] or 1) - 1
-						local newKey = endpointKey(road, ref.e)
-						if ref.e == 1 then
-							ref.item.k1 = newKey
-						else
-							ref.item.k2 = newKey
-						end
-						otherArmsAtKey[newKey] = (otherArmsAtKey[newKey] or 0) + 1
-						stats.vertexSplits += 1
+	-- Rail lines and pedestrian structures never meet ANY corridor road at
+	-- grade either (I 476 to I 95 shares a vertex with CSX Phila Subdivision).
+	for vertex in pairs(vertexArms) do
+		for _, ref in ipairs(otherByVertex[vertex] or {}) do
+			if freewayVertices[vertex] or excluded(ref.item.nameKey) then
+				local road = ref.item.road
+				local explicit = ref.e == 1 and road.node1_connection_group or road.node2_connection_group
+				overrides[road] = overrides[road] or {}
+				if not explicit and not overrides[road][ref.e] then
+					overrides[road][ref.e] = "HWX"
+					local oldKey = ref.e == 1 and ref.item.k1 or ref.item.k2
+					otherArmsAtKey[oldKey] = (otherArmsAtKey[oldKey] or 1) - 1
+					local newKey = endpointKey(road, ref.e)
+					if ref.e == 1 then
+						ref.item.k1 = newKey
+					else
+						ref.item.k2 = newKey
 					end
+					otherArmsAtKey[newKey] = (otherArmsAtKey[newKey] or 0) + 1
+					stats.vertexSplits += 1
 				end
 			end
 		end
@@ -905,6 +906,51 @@ function HighwayProfile.Prepare(entries, opts)
 				f[i] = math.max(c[i], math.min(maxL[i], maxR[i]))
 			end
 
+			-- b2. Where a LOCAL road passes over this highway, the highway is in
+			-- a cut under the overpass. Neither a bridge tag on the highway
+			-- (county data tags both roads level 1 at Edgmont, Chestnut...) nor
+			-- the dip around the crossing may lift it: the cap in step d only
+			-- covers the crossing width and leaves a kink at its edge.
+			for _, part in ipairs(stroke.parts) do
+				for _, cross in ipairs(crossingsBySeg[part.seg] or {}) do
+					decide(cross)
+					if relationOf(cross) == "under" and not cross.other.corridor then
+						local k0 = math.clamp(math.floor(stationOf(part.seg, cross.t) / ds + 0.5) + 1, 1, count)
+						local reach = math.ceil((cross.other.width / 2 + SIDE_MARGIN) / math.max(cross.sine, 0.35) / ds)
+						for k = math.max(1, k0 - reach), math.min(count, k0 + reach) do
+							if bridgeMask[k] then
+								local lo, hi = k, k
+								while lo > 1 and bridgeMask[lo - 1] do
+									lo -= 1
+								end
+								while hi < count and bridgeMask[hi + 1] do
+									hi += 1
+								end
+								for m = lo, hi do
+									bridgeMask[m] = false
+									stats.bridgeTagsDropped += 1
+								end
+							end
+						end
+						if f[k0] - c[k0] > 1 then
+							local lo, hi = k0, k0
+							while lo > 1 and f[lo - 1] - c[lo - 1] > 0.5 do
+								lo -= 1
+							end
+							while hi < count and f[hi + 1] - c[hi + 1] > 0.5 do
+								hi += 1
+							end
+							for k = lo, hi do
+								if f[k] > c[k] then
+									f[k] = c[k]
+									stats.cutStationsKept += 1
+								end
+							end
+						end
+					end
+				end
+			end
+
 			-- c. source-tagged bridge runs: interpolate between rims with no
 			-- window limit (long spans over water / rail yards).
 			local i = 1
@@ -1005,43 +1051,69 @@ function HighwayProfile.Prepare(entries, opts)
 				e[k] = math.max(e[k], e[k + 1] - g * ds)
 			end
 
-			-- f. maximum constraints (pass under an already-solved corridor)
-			for k = 1, count do
-				if maxReq[k] < math.huge and e[k] > maxReq[k] then
-					local cap = maxReq[k]
-					for m = 1, count do
-						local limit = cap + g * math.abs(m - k) * ds
-						if e[m] > limit then
-							e[m] = limit
-						end
-					end
+			-- Every later step keeps G g-Lipschitz (|dG/ds| <= g): G is only
+			-- ever combined with min/max of cones of slope g, and min/max of
+			-- g-Lipschitz functions are g-Lipschitz.
+			local function raiseHull(arr, slope)
+				for k = 2, count do
+					arr[k] = math.max(arr[k], arr[k - 1] - slope * ds)
+				end
+				for k = count - 1, 1, -1 do
+					arr[k] = math.max(arr[k], arr[k + 1] - slope * ds)
 				end
 			end
-
-			-- g. round vertical curves without digging below the envelope
-			local smoothW = math.max(1, math.floor(SMOOTH / ds / 2 + 0.5))
-			local G = table.clone(e)
-			for _ = 1, 2 do
+			local function movingAverage(arr, w)
 				local prefix = table.create(count + 1, 0)
 				for k = 1, count do
-					prefix[k + 1] = prefix[k] + G[k]
+					prefix[k + 1] = prefix[k] + arr[k]
 				end
 				local out = table.create(count)
 				for k = 1, count do
-					local lo = math.max(1, k - smoothW)
-					local hi = math.min(count, k + smoothW)
-					local avg = (prefix[hi + 1] - prefix[lo]) / (hi - lo + 1)
-					local tolerance = (minReq[k] > -math.huge) and 0 or 0.35
-					out[k] = math.max(avg, e[k] - tolerance)
-					if maxReq[k] < math.huge then
-						out[k] = math.min(out[k], maxReq[k])
-					end
+					local lo = math.max(1, k - w)
+					local hi = math.min(count, k + w)
+					out[k] = (prefix[hi + 1] - prefix[lo]) / (hi - lo + 1)
 				end
-				G = out
+				return out
 			end
 
-			-- h. pins: ends at local-street junctions follow the street; any
-			-- node already owned by a solved stroke is matched exactly.
+			-- f. maximum constraints (pass under an already-solved corridor or
+			-- a local overpass): lower cone hull of the caps.
+			local capHull = table.clone(maxReq)
+			for k = 2, count do
+				capHull[k] = math.min(capHull[k], capHull[k - 1] + g * ds)
+			end
+			for k = count - 1, 1, -1 do
+				capHull[k] = math.min(capHull[k], capHull[k + 1] + g * ds)
+			end
+			for k = 1, count do
+				e[k] = math.min(e[k], capHull[k])
+			end
+
+			-- g. round vertical curves. Crests may round down by up to 0.35
+			-- but never below terrain or into a clearance requirement.
+			local smoothW = math.max(1, math.floor(SMOOTH / ds / 2 + 0.5))
+			local G = table.clone(e)
+			for _ = 1, 2 do
+				local avg = movingAverage(G, smoothW)
+				for k = 1, count do
+					local tolerance = 0
+					if minReq[k] == -math.huge then
+						tolerance = math.clamp(e[k] - c[k], 0, 0.35)
+					end
+					G[k] = math.min(math.max(avg[k], e[k] - tolerance), capHull[k])
+				end
+			end
+			-- the tolerance varies per station; restore the grade limit
+			raiseHull(G, g)
+			for k = 1, count do
+				G[k] = math.min(G[k], capHull[k])
+			end
+
+			-- h. pins: every node shared with a local street is an at-grade
+			-- junction (V2 paves a terrain-level pad there), including nodes
+			-- inside a stroke where a ramp runs on into a motorway-classed
+			-- street. Any node already owned by a solved stroke is matched
+			-- exactly.
 			local pins = {}
 			local function addPin(s, target)
 				table.insert(pins, { s = s, target = target })
@@ -1050,12 +1122,11 @@ function HighwayProfile.Prepare(entries, opts)
 				for _, which in ipairs({ 1, 2 }) do
 					local node = part.seg.nodes[which]
 					local s = stationOf(part.seg, which == 1 and 0 or 1)
-					local isStrokeEnd = s < 0.5 or s > stroke.length - 0.5
 					if node.height then
 						addPin(s, node.height)
-					elseif node.mixed and isStrokeEnd then
+					elseif node.mixed then
 						local k = math.clamp(math.floor(s / ds + 0.5) + 1, 1, count)
-						addPin(s, t[k])
+						addPin(s, terrainY(node.x, node.z) or t[k])
 					end
 				end
 			end
@@ -1075,6 +1146,40 @@ function HighwayProfile.Prepare(entries, opts)
 			pins = unique
 			if #pins > 0 then
 				stats.pins += #pins
+				-- Clamp G into the slope cones of every pin, first at 0.85g and
+				-- smoothed (rounded vertical curves where G meets a cone), then
+				-- at g. Where two pins are closer than the grade allows the lower
+				-- cone wins and the conflict is counted.
+				local function pinClamp(slope)
+					for k = 1, count do
+						local s = (k - 1) * ds
+						local lo, up = -math.huge, math.huge
+						for _, pin in ipairs(pins) do
+							local d = math.abs(s - pin.s)
+							lo = math.max(lo, pin.target - slope * d)
+							up = math.min(up, pin.target + slope * d)
+						end
+						G[k] = math.min(math.max(G[k], lo), up)
+					end
+				end
+				pinClamp(g * 0.85)
+				G = movingAverage(G, smoothW)
+				pinClamp(g)
+				for k = 1, count do
+					G[k] = math.min(G[k], capHull[k])
+				end
+				for m = 2, #pins do
+					if math.abs(pins[m].target - pins[m - 1].target) > g * (pins[m].s - pins[m - 1].s) + 0.05 then
+						stats.pinConflicts += 1
+						if #stats.pinConflictList < 20 then
+							table.insert(stats.pinConflictList, string.format("%s %s s=%.0f..%.0f dy=%.1f",
+								stroke.id, tostring(stroke.parts[1].seg.road.name), pins[m - 1].s, pins[m].s,
+								pins[m].target - pins[m - 1].target))
+						end
+					end
+				end
+				-- The fade below now only absorbs the residual between a pin's
+				-- exact station and its nearest sample (<= g * ds / 2).
 				local function gAt(s)
 					local fIndex = math.clamp(s / ds, 0, count - 1)
 					local i0 = math.min(math.floor(fIndex), count - 2)
@@ -1418,14 +1523,14 @@ end
 
 function HighwayProfile.Summary()
 	return string.format(
-		"corridorSegments=%d strokes=%d samples=%d unprofilable=%d nodes=%d mixedNodes=%d vertexSplits=%d crossingsHighwayOver=%d registry=%d dem=%d layer=%d unresolved=%d notchFilledStations=%d maxNotchFill=%.1f spikeCutStations=%d maxSpikeCut=%.1f spans=%d spanStations=%d fillStations=%d gradeStations=%d cutStations=%d worstCut=%.1f gradeViolations=%d worstGradePct=%.1f clearanceShort=%d pins=%d",
+		"corridorSegments=%d strokes=%d samples=%d unprofilable=%d nodes=%d mixedNodes=%d vertexSplits=%d crossingsHighwayOver=%d registry=%d dem=%d layer=%d unresolved=%d notchFilledStations=%d maxNotchFill=%.1f cutStationsKept=%d bridgeTagsDropped=%d spikeCutStations=%d maxSpikeCut=%.1f spans=%d spanStations=%d fillStations=%d gradeStations=%d cutStations=%d worstCut=%.1f gradeViolations=%d worstGradePct=%.1f clearanceShort=%d pins=%d pinConflicts=%d",
 		stats.corridorSegments, stats.strokes, stats.samples, stats.unprofilable,
 		stats.nodes, stats.mixedNodes, stats.vertexSplits, stats.crossingsOver,
 		stats.crossingsRegistry, stats.crossingsDem, stats.crossingsLayer, stats.crossingsUnresolved, stats.notchFilledStations,
-		stats.maxNotchFill, stats.spikeCutStations, stats.maxSpikeCut, stats.spans,
+		stats.maxNotchFill, stats.cutStationsKept, stats.bridgeTagsDropped, stats.spikeCutStations, stats.maxSpikeCut, stats.spans,
 		stats.spanStations, stats.fillStations, stats.gradeStations, stats.cutStations,
 		stats.worstCut, stats.gradeViolations, stats.worstGrade * 100,
-		stats.clearanceShort, stats.pins)
+		stats.clearanceShort, stats.pins, stats.pinConflicts)
 end
 
 return HighwayProfile

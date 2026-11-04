@@ -11,6 +11,7 @@ local fallbackCenters = 0
 local polygonPieces = 0
 local recoveredHighwayParts = 0
 local steepestHighwayGrade = 0
+local recoveredByRoad = {}
 
 function TileBuilderV3.Prepare(tileModules)
     expectedTiles = #tileModules
@@ -20,6 +21,7 @@ function TileBuilderV3.Prepare(tileModules)
     polygonPieces = 0
     recoveredHighwayParts = 0
     steepestHighwayGrade = 0
+    recoveredByRoad = {}
     BaseBuilder.Prepare(tileModules)
     print(("[ChesterWorld TileBuilderV3] polygon paving uses solid WedgeParts; tiles=%d noEditableMesh=true"):format(expectedTiles))
 end
@@ -48,8 +50,20 @@ function TileBuilderV3.Build(tileModule)
         for _, part in ipairs(roads:GetChildren()) do
             if part:IsA("BasePart") and part:GetAttribute("CW_SteepHighwayFallback") == true then
                 recoveredHighwayParts += 1
-                steepestHighwayGrade = math.max(steepestHighwayGrade,
-                    tonumber(part:GetAttribute("CW_ObservedSurfaceGrade")) or 0)
+                local grade = tonumber(part:GetAttribute("CW_ObservedSurfaceGrade")) or 0
+                steepestHighwayGrade = math.max(steepestHighwayGrade, grade)
+                local name = tostring(part:GetAttribute("ChesterStreet") or part.Name)
+                local entry = recoveredByRoad[name]
+                if not entry then
+                    entry = { name = name, parts = 0, grade = 0 }
+                    recoveredByRoad[name] = entry
+                end
+                entry.parts += 1
+                if grade > entry.grade then
+                    entry.grade = grade
+                    entry.x, entry.z = part.Position.X, part.Position.Z
+                    entry.class = tostring(part:GetAttribute("CW_RoadClass"))
+                end
             end
         end
     end
@@ -75,6 +89,15 @@ function TileBuilderV3.Build(tileModule)
         if recoveredHighwayParts > 0 then
             warn(("[ChesterWorld HighwayPavement] recoveredSteepParts=%d worstGradePct=%.1f; asphalt is restored but unsafe grade must be inspected before driving")
                 :format(recoveredHighwayParts, steepestHighwayGrade * 100))
+            local list = {}
+            for _, entry in pairs(recoveredByRoad) do
+                table.insert(list, entry)
+            end
+            table.sort(list, function(a, b) return a.grade > b.grade end)
+            for _, entry in ipairs(list) do
+                warn(("[ChesterWorld HighwayPavementRecovered] %s class=%s parts=%d worstGradePct=%.0f at (%.1f, %.1f)")
+                    :format(entry.name, entry.class, entry.parts, entry.grade * 100, entry.x, entry.z))
+            end
         end
     end
     return tileFolder

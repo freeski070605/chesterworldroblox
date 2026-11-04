@@ -726,8 +726,24 @@ function TileBuilderV2.Prepare(tileModules)
 	})
 	if HighwayProfile.Enabled() then
 		print(("[ChesterWorld HighwayProfile] %s seconds=%.1f"):format(HighwayProfile.Summary(), os.clock() - profileStart))
-		for _, line in ipairs(HighwayProfile.Stats().pinConflictList) do
+		local profileStats = HighwayProfile.Stats()
+		for _, line in ipairs(profileStats.pinConflictList) do
 			warn("[ChesterWorld HighwayProfilePinConflict] " .. line)
+		end
+		for _, line in ipairs(profileStats.unresolvedList) do
+			warn("[ChesterWorld HighwayProfileUnresolved] " .. line)
+		end
+		for _, line in ipairs(profileStats.clearanceList) do
+			warn("[ChesterWorld HighwayProfileClearanceShort] " .. line)
+		end
+		-- worst locations first, at most 12 of each
+		for _, pair in ipairs({ { "HighwayProfileGrade", profileStats.gradeList }, { "HighwayProfileCut", profileStats.cutList } }) do
+			table.sort(pair[2], function(a, b)
+				return a.value > b.value
+			end)
+			for index = 1, math.min(12, #pair[2]) do
+				warn("[ChesterWorld " .. pair[1] .. "] " .. pair[2][index].text)
+			end
 		end
 	end
 	for index, entry in ipairs(entries) do

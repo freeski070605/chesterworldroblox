@@ -145,14 +145,14 @@ local function resetStats()
 		nodes = 0, mixedNodes = 0, levelCrossNodesKept = 0,
 		crossingsOver = 0, crossingsUnder = 0, crossingsRegistry = 0,
 		crossingsCorridor = 0, crossingsUnresolved = 0, crossingsDem = 0,
-		crossingsLayer = 0, vertexSplits = 0,
+		crossingsLayer = 0, vertexSplits = 0, freewayCrossNodeSplits = 0,
 		notchFilledStations = 0, spikeCutStations = 0, cutStationsKept = 0, bridgeTagsDropped = 0,
 		bridgeTagStations = 0, maxNotchFill = 0, maxSpikeCut = 0,
 		spanStations = 0, fillStations = 0, gradeStations = 0,
 		spans = 0, cutStations = 0, worstCut = 0,
 		gradeViolations = 0, worstGrade = 0,
 		clearanceShort = 0, worstClearanceShort = 0, pins = 0, pinConflicts = 0,
-		pinConflictList = {},
+		pinConflictList = {}, gradeList = {}, cutList = {},
 		unresolvedList = {}, clearanceList = {}, spanList = {},
 	}
 end
@@ -391,6 +391,66 @@ function HighwayProfile.Prepare(entries, opts)
 		end
 	end
 
+	-- 3b. Freeways have no at-grade junctions, and ramps merge at shallow
+	-- angles. Another corridor road meeting a freeway through-movement at a
+	-- shared vertex at >= 30 degrees is a crossing the county data encodes as
+	-- a shared vertex (I 95 to Comm Barry and Conchester over/under both I-95
+	-- carriageways, Bullens Ln at I-476). Detach it into its own node so the
+	-- two roads get independent heights, and let step 6 resolve the crossing.
+	local forcedCross = {}
+	local function isFreewayName(nk)
+		return nk == "i 95" or nk == "i 476" or nk == "commodore john barry bridge"
+	end
+	local splitNodes = {}
+	for _, node in ipairs(nodes) do
+		local through = nil
+		for _, arm in ipairs(node.arms) do
+			if arm.pair and isFreewayName(arm.seg.nameKey) and isFreewayName(arm.pair.seg.nameKey) then
+				through = arm
+				break
+			end
+		end
+		if through and #node.arms >= 3 then
+			local fx, fz = through.dx - through.pair.dx, through.dz - through.pair.dz
+			local fl = math.sqrt(fx * fx + fz * fz)
+			local keep, detached = {}, {}
+			for _, arm in ipairs(node.arms) do
+				local sine = 0
+				if fl > 1e-6 then
+					sine = math.abs(arm.dx * fz - arm.dz * fx) / fl
+				end
+				local partnerSine = 0
+				if arm.pair and fl > 1e-6 then
+					partnerSine = math.abs(arm.pair.dx * fz - arm.pair.dz * fx) / fl
+				end
+				if arm ~= through and arm ~= through.pair and math.max(sine, partnerSine) > 0.5 then
+					table.insert(detached, arm)
+				else
+					table.insert(keep, arm)
+				end
+			end
+			if #detached > 0 then
+				node.arms = keep
+				local new = { id = node.id .. ":X", x = node.x, z = node.z, arms = detached, mixed = false, height = nil }
+				for _, arm in ipairs(detached) do
+					arm.node = new
+					arm.seg.nodes[arm.e] = new
+					for _, other in ipairs(keep) do
+						forcedCross[arm.seg] = forcedCross[arm.seg] or {}
+						forcedCross[other.seg] = forcedCross[other.seg] or {}
+						forcedCross[arm.seg][other.seg] = true
+						forcedCross[other.seg][arm.seg] = true
+					end
+				end
+				table.insert(splitNodes, new)
+				stats.freewayCrossNodeSplits += 1
+			end
+		end
+	end
+	for _, node in ipairs(splitNodes) do
+		table.insert(nodes, node)
+	end
+
 	-- 4. Strokes.
 	local used = {}
 	local function walk(seg, exitEnd)
@@ -595,8 +655,9 @@ function HighwayProfile.Prepare(entries, opts)
 				for _, other in ipairs(grid[gx .. ":" .. gz] or {}) do
 					if other ~= seg and not visited[other] then
 						visited[other] = true
-						local sharesNode = other.k1 == seg.k1 or other.k1 == seg.k2
-							or other.k2 == seg.k1 or other.k2 == seg.k2
+						local forced = forcedCross[seg] ~= nil and forcedCross[seg][other] == true
+						local sharesNode = not forced and (other.k1 == seg.k1 or other.k1 == seg.k2
+							or other.k2 == seg.k1 or other.k2 == seg.k2)
 						-- Collinear continuation across levels (bridge end) is not
 						-- a crossing either.
 						if not sharesNode and other.len > 0.05 then
@@ -611,7 +672,7 @@ function HighwayProfile.Prepare(entries, opts)
 							-- this corridor AT GRADE through a sibling arm (a ramp
 							-- terminal at a bridge end) is a junction, not a
 							-- crossing.
-							if t and (t < 1e-4 or t > 1 - 1e-4) and (u < 1e-4 or u > 1 - 1e-4) then
+							if t and not forced and (t < 1e-4 or t > 1 - 1e-4) and (u < 1e-4 or u > 1 - 1e-4) then
 								for _, arm in ipairs(vertexArms[vkey(x, z)] or {}) do
 									local armKey = arm.e == 1 and arm.seg.k1 or arm.seg.k2
 									if armKey == other.k1 or armKey == other.k2 then
@@ -701,6 +762,7 @@ function HighwayProfile.Prepare(entries, opts)
 		end
 		return lo, hi
 	end
+	local unresolvedSeen = {}
 	local function decide(cross)
 		local shared = cross.shared
 		if shared.decided then
@@ -761,7 +823,11 @@ function HighwayProfile.Prepare(entries, opts)
 			stats.crossingsLayer += 1
 		else
 			stats.crossingsUnresolved += 1
-			if #stats.unresolvedList < 40 then
+			-- one line per physical crossing (both carriageway records and
+			-- the mirrored entry share a location)
+			local key = string.format("%s|%s|%d|%d", seg.nameKey, other.nameKey, math.floor(x / 20), math.floor(z / 20))
+			if not unresolvedSeen[key] and #stats.unresolvedList < 40 then
+				unresolvedSeen[key] = true
 				table.insert(stats.unresolvedList, string.format("%s x %s at (%.1f, %.1f) notches=%s",
 					tostring(seg.road.name), tostring(other.road.name), x, z, tostring(shared.notches)))
 			end
@@ -984,11 +1050,11 @@ function HighwayProfile.Prepare(entries, opts)
 					local s = stationOf(part.seg, cross.t)
 					cross.station = s
 					decide(cross)
+					local other = cross.other
 					cross.relation = relationOf(cross)
 					cross.entry = cross.shared.entry
 					cross.basis = cross.shared.basis
 					table.insert(stroke.crossings, cross)
-					local other = cross.other
 					local lowerG
 					if cross.relation == "over" then
 						if other.corridor and other.stroke and other.stroke.G then
@@ -1243,6 +1309,7 @@ function HighwayProfile.Prepare(entries, opts)
 			end
 
 			-- j. diagnostics
+			local strokeGrade, strokeGradeK, strokeCut, strokeCutK = 0, nil, 0, nil
 			for k = 1, count do
 				local fill = f[k] - c[k]
 				if fill > 1 then
@@ -1253,6 +1320,9 @@ function HighwayProfile.Prepare(entries, opts)
 					local grade = math.abs(G[k] - G[k - 1]) / ds
 					if grade > g * 1.25 then
 						stats.gradeViolations += 1
+						if grade > strokeGrade then
+							strokeGrade, strokeGradeK = grade, k
+						end
 					end
 					stats.worstGrade = math.max(stats.worstGrade, grade)
 				end
@@ -1260,7 +1330,23 @@ function HighwayProfile.Prepare(entries, opts)
 				if cutDepth > 0.5 then
 					stats.cutStations += 1
 					stats.worstCut = math.max(stats.worstCut, cutDepth)
+					if cutDepth > strokeCut then
+						strokeCut, strokeCutK = cutDepth, k
+					end
 				end
+			end
+			-- worst location per stroke, so Studio output says WHERE
+			local strokeName = tostring(stroke.parts[1].seg.road.name)
+			if strokeGradeK then
+				table.insert(stats.gradeList, { value = strokeGrade, text = string.format(
+					"%s %s grade=%.1f%% at (%.1f, %.1f) s=%.0f", stroke.id, strokeName, strokeGrade * 100,
+					xs[strokeGradeK], zs[strokeGradeK], (strokeGradeK - 1) * ds) })
+			end
+			if strokeCutK and strokeCut > 3 then
+				local k = strokeCutK
+				table.insert(stats.cutList, { value = strokeCut, text = string.format(
+					"%s %s terrainAbovePavement=%.1f at (%.1f, %.1f) s=%.0f centerTerrain=%.1f grade=%.1f",
+					stroke.id, strokeName, strokeCut, xs[k], zs[k], (k - 1) * ds, t[k], G[k]) })
 			end
 			for _, cross in ipairs(stroke.crossings) do
 				if cross.relation == "over" and cross.lowerG then
@@ -1523,9 +1609,9 @@ end
 
 function HighwayProfile.Summary()
 	return string.format(
-		"corridorSegments=%d strokes=%d samples=%d unprofilable=%d nodes=%d mixedNodes=%d vertexSplits=%d crossingsHighwayOver=%d registry=%d dem=%d layer=%d unresolved=%d notchFilledStations=%d maxNotchFill=%.1f cutStationsKept=%d bridgeTagsDropped=%d spikeCutStations=%d maxSpikeCut=%.1f spans=%d spanStations=%d fillStations=%d gradeStations=%d cutStations=%d worstCut=%.1f gradeViolations=%d worstGradePct=%.1f clearanceShort=%d pins=%d pinConflicts=%d",
+		"corridorSegments=%d strokes=%d samples=%d unprofilable=%d nodes=%d mixedNodes=%d vertexSplits=%d freewayCrossNodeSplits=%d crossingsHighwayOver=%d registry=%d dem=%d layer=%d unresolved=%d notchFilledStations=%d maxNotchFill=%.1f cutStationsKept=%d bridgeTagsDropped=%d spikeCutStations=%d maxSpikeCut=%.1f spans=%d spanStations=%d fillStations=%d gradeStations=%d cutStations=%d worstCut=%.1f gradeViolations=%d worstGradePct=%.1f clearanceShort=%d pins=%d pinConflicts=%d",
 		stats.corridorSegments, stats.strokes, stats.samples, stats.unprofilable,
-		stats.nodes, stats.mixedNodes, stats.vertexSplits, stats.crossingsOver,
+		stats.nodes, stats.mixedNodes, stats.vertexSplits, stats.freewayCrossNodeSplits, stats.crossingsOver,
 		stats.crossingsRegistry, stats.crossingsDem, stats.crossingsLayer, stats.crossingsUnresolved, stats.notchFilledStations,
 		stats.maxNotchFill, stats.cutStationsKept, stats.bridgeTagsDropped, stats.spikeCutStations, stats.maxSpikeCut, stats.spans,
 		stats.spanStations, stats.fillStations, stats.gradeStations, stats.cutStations,

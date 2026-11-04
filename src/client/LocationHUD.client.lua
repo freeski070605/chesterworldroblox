@@ -25,6 +25,13 @@ gui.IgnoreGuiInset = false
 gui.DisplayOrder = 15
 gui.Parent = player:WaitForChild("PlayerGui")
 
+-- Shared HUD visibility. H button is owned by HUDToggle.client.lua.
+local function updateHUDVisibility()
+    gui.Enabled = player:GetAttribute("CW_HUDVisible") ~= false
+end
+player:GetAttributeChangedSignal("CW_HUDVisible"):Connect(updateHUDVisibility)
+updateHUDVisibility()
+
 local panel = Instance.new("Frame")
 panel.Name = "LocationPanel"
 panel.AnchorPoint = Vector2.new(0.5, 0)

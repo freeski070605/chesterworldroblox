@@ -1,3 +1,4 @@
+-- DEVELOPMENT TOOL - superseded for production by HighwayProfile.lua.
 -- ChesterWorld | I-95 over Kerlin | Studio-only, reversible GRADE PROFILE VISUALIZATION.
 -- This script does NOT change existing roadway, terrain, collisions, markings or Studio saves.
 -- It displays NON-COLLIDING translucent pavement strips at a candidate profile inferred
@@ -174,7 +175,16 @@ function Preview.Clear()
     return true
 end
 
-function Preview.Run()
+function Preview.Run(options)
+    -- Production ownership: since 2026-11-04 HighwayProfile (TileBuilderV2)
+    -- builds the I-95 / Kerlin crossing on every world build. Stacking this
+    -- temporary geometry on top of it would create duplicate collision.
+    if workspace:GetAttribute("CW_HighwayProfiledPieces") and workspace:GetAttribute("CW_HighwayProfiledPieces") > 0
+        and not (type(options) == "table" and options.force == true) then
+        warn("[Kerlin dev tool] HighwayProfile already owns this crossing; pass {force=true} to run anyway.")
+        return nil
+    end
+
     local world=ready()
     if not world then return false end
     local tracks={}

@@ -175,10 +175,18 @@ local function addGroundGrid(part)
     end
 end
 
+local highwayProfiledParts = 0
 for _, part in ipairs(allRoads) do
     local level = tonumber(part:GetAttribute("CW_GradeLevel")) or 0
     local isBridge = part:GetAttribute("CW_Bridge") == true or level > 0
-    if isBridge then
+    if part:GetAttribute("CW_HighwayProfiled") == true then
+        -- Elevation is owned by HighwayProfile (TileBuilderV2). Never move
+        -- it here, never use it as a ramp approach, but DO keep it as a
+        -- lower road so local overpasses are lifted to clear it.
+        highwayProfiledParts += 1
+        table.insert(atGrade, part)
+        addGroundGrid(part)
+    elseif isBridge then
         local key = attr(part, "CW_GradeGroup")
         if key == "" then
             key = attr(part, "ChesterStreet") .. ":g" .. level
@@ -261,8 +269,17 @@ local function crossingT(a, b, c, d)
     local dx, dz = c.X - a.X, c.Z - a.Z
     local t = (dx * sz - dz * sx) / det
     local u = (dx * rz - dz * rx) / det
-    if t > 0.02 and t < 0.98 and u > 0.02 and u < 0.98 then
-        return t, u
+    -- Source roads are split exactly AT their crossing vertex, so a real
+    -- crossing usually touches a segment end (t or u = 0/1). Accept closed
+    -- intervals; reject shallow angles (same-road continuations). Callers
+    -- reject crossings at the bridge component's own terminals.
+    local e = 1e-4
+    if t >= -e and t <= 1 + e and u >= -e and u <= 1 + e then
+        local sine = math.abs(det) / math.max(
+            math.sqrt(rx * rx + rz * rz) * math.sqrt(sx * sx + sz * sz), 1e-6)
+        if sine > 0.26 then
+            return math.clamp(t, 0, 1), math.clamp(u, 0, 1)
+        end
     end
     return nil
 end
@@ -431,14 +448,24 @@ local function conformComponent(parts, groupKey)
 
     -- Ground streets are left untouched; raise a deck enough to clear them.
     local crossings = {}
+    local seenCrossing = {}
+    local bridgeNameKey = normalizedRoadName(attr(parts[1], "ChesterStreet"))
     for _, rec in ipairs(records) do
         for _, lower in ipairs(underRoadsForSegment(rec.a, rec.b)) do
             local x, y = endpoints(lower)
             local t, u = crossingT(rec.a, rec.b, x, y)
+            local position = t and rec.a:Lerp(rec.b, t)
+            local station = position and (position.X * direction.X
+                + position.Z * direction.Z - low) / span
+            -- Touching the deck at its own terminal is an at-grade junction,
+            -- and a same-name road is this bridge's own approach.
+            if t and (station <= 0.03 or station >= 0.97
+                or normalizedRoadName(attr(lower, "ChesterStreet")) == bridgeNameKey
+                or seenCrossing[lower]) then
+                t = nil
+            end
             if t then
-                local position = rec.a:Lerp(rec.b, t)
-                local station = (position.X * direction.X
-                    + position.Z * direction.Z - low) / span
+                seenCrossing[lower] = true
                 local groundTop = lerp(x.Y, y.Y, u) + lower.Size.Y / 2
                 local baseline = lerp(startGround, endGround, station)
                     + ROAD_OFFSET + rec.part.Size.Y / 2
@@ -794,6 +821,7 @@ Workspace:SetAttribute("CW_RoadConformTotal", #allRoads)
 Workspace:SetAttribute("CW_RoadConformedCount", conformed)
 Workspace:SetAttribute("CW_RoadConformComplete", true)
 
+print(("[ChesterWorld RoadTerrainConformer] highwayProfiledPartsLeftToHighwayProfile=%d"):format(highwayProfiledParts))
 print(("[ChesterWorld RoadTerrainConformer] final=%d groundPreserved=%d bridgeConformed=%d conformed=%d noTerrain=%d failed=%d bridgeGroups=%d sourceBridgeGroups=%d bridgeComponents=%d bridgeParts=%d tunnelParts=%d rampParts=%d rampGroups=%d marked=%d crossingChecks=%d clearanceWarnings=%d terrainClearanceWarnings=%d terrainEndpointEstimates=%d steepGroups=%d gradeLimitedGroups=%d gradeLimitedParts=%d actualSteepParts=%d baselineSteepGroups=%d smoothDecks=true")
     :format(#allRoads, #atGrade-stats.rampParts, stats.bridgeConformed,
     conformed, stats.bridgeNoTerrain, stats.failed, stats.groups,

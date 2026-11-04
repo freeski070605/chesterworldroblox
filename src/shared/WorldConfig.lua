@@ -71,6 +71,63 @@ WorldConfig.HIGHWAY_DECK_THICKNESS_STUDS = 1.6
 WorldConfig.HIGHWAY_GUARDRAIL_HEIGHT_STUDS = 3.2
 
 -- ============================================================
+-- HIGHWAY CORRIDOR PROFILE (generator-owned, TileBuilderV2)
+-- ============================================================
+-- The imported terrain is a bare-earth DEM: wherever a highway rides over a
+-- street, creek or rail line the DEM drops into a notch, and a terrain-
+-- following strip dives into it (or is deleted by MAX_SURFACE_GRADE).
+-- HighwayProfile chains every highway segment into continuous strokes and
+-- solves one smooth vertical profile per stroke instead. Rollback switch:
+-- false restores per-strip terrain following for highways.
+WorldConfig.HIGHWAY_PROFILE_ENABLED = true
+
+-- Station spacing for terrain sampling along a stroke.
+WorldConfig.HIGHWAY_PROFILE_SAMPLE_STUDS = 6.0
+-- A dip is bridged when higher ground exists on BOTH sides within this
+-- distance (overpass notches are ~100-160 studs wide). Wider valleys are
+-- real terrain and are followed (subject to the grade limit).
+WorldConfig.HIGHWAY_PROFILE_NOTCH_WINDOW_STUDS = 240.0
+-- A narrow bump with lower ground on both sides within this distance is
+-- treated as a DEM artifact (e.g. a retained overpass deck) and cut.
+WorldConfig.HIGHWAY_PROFILE_SPIKE_WINDOW_STUDS = 90.0
+-- In-world grade limits. Horizontal studs are EPSG:3857-stretched (~1.30x at
+-- Chester) while vertical studs are true metres x3, so an in-world 0.07 is
+-- ~5.4% real grade and 0.10 is ~7.7%.
+WorldConfig.HIGHWAY_PROFILE_MAX_GRADE_MAINLINE = 0.07
+WorldConfig.HIGHWAY_PROFILE_MAX_GRADE_LINK = 0.10
+-- Moving-average window that rounds vertical curves.
+WorldConfig.HIGHWAY_PROFILE_SMOOTH_STUDS = 36.0
+-- Maximum length of one rendered pavement piece along a stroke.
+WorldConfig.HIGHWAY_PROFILE_PIECE_STUDS = 24.0
+-- Minimum opening between a highway deck underside and the lower road top
+-- where the highway is the upper road. A registry inventory value raises it.
+WorldConfig.HIGHWAY_UNDERPASS_MIN_CLEARANCE_STUDS = 14.0
+-- Minimum design clearance over a bridge-tagged span with no known lower road
+-- (water, rail). Used only when the DEM rims do not already provide it.
+WorldConfig.HIGHWAY_OPEN_SPAN_MIN_CLEARANCE_STUDS = 18.0
+-- Classification of profiled pavement relative to the terrain below it.
+WorldConfig.HIGHWAY_STRUCTURE_FILL_MIN_GAP_STUDS = 2.0
+WorldConfig.HIGHWAY_STRUCTURE_NOTCH_SPAN_DEPTH_STUDS = 8.0
+WorldConfig.HIGHWAY_STRUCTURE_MIN_SPAN_STUDS = 14.0
+-- Lateral clearance added to each side of a lower road when sizing a span
+-- that has no registry footprint (sidewalk + shoulder).
+WorldConfig.HIGHWAY_SPAN_SIDE_MARGIN_STUDS = 10.0
+-- Highway lane markings.
+WorldConfig.HIGHWAY_LANE_WIDTH_STUDS = 12.0
+WorldConfig.HIGHWAY_LANE_DASH_STUDS = 10.0
+WorldConfig.HIGHWAY_LANE_DASH_PERIOD_STUDS = 36.0
+WorldConfig.HIGHWAY_MARKING_WIDTH_STUDS = 0.5
+WorldConfig.HIGHWAY_EDGE_INSET_STUDS = 2.5
+WorldConfig.HIGHWAY_MARKING_COLOR = Color3.fromRGB(236, 236, 230)
+WorldConfig.HIGHWAY_EDGE_LEFT_COLOR = Color3.fromRGB(236, 190, 54)
+-- Structures built by HighwayInfrastructure from the profile classification.
+WorldConfig.HIGHWAY_BARRIER_HEIGHT_STUDS = 3.2
+WorldConfig.HIGHWAY_BARRIER_MIN_FILL_STUDS = 4.0
+WorldConfig.HIGHWAY_PIER_MAX_SPACING_STUDS = 95.0
+WorldConfig.HIGHWAY_STRUCTURE_COLOR = Color3.fromRGB(150, 148, 142)
+WorldConfig.HIGHWAY_BARRIER_COLOR = Color3.fromRGB(176, 175, 168)
+
+-- ============================================================
 -- PRODUCTION STREET READABILITY
 -- ============================================================
 

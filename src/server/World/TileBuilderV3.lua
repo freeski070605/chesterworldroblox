@@ -57,6 +57,21 @@ function TileBuilderV3.Build(tileModule)
     if builtTiles == expectedTiles then
         print(("[ChesterWorld TileBuilderV3] complete tiles=%d polygonCenters=%d wedgeParts=%d fallbacks=%d noEditableMesh=true")
             :format(builtTiles, polygonCenters, polygonPieces, fallbackCenters))
+        if BaseBuilder.Stats then
+            local omissions, highway = BaseBuilder.Stats()
+            print(("[ChesterWorld HighwayPavement] profiledPieces=%d profiledLength=%.0f spanPieces=%d fillPieces=%d markingParts=%d suppressedHighwayPads=%d fallbackHighwayRoads=%d trimConsumedHighway=%d")
+                :format(highway.profiledPieces, highway.profiledLength, highway.spanPieces, highway.fillPieces,
+                    highway.markingParts, highway.suppressedHighwayPads, highway.fallbackHighwayRoads,
+                    omissions.trimConsumedHighway))
+            print(("[ChesterWorld PavementOmissions] steepPieces=%d steepLength=%.0f noTerrainPieces=%d trimConsumed=%d")
+                :format(omissions.steepPieces, omissions.steepLength, omissions.noTerrainPieces, omissions.trimConsumed))
+            for index = 1, math.min(12, #omissions.samples) do
+                print("[ChesterWorld PavementOmission] " .. omissions.samples[index])
+            end
+            workspace:SetAttribute("CW_HighwayProfiledPieces", highway.profiledPieces)
+            workspace:SetAttribute("CW_PavementSteepOmissions", omissions.steepPieces)
+            workspace:SetAttribute("CW_PavementNoTerrainOmissions", omissions.noTerrainPieces)
+        end
         if recoveredHighwayParts > 0 then
             warn(("[ChesterWorld HighwayPavement] recoveredSteepParts=%d worstGradePct=%.1f; asphalt is restored but unsafe grade must be inspected before driving")
                 :format(recoveredHighwayParts, steepestHighwayGrade * 100))

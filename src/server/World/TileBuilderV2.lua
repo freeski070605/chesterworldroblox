@@ -4,7 +4,26 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local WorldConfig = require(Shared:WaitForChild("WorldConfig"))
 
+local HighwayProfile = require(script.Parent:WaitForChild("HighwayProfile"))
+
 local TileBuilderV2 = {}
+
+-- Pavement omission accounting. Every strip that is NOT built is counted and
+-- the first few are reported with coordinates, so missing asphalt can never
+-- again be silent.
+local omissions = {
+	steepPieces = 0, steepLength = 0, noTerrainPieces = 0,
+	trimConsumed = 0, trimConsumedHighway = 0, samples = {},
+}
+local highwayStats = {
+	profiledPieces = 0, profiledLength = 0, spanPieces = 0, fillPieces = 0,
+	markingParts = 0, suppressedHighwayPads = 0, fallbackHighwayRoads = 0,
+}
+local function noteOmission(kind, x, z, extra)
+	if #omissions.samples < 60 then
+		table.insert(omissions.samples, string.format("%s at (%.1f, %.1f)%s", kind, x, z, extra or ""))
+	end
+end
 
 local S = WorldConfig.STUDS_PER_METER
 local CENTER_X_M = WorldConfig.WORLD_CENTER_X_M
@@ -146,6 +165,29 @@ local function isHighwayCorridor(attributes)
         or name:match("^i[%s%-]*476$") ~= nil
 end
 
+-- Terrain-following endpoint pair WITHOUT grade rejection. Returns the pair
+-- and its grade so callers can subdivide BEFORE deciding to omit anything.
+local function groundPair(x1, z1, x2, z2, surfaceOffset, gradeOffset)
+	local y1 = terrainY(x1, z1)
+	local y2 = terrainY(x2, z2)
+	if y1 == nil and y2 == nil then
+		return nil, nil, 0
+	end
+	if y1 == nil then
+		y1 = y2
+	elseif y2 == nil then
+		y2 = y1
+	end
+	local totalOffset = surfaceOffset + (gradeOffset or 0)
+	local a = Vector3.new(x1, y1 + totalOffset, z1)
+	local b = Vector3.new(x2, y2 + totalOffset, z2)
+	local run = horizontalLength(a, b)
+	if run < 0.05 then
+		return nil, nil, 0
+	end
+	return a, b, math.abs(b.Y - a.Y) / run
+end
+
 local function safeGroundPair(x1, z1, x2, z2, surfaceOffset, gradeOffset, allowSteepHighway)
 	local y1 = terrainY(x1, z1)
 	local y2 = terrainY(x2, z2)
@@ -228,10 +270,17 @@ local function endpointKeyFromStuds(x, z, gradeLevel, connectionGroup)
 end
 
 local function endpointConnectionGroup(road, endpointIndex)
+	local explicit
 	if endpointIndex == 1 then
-		return road.node1_connection_group
+		explicit = road.node1_connection_group
+	else
+		explicit = road.node2_connection_group
 	end
-	return road.node2_connection_group
+	if explicit then
+		return explicit
+	end
+	-- Freeway-interior vertex splits decided by HighwayProfile.Prepare.
+	return HighwayProfile.ConnectionGroup(road, endpointIndex)
 end
 
 local function endpointKeyFromMeters(xMeters, zMeters, road, endpointIndex)
@@ -417,12 +466,16 @@ local function addEndpoint(nodes, tileId, xMeters, zMeters, otherXMeters, otherZ
 			isNamedIntersection = false,
 			gradeLevel = gradeLevel,
 			ownerTile = tileId,
+			corridorArms = 0,
 		}
 		nodes[key] = node
 	elseif tileId < node.ownerTile then
 		node.ownerTile = tileId
 	end
 	local roadWidth = math.max((tonumber(road.width_m) or 7) * S, 3)
+	if HighwayProfile.IsCorridor(road) then
+		node.corridorArms += 1
+	end
 	node.xSum += x
 	node.zSum += z
 	node.count += 1
@@ -475,6 +528,14 @@ local function finalizeNodes(nodes)
 		node.isNamedIntersection = distinctNames >= 2
 		node.isIntersection = node.gradeLevel == 0
 			and (#arms >= WorldConfig.INTERSECTION_MIN_DEGREE or node.isNamedIntersection)
+		-- A merge, diverge or name change INSIDE the highway corridor is not a
+		-- street intersection: a terrain-planar pad there would sit below the
+		-- profiled pavement and trim the highway back to it. Corridor strips
+		-- overlap at these gores instead.
+		if node.isIntersection and node.count > 0 and node.corridorArms == node.count then
+			node.isIntersection = false
+			highwayStats.suppressedHighwayPads += 1
+		end
 		node.x = node.xSum / math.max(node.count, 1)
 		node.z = node.zSum / math.max(node.count, 1)
 		if node.isIntersection then
@@ -627,19 +688,50 @@ end
 
 function TileBuilderV2.Prepare(tileModules)
 	globalIntersectionNodes = {}
+	omissions = {
+		steepPieces = 0, steepLength = 0, noTerrainPieces = 0,
+		trimConsumed = 0, trimConsumedHighway = 0, samples = {},
+	}
+	highwayStats = {
+		profiledPieces = 0, profiledLength = 0, spanPieces = 0, fillPieces = 0,
+		markingParts = 0, suppressedHighwayPads = 0, fallbackHighwayRoads = 0,
+	}
+	local entries = {}
 	for moduleIndex, tileModule in ipairs(tileModules) do
 		if tileModule:IsA("ModuleScript") then
 			local ok, tile = pcall(require, tileModule)
 			if ok and tile then
 				local tileId = tostring(tile.tile_id or tileModule.Name)
-				for roadIndex, road in ipairs(tile.roads or {}) do
-					addEndpoint(globalIntersectionNodes, tileId, road.x1, road.z1, road.x2, road.z2, road, 1)
-					addEndpoint(globalIntersectionNodes, tileId, road.x2, road.z2, road.x1, road.z1, road, 2)
-					if roadIndex % 250 == 0 then task.wait() end
+				for _, road in ipairs(tile.roads or {}) do
+					table.insert(entries, { road = road, tileId = tileId })
 				end
 			end
 		end
 		if moduleIndex % 8 == 0 then task.wait() end
+	end
+	-- Highway corridor profile is solved on the WHOLE network first, so every
+	-- tile builds its highway pieces from one continuous vertical profile.
+	local profileStart = os.clock()
+	HighwayProfile.Prepare(entries, {
+		sourceToStuds = sourceToStuds,
+		terrainY = terrainY,
+		gradeLevel = gradeLevelForRoad,
+		endpointKey = function(road, endpointIndex)
+			if endpointIndex == 1 then
+				return endpointKeyFromMeters(road.x1, road.z1, road, 1)
+			end
+			return endpointKeyFromMeters(road.x2, road.z2, road, 2)
+		end,
+		yield = function() task.wait() end,
+	})
+	if HighwayProfile.Enabled() then
+		print(("[ChesterWorld HighwayProfile] %s seconds=%.1f"):format(HighwayProfile.Summary(), os.clock() - profileStart))
+	end
+	for index, entry in ipairs(entries) do
+		local road = entry.road
+		addEndpoint(globalIntersectionNodes, entry.tileId, road.x1, road.z1, road.x2, road.z2, road, 1)
+		addEndpoint(globalIntersectionNodes, entry.tileId, road.x2, road.z2, road.x1, road.z1, road, 2)
+		if index % 250 == 0 then task.wait() end
 	end
 	finalizeNodes(globalIntersectionNodes)
     local mergedGroups, mergedNodes
@@ -726,8 +818,33 @@ local function buildAdaptiveCenterStrip(parent, name, x1, z1, x2, z2, width, thi
 	depth = depth or 0
 	gradeOffset = gradeOffset or 0
 	local allowSteepHighway = WorldConfig.RECOVER_STEEP_HIGHWAY_PAVEMENT == true and isHighwayCorridor(attributes)
-    local a, b = safeGroundPair(x1, z1, x2, z2, surfaceOffset, gradeOffset, allowSteepHighway)
-	if not a or not b then return end
+	local a, b, grade = groundPair(x1, z1, x2, z2, surfaceOffset, gradeOffset)
+	if not a or not b then
+		if parent.Name == "Roads" and math.abs(x2 - x1) + math.abs(z2 - z1) > 0.1 then
+			omissions.noTerrainPieces += 1
+			noteOmission("no-terrain", (x1 + x2) / 2, (z1 + z2) / 2, " " .. tostring(name))
+		end
+		return
+	end
+	local steep = gradeOffset == 0 and grade > WorldConfig.MAX_SURFACE_GRADE
+	-- Split a steep piece first: only the genuinely steep sub-piece may be
+	-- omitted, never a whole 120-stud strip with one steep corner.
+	if steep and depth < WorldConfig.ROAD_MAX_SUBDIVISION_DEPTH + 2 and horizontalLength(a, b) > 3 then
+		local midX = (x1 + x2) / 2
+		local midZ = (z1 + z2) / 2
+		buildAdaptiveCenterStrip(parent, name, x1, z1, midX, midZ, width, thickness, material, color, surfaceOffset, gradeOffset, depth + 1, attributes)
+		buildAdaptiveCenterStrip(parent, name, midX, midZ, x2, z2, width, thickness, material, color, surfaceOffset, gradeOffset, depth + 1, attributes)
+		return
+	end
+	if steep and not allowSteepHighway then
+		if parent.Name == "Roads" then
+			omissions.steepPieces += 1
+			omissions.steepLength += horizontalLength(a, b)
+			noteOmission("steep", (x1 + x2) / 2, (z1 + z2) / 2,
+				string.format(" grade=%.0f%% %s", grade * 100, tostring(name)))
+		end
+		return
+	end
 	if shouldSplit(a, b, depth, surfaceOffset, gradeOffset) then
 		local midX = (x1 + x2) / 2
 		local midZ = (z1 + z2) / 2
@@ -854,10 +971,171 @@ local function buildCenterLine(markingsFolder, road, roadWidth)
     )
 end
 
-local function buildRoad(roadsFolder, sidewalksFolder, markingsFolder, road)
+-- ---------------------------------------------------------------------------
+-- Highway corridor pavement (elevation owned by HighwayProfile)
+-- ---------------------------------------------------------------------------
+
+local function laneLayout(width)
+	local shoulder = math.clamp(width * 0.12, 2, 9)
+	local driving = math.max(width - 2 * shoulder, 4)
+	local lanes = math.clamp(math.floor(driving / WorldConfig.HIGHWAY_LANE_WIDTH_STUDS + 0.25), 1, 4)
+	return shoulder, driving, lanes
+end
+
+local function makeMarking(markingsFolder, kind, a, b, width, color, attributes)
+	local part = makeStripPart(markingsFolder, kind, a, b, width,
+		WorldConfig.CENTERLINE_THICKNESS_STUDS, WorldConfig.MARKING_MATERIAL, color)
+	if part then
+		part:SetAttribute("MarkingType", kind)
+		for key, value in pairs(attributes) do
+			part:SetAttribute(key, value)
+		end
+		highwayStats.markingParts += 1
+	end
+	return part
+end
+
+-- Lane lines are anchored to stroke stations, so dashes stay in phase across
+-- piece, segment and tile boundaries.
+local function buildHighwayMarkings(markingsFolder, info, pa, pb, s0, s1, width, attributes)
+	local delta = pb - pa
+	local length = delta.Magnitude
+	if length < 0.5 then return end
+	local along = delta / length
+	local flat = Vector3.new(along.X, 0, along.Z)
+	if flat.Magnitude < 1e-3 then return end
+	flat = flat.Unit
+	local right = Vector3.new(-flat.Z, 0, flat.X)
+	local lift = Vector3.new(0, WorldConfig.ROAD_THICKNESS_STUDS / 2 + 0.05, 0)
+	local shoulder, driving, lanes = laneLayout(width)
+	local color = WorldConfig.HIGHWAY_MARKING_COLOR
+	local markWidth = WorldConfig.HIGHWAY_MARKING_WIDTH_STUDS
+	-- solid edge lines at both shoulders
+	for _, side in ipairs({ -1, 1 }) do
+		local offset = right * side * (width / 2 - shoulder)
+		makeMarking(markingsFolder, "HighwayEdgeLine", pa + offset + lift, pb + offset + lift,
+			markWidth, color, attributes)
+	end
+	if lanes < 2 then return end
+	local dash = WorldConfig.HIGHWAY_LANE_DASH_STUDS
+	local period = WorldConfig.HIGHWAY_LANE_DASH_PERIOD_STUDS
+	local lo, hi = math.min(s0, s1), math.max(s0, s1)
+	local first = math.floor(lo / period)
+	for k = first, math.floor(hi / period) do
+		local d0 = math.max(lo, k * period)
+		local d1 = math.min(hi, k * period + dash)
+		if d1 - d0 > 0.75 then
+			-- station -> distance from pa along this piece
+			local f0 = (d0 - s0) / (s1 - s0)
+			local f1 = (d1 - s0) / (s1 - s0)
+			local qa = pa:Lerp(pb, math.clamp(f0, 0, 1))
+			local qb = pa:Lerp(pb, math.clamp(f1, 0, 1))
+			for lane = 1, lanes - 1 do
+				local offset = right * (-driving / 2 + lane * driving / lanes)
+				makeMarking(markingsFolder, "HighwayLaneLine", qa + offset + lift, qb + offset + lift,
+					markWidth, color, attributes)
+			end
+		end
+	end
+end
+
+local function buildProfiledHighway(roadsFolder, markingsFolder, road, info)
 	local roadWidth = math.max((tonumber(road.width_m) or 7) * S, 3)
 	local streetName = tostring(road.name or "")
 	local a2D, b2D = trimmedEndpoints(road, 0)
+	local ax, az = sourceToStuds(road.x1, road.z1)
+	local bx, bz = sourceToStuds(road.x2, road.z2)
+	local full = math.sqrt((bx - ax) ^ 2 + (bz - az) ^ 2)
+	if not a2D or not b2D or full < 0.05 then
+		omissions.trimConsumed += 1
+		omissions.trimConsumedHighway += 1
+		noteOmission("trim-consumed-highway", (ax + bx) / 2, (az + bz) / 2, " " .. streetName)
+		return
+	end
+	local function fractionOf(point)
+		return math.clamp(((point.X - ax) * (bx - ax) + (point.Z - az) * (bz - az)) / (full * full), 0, 1)
+	end
+	local f0, f1 = fractionOf(a2D), fractionOf(b2D)
+	local breaks = { f0 }
+	for _, f in ipairs(HighwayProfile.Boundaries(info, f0, f1)) do
+		table.insert(breaks, f)
+	end
+	table.insert(breaks, f1)
+	local pieceMax = WorldConfig.HIGHWAY_PROFILE_PIECE_STUDS
+	local attributes = roadAttributes(road, roadWidth)
+	attributes.CW_HighwayProfiled = true
+	attributes.CW_ElevationOwner = "HighwayProfile"
+	attributes.CW_TerrainConformed = true
+	attributes.CW_StrokeId = info.stroke.id
+	attributes.CW_HighwayLink = HighwayProfile.StrokeLink(info) == true
+	local markAttributes = {
+		ChesterStreet = streetName, CW_HighwayProfiled = true,
+		CW_ElevationOwner = "HighwayProfile", CW_StrokeId = info.stroke.id,
+	}
+	for index = 1, #breaks - 1 do
+		local fa, fb = breaks[index], breaks[index + 1]
+		local runLength = (fb - fa) * full
+		if runLength > 0.05 then
+			local pieces = math.max(1, math.ceil(runLength / pieceMax))
+			for piece = 1, pieces do
+				local ga = fa + (fb - fa) * (piece - 1) / pieces
+				local gb = fa + (fb - fa) * piece / pieces
+				local kind, structureId, basis = HighwayProfile.KindAt(info, (ga + gb) / 2)
+				local ya = HighwayProfile.GradeAt(info, ga) + WorldConfig.ROAD_SURFACE_OFFSET_STUDS
+				local yb = HighwayProfile.GradeAt(info, gb) + WorldConfig.ROAD_SURFACE_OFFSET_STUDS
+				local pa = Vector3.new(ax + (bx - ax) * ga, ya, az + (bz - az) * ga)
+				local pb = Vector3.new(ax + (bx - ax) * gb, yb, az + (bz - az) * gb)
+				-- Close joint wedges: extend along the piece direction. At the
+				-- untrimmed source ends use the stroke's bend extension.
+				local dir = (pb - pa).Unit
+				local extA = (piece == 1 and index == 1 and ga < 1e-4) and HighwayProfile.JointExtension(info, 1) or 0.05
+				local extB = (piece == pieces and index == #breaks - 1 and gb > 1 - 1e-4) and HighwayProfile.JointExtension(info, 2) or 0.05
+				local part = makeStripPart(roadsFolder, streetName ~= "" and streetName or "Highway",
+					pa - dir * extA, pb + dir * extB, roadWidth,
+					WorldConfig.ROAD_THICKNESS_STUDS, WorldConfig.ROAD_MATERIAL, WorldConfig.ROAD_COLOR)
+				if part then
+					for key, value in pairs(attributes) do
+						part:SetAttribute(key, value)
+					end
+					local sa = HighwayProfile.StationAt(info, ga)
+					local sb = HighwayProfile.StationAt(info, gb)
+					local terrainMid = HighwayProfile.TerrainAt(info, (ga + gb) / 2)
+					part:SetAttribute("CW_Station0", math.min(sa, sb))
+					part:SetAttribute("CW_Station1", math.max(sa, sb))
+					part:SetAttribute("CW_HighwayStructure", kind)
+					part:SetAttribute("CW_StructureId", structureId)
+					part:SetAttribute("CW_StructureBasis", basis)
+					part:SetAttribute("CW_TerrainGapStuds", (ya + yb) / 2 - WorldConfig.ROAD_SURFACE_OFFSET_STUDS - terrainMid)
+					highwayStats.profiledPieces += 1
+					highwayStats.profiledLength += (pb - pa).Magnitude
+					if kind == "span" then
+						highwayStats.spanPieces += 1
+					elseif kind == "fill" then
+						highwayStats.fillPieces += 1
+					end
+				end
+				buildHighwayMarkings(markingsFolder, info, pa, pb,
+					HighwayProfile.StationAt(info, ga), HighwayProfile.StationAt(info, gb),
+					roadWidth, markAttributes)
+			end
+		end
+	end
+end
+
+local function buildRoad(roadsFolder, sidewalksFolder, markingsFolder, road)
+	local profiled = HighwayProfile.Lookup(road)
+	if profiled then
+		buildProfiledHighway(roadsFolder, markingsFolder, road, profiled)
+		return
+	elseif HighwayProfile.IsCorridor(road) then
+		highwayStats.fallbackHighwayRoads += 1
+	end
+	local roadWidth = math.max((tonumber(road.width_m) or 7) * S, 3)
+	local streetName = tostring(road.name or "")
+	local a2D, b2D = trimmedEndpoints(road, 0)
+	if not a2D or not b2D then
+		omissions.trimConsumed += 1
+	end
 	if a2D and b2D then
 		buildAdaptiveCenterStrip(
 			roadsFolder,
@@ -1220,6 +1498,10 @@ local function buildBuilding(parent, building)
 	part:SetAttribute("ChesterBuildingId", tostring(building.id or ""))
 	part:SetAttribute("SourceHeightMeters", building.height_m or 9.15)
 	part:SetAttribute("GroundY", groundY)
+end
+
+function TileBuilderV2.Stats()
+	return omissions, highwayStats
 end
 
 function TileBuilderV2.Build(tileModule)

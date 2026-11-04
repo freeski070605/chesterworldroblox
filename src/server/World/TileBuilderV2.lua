@@ -725,7 +725,7 @@ end
 local function buildAdaptiveCenterStrip(parent, name, x1, z1, x2, z2, width, thickness, material, color, surfaceOffset, gradeOffset, depth, attributes)
 	depth = depth or 0
 	gradeOffset = gradeOffset or 0
-	local allowSteepHighway = isHighwayCorridor(attributes)
+	local allowSteepHighway = WorldConfig.RECOVER_STEEP_HIGHWAY_PAVEMENT == true and isHighwayCorridor(attributes)
     local a, b = safeGroundPair(x1, z1, x2, z2, surfaceOffset, gradeOffset, allowSteepHighway)
 	if not a or not b then return end
 	if shouldSplit(a, b, depth, surfaceOffset, gradeOffset) then

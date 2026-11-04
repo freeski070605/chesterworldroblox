@@ -255,9 +255,26 @@ local function findApproachChain(terminal, outward, bridgeName)
                 local away = horizontalUnit(far - current)
                 if away and hdist(far, current) > 0.5 then
                     local dot = away:Dot(outward)
-                    local matchName = attr(part, "ChesterStreet") == bridgeName
+                    local partName = attr(part, "ChesterStreet")
+                    local matchName = partName == bridgeName
+                    local cls = string.lower(attr(part, "CW_RoadClass"))
+                    local isLink = cls == "motorway_link" or cls == "trunk_link"
+                    local bridgeI95 = string.find(string.lower(bridgeName),
+                        "i 95",1,true) ~= nil or
+                        string.find(string.lower(bridgeName),
+                        "i-95",1,true) ~= nil
+                    local approachI95 = string.find(string.lower(partName),
+                        "i 95",1,true) ~= nil or
+                        string.find(string.lower(partName),
+                        "i-95",1,true) ~= nil
+                    local related = matchName or
+                        (bridgeI95 and approachI95) or
+                        (isLink and bridgeI95)
+                    -- Don't follow arbitrary nearby streets through a sharp
+                    -- turn. The old 0.24 dot threshold could grab a road at
+                    -- ~76 degrees and manufacture a steep "ramp".
                     local score = dot + (matchName and 0.5 or 0)
-                    if dot > 0.24 and score > bestScore then
+                    if related and dot > 0.70 and score > bestScore then
                         best, bestScore, bestFar = part, score, far
                     end
                 end

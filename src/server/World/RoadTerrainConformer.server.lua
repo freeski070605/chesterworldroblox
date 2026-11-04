@@ -34,6 +34,29 @@ local function terrainY(x, z)
     return result and result.Position.Y or nil
 end
 
+-- Estimated small import-seam gaps; do not extrapolate farther than 16 studs.
+local function terrainYNearby(x, z)
+    local exact = terrainY(x, z)
+    if exact then return exact, false end
+    for _, radius in ipairs({8, 16}) do
+        local samples = {}
+        for _, vector in ipairs({
+            {1,0}, {-1,0}, {0,1}, {0,-1},
+            {0.707,0.707}, {-0.707,0.707},
+            {0.707,-0.707}, {-0.707,-0.707},
+        }) do
+            local y = terrainY(x + vector[1]*radius, z + vector[2]*radius)
+            if y then table.insert(samples, y) end
+        end
+        if #samples >= 2 then
+            local total = 0
+            for _, y in ipairs(samples) do total += y end
+            return total/#samples, true
+        end
+    end
+    return nil, false
+end
+
 local function hdist(a, b)
     local dx, dz = a.X - b.X, a.Z - b.Z
     return math.sqrt(dx * dx + dz * dz)
@@ -329,7 +352,7 @@ local stats = {
     bridgeNoTerrain = 0, failed = 0, tunnelParts = tunnelParts,
     rampParts = 0, rampGroups = 0, marked = 0,
     crossingChecks = 0, clearanceWarnings = 0, steepGroups = 0,
-    terrainClearanceWarnings = 0,
+    terrainClearanceWarnings = 0, terrainEndpointEstimates = 0,
 }
 
 local function conformComponent(parts, groupKey)
@@ -351,11 +374,19 @@ local function conformComponent(parts, groupKey)
     end
 
     if not lowPoint or not highPoint then return nil end
-    local startGround = terrainY(lowPoint.X, lowPoint.Z)
-    local endGround = terrainY(highPoint.X, highPoint.Z)
+    local startGround, estimatedStart = terrainYNearby(lowPoint.X, lowPoint.Z)
+    local endGround, estimatedEnd = terrainYNearby(highPoint.X, highPoint.Z)
     if not startGround or not endGround then
         stats.bridgeNoTerrain += #parts
         return nil
+    end
+
+    if estimatedStart or estimatedEnd then
+        stats.terrainEndpointEstimates +=
+            (estimatedStart and 1 or 0) + (estimatedEnd and 1 or 0)
+        for _, part in ipairs(parts) do
+            part:SetAttribute("CW_TerrainEndpointEstimated", true)
+        end
     end
 
     local span = math.max(high - low, 0.1)
@@ -672,12 +703,13 @@ Workspace:SetAttribute("CW_RoadConformTotal", #allRoads)
 Workspace:SetAttribute("CW_RoadConformedCount", conformed)
 Workspace:SetAttribute("CW_RoadConformComplete", true)
 
-print(("[ChesterWorld RoadTerrainConformer] final=%d groundPreserved=%d bridgeConformed=%d conformed=%d noTerrain=%d failed=%d bridgeGroups=%d bridgeComponents=%d bridgeParts=%d tunnelParts=%d rampParts=%d rampGroups=%d marked=%d crossingChecks=%d clearanceWarnings=%d terrainClearanceWarnings=%d steepGroups=%d smoothDecks=true")
+print(("[ChesterWorld RoadTerrainConformer] final=%d groundPreserved=%d bridgeConformed=%d conformed=%d noTerrain=%d failed=%d bridgeGroups=%d bridgeComponents=%d bridgeParts=%d tunnelParts=%d rampParts=%d rampGroups=%d marked=%d crossingChecks=%d clearanceWarnings=%d terrainClearanceWarnings=%d terrainEndpointEstimates=%d steepGroups=%d smoothDecks=true")
     :format(#allRoads, #atGrade-stats.rampParts, stats.bridgeConformed,
     conformed, stats.bridgeNoTerrain, stats.failed, stats.groups,
     stats.components, stats.bridgeParts, stats.tunnelParts,
     stats.rampParts, stats.rampGroups, stats.marked, stats.crossingChecks,
-    stats.clearanceWarnings, stats.terrainClearanceWarnings,stats.steepGroups))
+    stats.clearanceWarnings, stats.terrainClearanceWarnings,
+    stats.terrainEndpointEstimates,stats.steepGroups))
 if stats.clearanceWarnings > 0 then
     warn(("[ChesterWorld Highway] %d bridge crossings need additional surveyed vertical data / ramp length to guarantee clearance."):format(stats.clearanceWarnings))
 end

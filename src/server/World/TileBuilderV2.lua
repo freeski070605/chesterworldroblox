@@ -481,8 +481,14 @@ local function trimmedEndpoints(road, extraClearance)
 	local endNode = globalIntersectionNodes[endpointKeyFromMeters(road.x2, road.z2, road)]
 	local startDir = (b - a).Unit
 	local endDir = (a - b).Unit
-	local trimStart = trimDistanceForNode(startNode, startDir, extraClearance)
-	local trimEnd = trimDistanceForNode(endNode, endDir, extraClearance)
+	local startClearance = extraClearance
+    local endClearance = extraClearance
+    if type(extraClearance) == "table" then
+        startClearance = extraClearance.start or 0
+        endClearance = extraClearance.finish or 0
+    end
+	local trimStart = trimDistanceForNode(startNode, startDir, startClearance)
+	local trimEnd = trimDistanceForNode(endNode, endDir, endClearance)
 	if trimStart + trimEnd >= length - 1.0 then return nil, nil end
 	return pointAlong2D(a, b, trimStart), pointAlong2D(b, a, trimEnd)
 end
@@ -560,7 +566,26 @@ local function buildCenterLine(markingsFolder, road, roadWidth)
 	if roadWidth < WorldConfig.CENTERLINE_MIN_ROAD_WIDTH_STUDS then return end
 	local streetName = tostring(road.name or "")
 	if streetName == "" or streetName == "Road" then return end
-	local a2D, b2D = trimmedEndpoints(road, 0.5)
+    local function clearance(node)
+        if not node or not node.isIntersection then return 0.5 end
+        if node.isNamedIntersection
+            and node.maxWidth >= WorldConfig.CROSSWALK_TRIGGER_WIDTH_STUDS
+            and roadWidth >= WorldConfig.CROSSWALK_MIN_ARM_WIDTH_STUDS
+        then
+            -- A yellow centerline must NOT pass through the zebra crossing.
+            local stripes = WorldConfig.CROSSWALK_STRIPE_COUNT
+            local span = stripes * WorldConfig.CROSSWALK_STRIPE_DEPTH_STUDS
+                + (stripes - 1) * WorldConfig.CROSSWALK_STRIPE_GAP_STUDS
+            return WorldConfig.CROSSWALK_EDGE_CLEARANCE_STUDS + span + 2.0
+        end
+        return 2.0
+    end
+    local startNode = globalIntersectionNodes[endpointKeyFromMeters(road.x1, road.z1, road)]
+    local endNode = globalIntersectionNodes[endpointKeyFromMeters(road.x2, road.z2, road)]
+    local a2D, b2D = trimmedEndpoints(road, {
+        start = clearance(startNode),
+        finish = clearance(endNode),
+    })
 	if not a2D or not b2D then return end
 	buildAdaptiveCenterStrip(
 		markingsFolder, "CenterLine",
@@ -787,7 +812,9 @@ local function fillTriangleWithWedges(parent, a, b, c, thickness, labels)
         wedge.CanCollide = true
         wedge.CanTouch = true
         wedge.CanQuery = true
-        wedge.CastShadow = true
+        -- Separate wedge pieces would otherwise shadow one another at
+        -- their internal shared edges and draw dark zigzag seams.
+        wedge.CastShadow = false
         wedge.TopSurface = Enum.SurfaceType.Smooth
         wedge.BottomSurface = Enum.SurfaceType.Smooth
         wedge.Material = WorldConfig.INTERSECTION_MATERIAL

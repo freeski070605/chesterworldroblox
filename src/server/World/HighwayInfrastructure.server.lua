@@ -182,7 +182,9 @@ for index,road in ipairs(visuallyRaised) do
                 Vector3.new(0.65,RAIL_HEIGHT,length),
                 road.CFrame*CFrame.new(side*(width/2+0.25),
                     road.Size.Y/2+RAIL_HEIGHT/2,0),
-                COLOR,true)
+                COLOR,false)
+            -- Visual-only until merge/exit transitions are validated in Studio.
+            -- Avoid invisible physical barriers at highway ramp joins.
             beam:SetAttribute("CW_GradeGroup",
                 tostring(road:GetAttribute("CW_GradeGroup") or ""))
             railCount+=1

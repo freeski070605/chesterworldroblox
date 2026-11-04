@@ -28,6 +28,12 @@ WorldConfig.ROAD_MAX_SUBDIVISION_DEPTH = 5
 -- Reject terrain samples that would make an obviously broken road slab.
 WorldConfig.MAX_SURFACE_GRADE = 0.40
 
+-- Highway pavement recovery: preserve a flagged strip rather than silently
+-- deleting it when the bare-earth DEM implies a steep grade. This does NOT
+-- make that steep grade safe; the bridge/ramp profile must still be repaired.
+-- Set false to restore the previous omission behavior while diagnosing.
+WorldConfig.RECOVER_STEEP_HIGHWAY_PAVEMENT = true
+
 -- ============================================================
 -- INTERSECTIONS
 -- ============================================================

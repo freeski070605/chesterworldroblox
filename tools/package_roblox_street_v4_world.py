@@ -21,7 +21,10 @@ def clean(value: Any) -> str:
 def truthy(value: Any) -> bool:
     if isinstance(value, bool):
         return value
-    return clean(value).lower() not in {"", "0", "false", "no", "none", "nil"}
+    return clean(value).lower() in {
+        "1", "true", "yes", "y", "viaduct", "movable",
+        "aqueduct", "building_passage", "culvert",
+    }
 
 
 def first_grade_number(props: dict[str, Any], source: str) -> int:
@@ -100,14 +103,15 @@ def convert_tile(tile: dict[str, Any]) -> dict[str, Any]:
 
         source = base.first_text(props, ("generator_source", "source")) or ""
 
-        bridge = truthy(
-            base.first_text(props, ("osm_bridge",))
-            or (props.get("bridge") if source.lower() == "osm" else "")
-        )
-        tunnel = truthy(
-            base.first_text(props, ("osm_tunnel",))
-            or (props.get("tunnel") if source.lower() == "osm" else "")
-        )
+        # Prefer explicit upstream engineering/OSM tags. Never infer that a
+        # road is elevated merely from its name ("I 95" etc.). A false "N"
+        # from county data must NOT be interpreted as a bridge.
+        bridge = truthy(base.first_text(
+            props, ("osm_bridge", "generator_bridge", "is_bridge", "bridge")
+        ))
+        tunnel = truthy(base.first_text(
+            props, ("osm_tunnel", "generator_tunnel", "is_tunnel", "tunnel")
+        ))
 
         layer = first_grade_number(props, source)
         if bridge and layer <= 0:

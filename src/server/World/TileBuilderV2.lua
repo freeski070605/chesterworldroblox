@@ -904,7 +904,28 @@ local function buildIntersections(parent, markingsFolder, signsFolder, tileId)
 			local pad = makeIntersectionMesh(parent, node, labels)
 			if not pad then makeIntersectionFallback(parent, node, labels) end
 			if node.isNamedIntersection and node.maxWidth >= WorldConfig.CROSSWALK_TRIGGER_WIDTH_STUDS then
-				for _, arm in ipairs(node.arms) do buildCrosswalkForArm(markingsFolder, node, arm) end
+                -- Multiple source street names can describe the SAME physical
+                -- approach direction. Paint that crosswalk only once.
+                local physicalApproaches = {}
+                for _, arm in ipairs(node.arms) do
+                    local matchingIndex = nil
+                    for index, existing in ipairs(physicalApproaches) do
+                        if existing.dir:Dot(arm.dir) > 0.985 then
+                            matchingIndex = index
+                            break
+                        end
+                    end
+                    if matchingIndex then
+                        if arm.width > physicalApproaches[matchingIndex].width then
+                            physicalApproaches[matchingIndex] = arm
+                        end
+                    else
+                        table.insert(physicalApproaches, arm)
+                    end
+                end
+                for _, arm in ipairs(physicalApproaches) do
+                    buildCrosswalkForArm(markingsFolder, node, arm)
+                end
 			end
 			buildStreetSign(signsFolder, node, labels)
 		end

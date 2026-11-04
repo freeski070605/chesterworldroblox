@@ -137,6 +137,16 @@ end
 
 local supportLocations={}
 local SUPPORT_SPACING=130
+local buildingFolders={}
+for _,tile in ipairs(world:GetChildren()) do
+    local buildings=tile:FindFirstChild("Buildings")
+    if buildings then table.insert(buildingFolders,buildings) end
+end
+local buildingParams=OverlapParams.new()
+buildingParams.FilterType=Enum.RaycastFilterType.Include
+buildingParams.FilterDescendantsInstances=buildingFolders
+buildingParams.MaxParts=1
+
 local function canPier(point,height)
     if height<9 then return false end
     local x,z=point.X,point.Z
@@ -147,16 +157,13 @@ local function canPier(point,height)
             return false
         end
     end
-    -- Avoid putting a concrete column through an existing building.
-    local params=OverlapParams.new()
-    params.FilterType=Enum.RaycastFilterType.Include
-    params.FilterDescendantsInstances={world}
-    params.MaxParts=40
-    local hits=Workspace:GetPartBoundsInBox(
-        CFrame.new(point.X,point.Y-height/2,point.Z),
-        Vector3.new(4,height,4),params)
-    for _,obj in ipairs(hits) do
-        if obj:FindFirstAncestor("Buildings") then return false end
+    -- Query ONLY existing building masses; road Parts would otherwise
+    -- consume the overlap-result cap and hide a real building collision.
+    if #buildingFolders>0 then
+        local hits=Workspace:GetPartBoundsInBox(
+            CFrame.new(point.X,point.Y-height/2,point.Z),
+            Vector3.new(4,height,4),buildingParams)
+        if #hits>0 then return false end
     end
     supportLocations[key]=true
     return true

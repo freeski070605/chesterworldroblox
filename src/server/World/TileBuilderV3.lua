@@ -20,6 +20,12 @@ function TileBuilderV3.Prepare(tileModules)
     print(("[ChesterWorld TileBuilderV3] polygon paving uses solid WedgeParts; tiles=%d noEditableMesh=true"):format(expectedTiles))
 end
 
+-- Used only for the optional 5-tile Studio preview. Global graph
+-- preparation still receives all 102 modules.
+function TileBuilderV3.SetExpectedTiles(count)
+    expectedTiles = math.max(1, math.min(expectedTiles, count))
+end
+
 function TileBuilderV3.Build(tileModule)
     local tileFolder = BaseBuilder.Build(tileModule)
     local intersections = tileFolder:FindFirstChild("Intersections")

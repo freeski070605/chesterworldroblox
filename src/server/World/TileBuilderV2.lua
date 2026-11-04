@@ -1106,21 +1106,30 @@ local function makeIntersectionFallback(parent, node, labels)
 end
 
 local function buildIntersections(parent, markingsFolder, signsFolder, tileId)
-	local processed = 0
-	for _, node in pairs(globalIntersectionNodes) do
-		if node.ownerTile == tileId and node.isIntersection then
-			processed += 1
-			local labels = uniqueIntersectionNames(node)
-			local pad = makeIntersectionMesh(parent, node, labels)
-			if not pad then makeIntersectionFallback(parent, node, labels) end
-			if node.isNamedIntersection and node.maxWidth >= WorldConfig.CROSSWALK_TRIGGER_WIDTH_STUDS then
-                -- Multiple source street names can describe the SAME physical
-                -- approach direction. Paint that crosswalk only once.
+    local processed = 0
+    -- Render ONE polygon for an entire connected nearby-junction group.
+    -- Each member's source-road ends are trimmed to that same polygon.
+    for _, group in ipairs(globalJunctionGroups) do
+        if group.ownerTile == tileId then
+            local node = group.renderNode
+            local labels = uniqueIntersectionNames(node)
+            local pad = makeIntersectionMesh(parent, node, labels)
+            if not pad then makeIntersectionFallback(parent, node, labels) end
+            if node.isNamedIntersection
+                and node.maxWidth >= WorldConfig.CROSSWALK_TRIGGER_WIDTH_STUDS
+            then
                 local physicalApproaches = {}
                 for _, arm in ipairs(node.arms) do
+                    local originNode = arm.originNode or node
                     local matchingIndex = nil
                     for index, existing in ipairs(physicalApproaches) do
-                        if existing.dir:Dot(arm.dir) > 0.985 then
+                        local previousOrigin = existing.originNode or node
+                        local dx = originNode.x - previousOrigin.x
+                        local dz = originNode.z - previousOrigin.z
+                        if existing.dir:Dot(arm.dir) > 0.985
+                            and dx * dx + dz * dz <
+                                math.max(existing.width, arm.width)^2
+                        then
                             matchingIndex = index
                             break
                         end
@@ -1134,13 +1143,14 @@ local function buildIntersections(parent, markingsFolder, signsFolder, tileId)
                     end
                 end
                 for _, arm in ipairs(physicalApproaches) do
-                    buildCrosswalkForArm(markingsFolder, node, arm)
+                    buildCrosswalkForArm(markingsFolder, arm.originNode or node, arm)
                 end
-			end
-			buildStreetSign(signsFolder, node, labels)
-		end
-		if processed > 0 and processed % INTERSECTION_YIELD_EVERY == 0 then task.wait() end
-	end
+            end
+            buildStreetSign(signsFolder, node, labels)
+            processed += 1
+            if processed % INTERSECTION_YIELD_EVERY == 0 then task.wait() end
+        end
+    end
 end
 
 local function buildBuilding(parent, building)

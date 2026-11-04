@@ -28,6 +28,7 @@ terrainParams.IgnoreWater = false
 
 local prepared = false
 local globalIntersectionNodes = {}
+local globalJunctionGroups = {}
 local proximityGrid = {}
 local PROXIMITY_CELL_STUDS = 160
 
@@ -381,6 +382,7 @@ local function addEndpoint(nodes, tileId, xMeters, zMeters, otherXMeters, otherZ
 			maxWidth = 0,
 			names = {},
 			rawArms = {},
+            links = {},
 			arms = {},
 			polygon = nil,
 			distinctNames = 0,
@@ -397,6 +399,8 @@ local function addEndpoint(nodes, tileId, xMeters, zMeters, otherXMeters, otherZ
 	node.xSum += x
 	node.zSum += z
 	node.count += 1
+    local peerKey = endpointKeyFromStuds(ox, oz, gradeLevel)
+    node.links[peerKey] = math.sqrt((ox-x)^2 + (oz-z)^2)
 	node.maxWidth = math.max(node.maxWidth, roadWidth)
 	local name = tostring(road.name or "")
 	if name ~= "" and name ~= "Road" then
@@ -410,6 +414,7 @@ local function addEndpoint(nodes, tileId, xMeters, zMeters, otherXMeters, otherZ
 			name = name,
 			width = roadWidth,
 			length = length,
+            peerKey = peerKey,
 			dir = Vector3.new(dx / length, 0, dz / length),
 		})
 	end
@@ -457,6 +462,142 @@ local function finalizeNodes(nodes)
 	end
 end
 
+-- Join directly connected, tightly spaced same-grade junctions so they
+-- share ONE asphalt polygon instead of three overlapping intersection pads.
+-- This is essential for the 9th/Kerlin-Concord triangle (~20m apart).
+local function prepareJunctionGroups(nodes)
+    local parent = {}
+    for key, node in pairs(nodes) do
+        if node.isIntersection then parent[key] = key end
+    end
+
+    local function root(key)
+        if parent[key] == nil then return nil end
+        while parent[key] ~= key do
+            parent[key] = parent[parent[key]]
+            key = parent[key]
+        end
+        return key
+    end
+
+    for key, node in pairs(nodes) do
+        if parent[key] then
+            for peerKey, linkLength in pairs(node.links or {}) do
+                local other = nodes[peerKey]
+                if other and parent[peerKey] and other.gradeLevel == node.gradeLevel then
+                    if linkLength <= 0.95 * (node.maxWidth + other.maxWidth) then
+                        local a, b = root(key), root(peerKey)
+                        if a and b and a ~= b then parent[b] = a end
+                    end
+                end
+            end
+        end
+    end
+
+    local candidateGroups = {}
+    for key, node in pairs(nodes) do
+        if node.isIntersection then
+            local groupKey = root(key)
+            local group = candidateGroups[groupKey]
+            if not group then
+                group = { members = {}, memberKeys = {} }
+                candidateGroups[groupKey] = group
+            end
+            table.insert(group.members, node)
+            group.memberKeys[key] = true
+        end
+    end
+
+    local groups = {}
+    local mergedGroups, mergedNodes = 0, 0
+    local groupSerial = 0
+    for _, candidate in pairs(candidateGroups) do
+        local members = candidate.members
+        local maxWidth, diameter = 0, 0
+        for i, a in ipairs(members) do
+            maxWidth = math.max(maxWidth, a.maxWidth)
+            for j = i + 1, #members do
+                local b = members[j]
+                diameter = math.max(diameter,
+                    math.sqrt((a.x - b.x)^2 + (a.z - b.z)^2))
+            end
+        end
+        local canMerge = #members > 1
+            and diameter <= math.max(120, 2.8 * maxWidth)
+        if canMerge then
+            local points, names, approaches = {}, {}, {}
+            local xSum, zSum, owner = 0, 0, nil
+            for _, member in ipairs(members) do
+                xSum += member.x
+                zSum += member.z
+                if not owner or member.ownerTile < owner then
+                    owner = member.ownerTile
+                end
+                for name in pairs(member.names) do names[name] = true end
+                for _, p in ipairs(member.polygon or {}) do
+                    table.insert(points, p)
+                end
+                for _, arm in ipairs(member.arms) do
+                    if not candidate.memberKeys[arm.peerKey] then
+                        table.insert(approaches, {
+                            name = arm.name,
+                            width = arm.width,
+                            length = arm.length,
+                            dir = arm.dir,
+                            originNode = member,
+                        })
+                    end
+                end
+            end
+            local polygon = convexHull(points)
+            if #polygon >= 3 then
+                groupSerial += 1
+                for _, member in ipairs(members) do
+                    member.polygon = polygon
+                    member.clusterId = groupSerial
+                end
+                local x = xSum / #members
+                local z = zSum / #members
+                local renderNode = {
+                    x = x, z = z, polygon = polygon,
+                    maxWidth = maxWidth, names = names,
+                    arms = approaches, isIntersection = true,
+                    isNamedIntersection = true, clusterId = groupSerial,
+                }
+                table.insert(groups, {
+                    ownerTile = owner, renderNode = renderNode,
+                    members = members, merged = true,
+                })
+                mergedGroups += 1
+                mergedNodes += #members
+            else
+                canMerge = false
+            end
+        end
+        if not canMerge then
+            for _, member in ipairs(members) do
+                groupSerial += 1
+                member.clusterId = groupSerial
+                table.insert(groups, {
+                    ownerTile = member.ownerTile,
+                    renderNode = member,
+                    members = {member}, merged = false,
+                })
+            end
+        end
+    end
+    for _, group in ipairs(groups) do
+        local node = group.renderNode
+        local radius = 0
+        for _, p in ipairs(node.polygon or {}) do
+            radius = math.max(radius,
+                math.sqrt((p.X - node.x)^2 + (p.Y - node.z)^2))
+        end
+        node.outerRadius = radius
+    end
+    return groups, mergedGroups, mergedNodes
+end
+
 function TileBuilderV2.Prepare(tileModules)
 	globalIntersectionNodes = {}
 	for moduleIndex, tileModule in ipairs(tileModules) do
@@ -474,13 +615,15 @@ function TileBuilderV2.Prepare(tileModules)
 		if moduleIndex % 8 == 0 then task.wait() end
 	end
 	finalizeNodes(globalIntersectionNodes)
+    local mergedGroups, mergedNodes
+    globalJunctionGroups, mergedGroups, mergedNodes =
+        prepareJunctionGroups(globalIntersectionNodes)
     proximityGrid = {}
-    for _, node in pairs(globalIntersectionNodes) do
-        if node.isIntersection then
-            local key = proximityKey(node.x, node.z)
-            if not proximityGrid[key] then proximityGrid[key] = {} end
-            table.insert(proximityGrid[key], node)
-        end
+    for _, group in ipairs(globalJunctionGroups) do
+        local node = group.renderNode
+        local key = proximityKey(node.x, node.z)
+        if not proximityGrid[key] then proximityGrid[key] = {} end
+        table.insert(proximityGrid[key], node)
     end
 	prepared = true
 	local nodeCount = 0
@@ -489,7 +632,7 @@ function TileBuilderV2.Prepare(tileModules)
 		nodeCount += 1
 		if node.isIntersection then intersections += 1 end
 	end
-	print(("[ChesterWorld TileBuilderV2] prepared global road graph: nodes=%d intersections=%d polygonOwned=true"):format(nodeCount, intersections))
+	print(("[ChesterWorld TileBuilderV2] prepared global road graph: nodes=%d intersections=%d junctionSurfaces=%d mergedGroups=%d mergedNodes=%d polygonOwned=true"):format(nodeCount, intersections, #globalJunctionGroups, mergedGroups, mergedNodes))
 end
 
 local function pointAlong2D(a, b, distanceFromA)
@@ -720,7 +863,7 @@ local function buildCrosswalkForArm(markingsFolder, node, arm)
         for iz = gz - 1, gz + 1 do
             local bucket = proximityGrid[tostring(ix) .. ":" .. tostring(iz)]
             for _, other in ipairs(bucket or {}) do
-                if other ~= node then
+                if other.clusterId ~= node.clusterId then
                     local dx, dz = midpoint.X - other.x, midpoint.Z - other.z
                     local required = (other.outerRadius or 0) + stripeSpan / 2 + 3
                     if dx * dx + dz * dz < required * required then return end

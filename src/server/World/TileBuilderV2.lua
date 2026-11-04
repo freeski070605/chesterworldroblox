@@ -133,7 +133,20 @@ local function shouldBuildSidewalk(road)
 		and cls ~= "alley"
 end
 
-local function safeGroundPair(x1, z1, x2, z2, surfaceOffset, gradeOffset)
+-- Only the highway corridor may recover terrain-rejected strips. County source
+-- sometimes labels I-95 as "secondary"; match its exact name as well as class.
+-- Keep the original steep-grade rejection for neighborhood roads/sidewalks.
+local function isHighwayCorridor(attributes)
+    if type(attributes) ~= "table" then return false end
+    local cls = string.lower(tostring(attributes.CW_RoadClass or ""))
+    local name = string.lower(tostring(attributes.ChesterStreet or ""))
+    return cls == "motorway" or cls == "motorway_link"
+        or cls == "trunk" or cls == "trunk_link"
+        or name:match("^i[%s%-]*95$") ~= nil
+        or name:match("^i[%s%-]*476$") ~= nil
+end
+
+local function safeGroundPair(x1, z1, x2, z2, surfaceOffset, gradeOffset, allowSteepHighway)
 	local y1 = terrainY(x1, z1)
 	local y2 = terrainY(x2, z2)
 	if y1 == nil and y2 == nil then
@@ -151,12 +164,12 @@ local function safeGroundPair(x1, z1, x2, z2, surfaceOffset, gradeOffset)
 	if run < 0.05 then
 		return nil, nil
 	end
-	if (gradeOffset or 0) == 0 then
-		local grade = math.abs(b.Y - a.Y) / run
-		if grade > WorldConfig.MAX_SURFACE_GRADE then
-			return nil, nil
-		end
-	end
+	if (gradeOffset or 0) == 0 and not allowSteepHighway then
+        local grade = math.abs(b.Y - a.Y) / run
+        if grade > WorldConfig.MAX_SURFACE_GRADE then
+            return nil, nil
+        end
+    end
 	return a, b
 end
 
@@ -712,7 +725,8 @@ end
 local function buildAdaptiveCenterStrip(parent, name, x1, z1, x2, z2, width, thickness, material, color, surfaceOffset, gradeOffset, depth, attributes)
 	depth = depth or 0
 	gradeOffset = gradeOffset or 0
-	local a, b = safeGroundPair(x1, z1, x2, z2, surfaceOffset, gradeOffset)
+	local allowSteepHighway = isHighwayCorridor(attributes)
+    local a, b = safeGroundPair(x1, z1, x2, z2, surfaceOffset, gradeOffset, allowSteepHighway)
 	if not a or not b then return end
 	if shouldSplit(a, b, depth, surfaceOffset, gradeOffset) then
 		local midX = (x1 + x2) / 2
@@ -722,9 +736,21 @@ local function buildAdaptiveCenterStrip(parent, name, x1, z1, x2, z2, width, thi
 		return
 	end
 	local part = makeStripPart(parent, name, a, b, width, thickness, material, color)
-	if part and attributes then
-		for key, value in pairs(attributes) do part:SetAttribute(key, value) end
-	end
+    if part and attributes then
+        for key, value in pairs(attributes) do part:SetAttribute(key, value) end
+        if allowSteepHighway and gradeOffset == 0 then
+            local run = horizontalLength(a, b)
+            local grade = run > 0 and math.abs(b.Y - a.Y) / run or 0
+            if grade > WorldConfig.MAX_SURFACE_GRADE then
+                -- Keep a real pavement strip instead of silently leaving a
+                -- hole. Flag it as an UNSAFE terrain-following piece; bridge
+                -- profiling or manual source correction still must repair Y.
+                part:SetAttribute("CW_SteepHighwayFallback", true)
+                part:SetAttribute("CW_UnsafeSurfaceGrade", true)
+                part:SetAttribute("CW_ObservedSurfaceGrade", grade)
+            end
+        end
+    end
 end
 
 local function roadAttributes(road, roadWidth)

@@ -188,17 +188,20 @@ for index,road in ipairs(visuallyRaised) do
             SUPPORT_COLOR,false)
         slab:SetAttribute("CW_SourceRoad",road.Name)
         deckCount+=1
-        for _,side in ipairs({-1,1}) do
-            local beam=partAt(folder,"BridgeParapet",
-                Vector3.new(0.65,RAIL_HEIGHT,length),
-                road.CFrame*CFrame.new(side*(width/2+0.25),
-                    road.Size.Y/2+RAIL_HEIGHT/2,0),
-                COLOR,false)
-            -- Visual-only until merge/exit transitions are validated in Studio.
-            -- Avoid invisible physical barriers at highway ramp joins.
-            beam:SetAttribute("CW_GradeGroup",
-                tostring(road:GetAttribute("CW_GradeGroup") or ""))
-            railCount+=1
+        -- Place parapets ONLY on actual bridge sections. Adding a pair
+        -- to every approach ramp creates walls through entrance/exit merges.
+        -- These are cosmetic until abutments and end connections are verified.
+        if road:GetAttribute("CW_BridgeProfiled") == true then
+            for _,side in ipairs({-1,1}) do
+                local beam=partAt(folder,"BridgeParapet",
+                    Vector3.new(0.65,RAIL_HEIGHT,length),
+                    road.CFrame*CFrame.new(side*(width/2+0.25),
+                        road.Size.Y/2+RAIL_HEIGHT/2,0),
+                    COLOR,false)
+                beam:SetAttribute("CW_GradeGroup",
+                    tostring(road:GetAttribute("CW_GradeGroup") or ""))
+                railCount+=1
+            end
         end
         if index%5==0 then task.wait() end
 

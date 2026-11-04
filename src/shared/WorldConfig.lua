@@ -52,7 +52,17 @@ WorldConfig.INTERSECTION_MAX_GRADE = 0.16
 WorldConfig.GRADE_SEPARATION_CLEARANCE_STUDS = 18.0
 
 -- Bridge groups ramp up/down over this fraction of their source span.
-WorldConfig.BRIDGE_RAMP_FRACTION = 0.20
+WorldConfig.BRIDGE_RAMP_FRACTION = 0.38
+
+-- Highway finishing: vertical clearance is measured over the highest ground
+-- road that actually crosses the bridge, not merely against bare terrain.
+WorldConfig.HIGHWAY_MIN_CLEARANCE_STUDS = 18.0
+WorldConfig.HIGHWAY_MAX_DECK_LIFT_STUDS = 65.0
+WorldConfig.HIGHWAY_APPROACH_LENGTH_STUDS = 300.0
+WorldConfig.HIGHWAY_MAX_APPROACH_GRADE = 0.10
+WorldConfig.HIGHWAY_BRIDGE_CONNECT_TOLERANCE_STUDS = 6.0
+WorldConfig.HIGHWAY_DECK_THICKNESS_STUDS = 1.6
+WorldConfig.HIGHWAY_GUARDRAIL_HEIGHT_STUDS = 3.2
 
 -- ============================================================
 -- PRODUCTION STREET READABILITY

@@ -56,16 +56,20 @@ local function lineIntersection(a, b, c, d)
     return nil
 end
 
-local bridge, lower, ramps = {}, {}, {}
+local bridge, lower, ramps, unprofiledBridges = {}, {}, {}, {}
 for _, tile in ipairs(world:GetChildren()) do
     local roads=tile:FindFirstChild("Roads")
     if roads then
         for _, part in ipairs(roads:GetDescendants()) do
             if part:IsA("BasePart") then
+                local level=tonumber(part:GetAttribute("CW_GradeLevel")) or 0
                 if part:GetAttribute("CW_BridgeProfiled") == true then
                     table.insert(bridge,part)
                 elseif part:GetAttribute("CW_RampProfiled") == true then
                     table.insert(ramps,part)
+                elseif part:GetAttribute("CW_Bridge")==true or level>0 then
+                    -- This is a bridge missing terrain data, NOT a lower road.
+                    table.insert(unprofiledBridges,part)
                 else
                     table.insert(lower,part)
                 end
@@ -286,13 +290,16 @@ Workspace:SetAttribute("CW_HighwayClearanceFailures",tooLow)
 Workspace:SetAttribute("CW_HighwayTunnelObstructions",tunnelObstructions)
 Workspace:SetAttribute("CW_HighwayBridgeTerrainIntrusions",bridgeTerrainIntrusions)
 
-print(("[ChesterWorld HighwayFinish] bridgeRoadParts=%d rampRoadParts=%d deckSlabs=%d guardrails=%d supports=%d crossings=%d minClearance=%.1f lowClearance=%d tunnelObstructions=%d bridgeTerrainIntrusions=%d")
+print(("[ChesterWorld HighwayFinish] bridgeRoadParts=%d rampRoadParts=%d deckSlabs=%d guardrails=%d supports=%d crossings=%d minClearance=%.1f lowClearance=%d tunnelObstructions=%d bridgeTerrainIntrusions=%d unprofiledBridgeParts=%d")
     :format(#bridge,#ramps,deckCount,railCount,pierCount,crossings,
-    minClearance==math.huge and -1 or minClearance,tooLow,tunnelObstructions,bridgeTerrainIntrusions))
+    minClearance==math.huge and -1 or minClearance,tooLow,tunnelObstructions,bridgeTerrainIntrusions,#unprofiledBridges))
 
 if tooLow>0 then
     warn("[ChesterWorld HighwayFinish] LOW CLEARANCE: "..
         table.concat(clearancePairs,"; "))
+end
+if #unprofiledBridges>0 then
+    warn(("[ChesterWorld HighwayFinish] %d bridge road parts could not be height-profiled (missing Terrain samples)."):format(#unprofiledBridges))
 end
 if bridgeTerrainIntrusions>0 then
     warn(("[ChesterWorld HighwayFinish] %d elevated bridge segments intersect terrain; check the highlighted CW_BridgeTerrainIntrusion Parts."):format(bridgeTerrainIntrusions))

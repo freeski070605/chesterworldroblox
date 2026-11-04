@@ -610,41 +610,57 @@ local function buildSidewalkPair(sidewalksFolder, streetName, a2D, b2D, roadWidt
 end
 
 local function buildCenterLine(markingsFolder, road, roadWidth)
-	if roadWidth < WorldConfig.CENTERLINE_MIN_ROAD_WIDTH_STUDS then return end
-	local streetName = tostring(road.name or "")
-	if streetName == "" or streetName == "Road" then return end
-    local function clearance(node)
+    if roadWidth < WorldConfig.CENTERLINE_MIN_ROAD_WIDTH_STUDS then return end
+    local streetName = tostring(road.name or "")
+    if streetName == "" or streetName == "Road" then return end
+    local sx, sz = sourceToStuds(road.x1, road.z1)
+    local ex, ez = sourceToStuds(road.x2, road.z2)
+    local delta = Vector3.new(ex - sx, 0, ez - sz)
+    if delta.Magnitude < 0.05 then return end
+    local startDir = delta.Unit
+    local endDir = -startDir
+
+    local function clearance(node, dir)
         if not node or not node.isIntersection then return 0.5 end
         if node.isNamedIntersection
             and node.maxWidth >= WorldConfig.CROSSWALK_TRIGGER_WIDTH_STUDS
             and roadWidth >= WorldConfig.CROSSWALK_MIN_ARM_WIDTH_STUDS
         then
-            -- A yellow centerline must NOT pass through the zebra crossing.
             local stripes = WorldConfig.CROSSWALK_STRIPE_COUNT
             local span = stripes * WorldConfig.CROSSWALK_STRIPE_DEPTH_STUDS
                 + (stripes - 1) * WorldConfig.CROSSWALK_STRIPE_GAP_STUDS
-            return WorldConfig.CROSSWALK_EDGE_CLEARANCE_STUDS + span + 2.0
+            local centerEdge = polygonArmBoundary(node, dir, 0, false)
+            local outerEdge = polygonArmBoundary(node, dir,
+                math.max(roadWidth - 2.0, 4.0) / 2, true)
+            -- Matches the actual FULL-WIDTH crosswalk setback. Yellow lines
+            -- stop BEFORE the zebra, including on a strongly skewed corner.
+            return math.max(0, outerEdge - centerEdge)
+                + WorldConfig.CROSSWALK_EDGE_CLEARANCE_STUDS
+                + span + 2.0
         end
         return 2.0
     end
-    local startNode = globalIntersectionNodes[endpointKeyFromMeters(road.x1, road.z1, road)]
-    local endNode = globalIntersectionNodes[endpointKeyFromMeters(road.x2, road.z2, road)]
+
+    local startNode = globalIntersectionNodes[
+        endpointKeyFromMeters(road.x1, road.z1, road)]
+    local endNode = globalIntersectionNodes[
+        endpointKeyFromMeters(road.x2, road.z2, road)]
     local a2D, b2D = trimmedEndpoints(road, {
-        start = clearance(startNode),
-        finish = clearance(endNode),
+        start = clearance(startNode, startDir),
+        finish = clearance(endNode, endDir),
     })
-	if not a2D or not b2D then return end
-	buildAdaptiveCenterStrip(
-		markingsFolder, "CenterLine",
-		a2D.X, a2D.Z, b2D.X, b2D.Z,
-		WorldConfig.CENTERLINE_WIDTH_STUDS,
-		WorldConfig.CENTERLINE_THICKNESS_STUDS,
-		WorldConfig.MARKING_MATERIAL,
-		WorldConfig.CENTERLINE_COLOR,
-		WorldConfig.CENTERLINE_SURFACE_OFFSET_STUDS,
-		gradeOffsetForRoad(road), 0,
-		{ ChesterStreet = streetName, MarkingType = "CenterLine", CW_GradeLevel = gradeLevelForRoad(road) }
-	)
+    if not a2D or not b2D then return end
+    buildAdaptiveCenterStrip(
+        markingsFolder, "CenterLine",
+        a2D.X, a2D.Z, b2D.X, b2D.Z,
+        WorldConfig.CENTERLINE_WIDTH_STUDS,
+        WorldConfig.CENTERLINE_THICKNESS_STUDS,
+        WorldConfig.MARKING_MATERIAL,
+        WorldConfig.CENTERLINE_COLOR,
+        WorldConfig.CENTERLINE_SURFACE_OFFSET_STUDS,
+        gradeOffsetForRoad(road), 0,
+        { ChesterStreet = streetName, MarkingType = "CenterLine", CW_GradeLevel = gradeLevelForRoad(road) }
+    )
 end
 
 local function buildRoad(roadsFolder, sidewalksFolder, markingsFolder, road)

@@ -9,6 +9,8 @@ local builtTiles = 0
 local polygonCenters = 0
 local fallbackCenters = 0
 local polygonPieces = 0
+local recoveredHighwayParts = 0
+local steepestHighwayGrade = 0
 
 function TileBuilderV3.Prepare(tileModules)
     expectedTiles = #tileModules
@@ -16,6 +18,8 @@ function TileBuilderV3.Prepare(tileModules)
     polygonCenters = 0
     fallbackCenters = 0
     polygonPieces = 0
+    recoveredHighwayParts = 0
+    steepestHighwayGrade = 0
     BaseBuilder.Prepare(tileModules)
     print(("[ChesterWorld TileBuilderV3] polygon paving uses solid WedgeParts; tiles=%d noEditableMesh=true"):format(expectedTiles))
 end
@@ -39,10 +43,24 @@ function TileBuilderV3.Build(tileModule)
             end
         end
     end
+    local roads = tileFolder:FindFirstChild("Roads")
+    if roads then
+        for _, part in ipairs(roads:GetChildren()) do
+            if part:IsA("BasePart") and part:GetAttribute("CW_SteepHighwayFallback") == true then
+                recoveredHighwayParts += 1
+                steepestHighwayGrade = math.max(steepestHighwayGrade,
+                    tonumber(part:GetAttribute("CW_ObservedSurfaceGrade")) or 0)
+            end
+        end
+    end
     builtTiles += 1
     if builtTiles == expectedTiles then
         print(("[ChesterWorld TileBuilderV3] complete tiles=%d polygonCenters=%d wedgeParts=%d fallbacks=%d noEditableMesh=true")
             :format(builtTiles, polygonCenters, polygonPieces, fallbackCenters))
+        if recoveredHighwayParts > 0 then
+            warn(("[ChesterWorld HighwayPavement] recoveredSteepParts=%d worstGradePct=%.1f; asphalt is restored but unsafe grade must be inspected before driving")
+                :format(recoveredHighwayParts, steepestHighwayGrade * 100))
+        end
     end
     return tileFolder
 end

@@ -28,6 +28,16 @@ terrainParams.IgnoreWater = false
 
 local prepared = false
 local globalIntersectionNodes = {}
+local proximityGrid = {}
+local PROXIMITY_CELL_STUDS = 160
+
+local function proximityCell(x, z)
+    return math.floor(x / PROXIMITY_CELL_STUDS), math.floor(z / PROXIMITY_CELL_STUDS)
+end
+local function proximityKey(x, z)
+    local gx, gz = proximityCell(x, z)
+    return tostring(gx) .. ":" .. tostring(gz)
+end
 
 -- LOCKED CHESTERWORLD HANDEDNESS:
 -- +X = east, -Z = north.
@@ -358,6 +368,7 @@ local function addEndpoint(nodes, tileId, xMeters, zMeters, otherXMeters, otherZ
 		table.insert(node.rawArms, {
 			name = name,
 			width = roadWidth,
+			length = length,
 			dir = Vector3.new(dx / length, 0, dz / length),
 		})
 	end
@@ -373,7 +384,8 @@ local function finalizeNodes(nodes)
 		for _, arm in ipairs(node.rawArms) do
 			local key = armKey(arm.name, arm.dir)
 			local current = armMap[key]
-			if not current or arm.width > current.width then
+			if not current or arm.width > current.width
+                or (arm.width == current.width and arm.length > current.length) then
 				armMap[key] = arm
 			end
 		end
@@ -394,6 +406,12 @@ local function finalizeNodes(nodes)
 		node.z = node.zSum / math.max(node.count, 1)
 		if node.isIntersection then
 			node.polygon = polygonFromNode(node)
+            local r = 0
+            for _, p in ipairs(node.polygon) do
+                local dx, dz = p.X - node.x, p.Y - node.z
+                r = math.max(r, math.sqrt(dx * dx + dz * dz))
+            end
+            node.outerRadius = r
 		end
 	end
 end
@@ -415,6 +433,14 @@ function TileBuilderV2.Prepare(tileModules)
 		if moduleIndex % 8 == 0 then task.wait() end
 	end
 	finalizeNodes(globalIntersectionNodes)
+    proximityGrid = {}
+    for _, node in pairs(globalIntersectionNodes) do
+        if node.isIntersection then
+            local key = proximityKey(node.x, node.z)
+            if not proximityGrid[key] then proximityGrid[key] = {} end
+            table.insert(proximityGrid[key], node)
+        end
+    end
 	prepared = true
 	local nodeCount = 0
 	local intersections = 0
@@ -587,6 +613,27 @@ local function buildCrosswalkForArm(markingsFolder, node, arm)
 	if dir.Magnitude < 0.001 then return end
 	local perpendicular = Vector3.new(-dir.Z, 0, dir.X)
 	local baseSetback = rayPolygonDistance(node, dir) + WorldConfig.CROSSWALK_EDGE_CLEARANCE_STUDS
+    local stripeSpan = WorldConfig.CROSSWALK_STRIPE_COUNT * WorldConfig.CROSSWALK_STRIPE_DEPTH_STUDS
+        + (WorldConfig.CROSSWALK_STRIPE_COUNT - 1) * WorldConfig.CROSSWALK_STRIPE_GAP_STUDS
+    -- A short source segment cannot fit a crosswalk before its next junction.
+    if arm.length and arm.length < baseSetback + stripeSpan + 4 then return end
+    -- The connected road can run through another very nearby intersection.
+    -- Never paint a crosswalk across a second junction's asphalt.
+    local midpoint = Vector3.new(node.x, 0, node.z)
+        + dir * (baseSetback + stripeSpan / 2)
+    local gx, gz = proximityCell(midpoint.X, midpoint.Z)
+    for ix = gx - 1, gx + 1 do
+        for iz = gz - 1, gz + 1 do
+            local bucket = proximityGrid[tostring(ix) .. ":" .. tostring(iz)]
+            for _, other in ipairs(bucket or {}) do
+                if other ~= node then
+                    local dx, dz = midpoint.X - other.x, midpoint.Z - other.z
+                    local required = (other.outerRadius or 0) + stripeSpan / 2 + 3
+                    if dx * dx + dz * dz < required * required then return end
+                end
+            end
+        end
+    end
 	local usableWidth = math.max(arm.width - 2.0, 4.0)
 	local halfAcross = usableWidth / 2
 	for stripe = 0, WorldConfig.CROSSWALK_STRIPE_COUNT - 1 do
@@ -710,59 +757,92 @@ local function planeYAtFrame(frame, x, z, yOffset)
 	return planePoint.Y - (normal.X * (x - planePoint.X) + normal.Z * (z - planePoint.Z)) / normal.Y
 end
 
+
+-- Solid convex polygon, built from ordinary Roblox WedgeParts.
+-- Two wedges fill each triangle (the standard 3D-triangle decomposition).
+-- This avoids EditableMesh API permissions, winding problems and MeshPart pivots.
+local function fillTriangleWithWedges(parent, a, b, c, thickness, labels)
+    local ab, ac, bc = b - a, c - a, c - b
+    local abd, acd, bcd = ab:Dot(ab), ac:Dot(ac), bc:Dot(bc)
+    if abd > acd and abd > bcd then
+        c, a = a, c
+    elseif acd > bcd and acd > abd then
+        a, b = b, a
+    end
+    ab, ac, bc = b - a, c - a, c - b
+    local normal = ac:Cross(ab)
+    if normal.Magnitude < 0.01 or bc.Magnitude < 0.1 then return 0 end
+    local right = normal.Unit
+    local up = bc:Cross(right).Unit
+    local back = bc.Unit
+    local height = math.abs(ab:Dot(up))
+    if height < 0.08 then return 0 end
+    local count = 0
+
+    local function buildWedge(position, xAxis, yAxis, zAxis, depth)
+        if depth < 0.08 then return end
+        local wedge = Instance.new("WedgePart")
+        wedge.Name = "IntersectionAsphalt"
+        wedge.Anchored = true
+        wedge.CanCollide = true
+        wedge.CanTouch = true
+        wedge.CanQuery = true
+        wedge.CastShadow = true
+        wedge.TopSurface = Enum.SurfaceType.Smooth
+        wedge.BottomSurface = Enum.SurfaceType.Smooth
+        wedge.Material = WorldConfig.INTERSECTION_MATERIAL
+        wedge.Color = WorldConfig.INTERSECTION_COLOR
+        wedge.Size = Vector3.new(thickness, height, depth)
+        wedge.CFrame = CFrame.fromMatrix(position, xAxis, yAxis, zAxis)
+        wedge:SetAttribute("CW_IntersectionPad", true)
+        wedge:SetAttribute("CW_IntersectionSolid", true)
+        wedge:SetAttribute("CW_IntersectionOwner", "TileBuilderV3")
+        wedge:SetAttribute("CW_GradeLevel", 0)
+        if #labels > 0 then wedge:SetAttribute("Intersection", table.concat(labels, " & ")) end
+        wedge.Parent = parent
+        count += 1
+    end
+    buildWedge((a + b) / 2, right, up, back, math.abs(ab:Dot(back)))
+    buildWedge((a + c) / 2, -right, up, -back, math.abs(ac:Dot(back)))
+    return count
+end
+
 local function makeIntersectionMesh(parent, node, labels)
-	local polygon = node.polygon
-	if not polygon or #polygon < 3 then return nil end
-	local radius = polygonMaxRadius(node)
-	local frame = intersectionFrame(node.x, node.z, radius)
-	if not frame then return nil end
-	local thickness = WorldConfig.ROAD_THICKNESS_STUDS + 0.08
-	local editable = AssetService:CreateEditableMesh()
-	if not editable then return nil end
-	local topIds = {}
-	local bottomIds = {}
-	for i, p in ipairs(polygon) do
-		local topY = planeYAtFrame(frame, p.X, p.Y, thickness / 2 + 0.03)
-		local bottomY = topY - thickness
-		topIds[i] = editable:AddVertex(Vector3.new(p.X - node.x, topY - frame.Position.Y, p.Y - node.z))
-		bottomIds[i] = editable:AddVertex(Vector3.new(p.X - node.x, bottomY - frame.Position.Y, p.Y - node.z))
-	end
-	for i = 2, #polygon - 1 do
-		editable:AddTriangle(topIds[1], topIds[i], topIds[i + 1])
-		editable:AddTriangle(bottomIds[1], bottomIds[i + 1], bottomIds[i])
-	end
-	for i = 1, #polygon do
-		local j = (i % #polygon) + 1
-		editable:AddTriangle(topIds[i], bottomIds[i], bottomIds[j])
-		editable:AddTriangle(topIds[i], bottomIds[j], topIds[j])
-	end
-	local meshPart
-	local ok = pcall(function()
-		meshPart = AssetService:CreateMeshPartAsync(
-			Content.fromObject(editable),
-			{ CollisionFidelity = Enum.CollisionFidelity.Hull }
-		)
-	end)
-	editable:Destroy()
-	if not ok or not meshPart then return nil end
-	meshPart.Name = "Intersection"
-	meshPart.Anchored = true
-	meshPart.CanCollide = true
-	meshPart.CanTouch = true
-	meshPart.CanQuery = true
-	meshPart.CastShadow = true
-	meshPart.DoubleSided = true
-	meshPart.Material = WorldConfig.INTERSECTION_MATERIAL
-	meshPart.Color = WorldConfig.INTERSECTION_COLOR
-	meshPart.Size = meshPart.MeshSize
-	meshPart.CFrame = CFrame.new(node.x, frame.Position.Y, node.z)
-	meshPart:SetAttribute("CW_IntersectionPad", true)
-	meshPart:SetAttribute("CW_IntersectionPolygon", true)
-	meshPart:SetAttribute("CW_IntersectionOwner", "TileBuilderV2")
-	meshPart:SetAttribute("CW_GradeLevel", 0)
-	if #labels > 0 then meshPart:SetAttribute("Intersection", table.concat(labels, " & ")) end
-	meshPart.Parent = parent
-	return meshPart
+    local polygon = node.polygon
+    if not polygon or #polygon < 3 then return nil end
+    local radius = polygonMaxRadius(node)
+    local frame = intersectionFrame(node.x, node.z, radius)
+    if not frame then return nil end
+    local thickness = WorldConfig.ROAD_THICKNESS_STUDS + 0.12
+    local surfaceOffset = thickness / 2 + 0.10
+
+    -- Build from the SAME node.polygon used by rayPolygonDistance and trimming.
+    -- A center fan of a convex polygon has no holes and no oversized bbox.
+    local function pointAt(x, z)
+        local topY = planeYAtFrame(frame, x, z, surfaceOffset)
+        return Vector3.new(x, topY - thickness / 2, z)
+    end
+    local center = pointAt(node.x, node.z)
+    local group = Instance.new("Model")
+    group.Name = "Intersection"
+    group:SetAttribute("CW_IntersectionPad", true)
+    group:SetAttribute("CW_IntersectionSolid", true)
+    group:SetAttribute("CW_IntersectionOwner", "TileBuilderV3")
+    group:SetAttribute("CW_IntersectionPolygon", true)
+    if #labels > 0 then group:SetAttribute("Intersection", table.concat(labels, " & ")) end
+    local count = 0
+    for i = 1, #polygon do
+        local b = polygon[i]
+        local c = polygon[(i % #polygon) + 1]
+        count += fillTriangleWithWedges(
+            group, center, pointAt(b.X, b.Y), pointAt(c.X, c.Y),
+            thickness, labels
+        )
+    end
+    -- If all triangles were degenerate, use the existing visible fallback.
+    if count < 3 then group:Destroy(); return nil end
+    group.Parent = parent
+    return group
 end
 
 local function makeIntersectionFallback(parent, node, labels)

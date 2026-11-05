@@ -2,7 +2,7 @@
 -- Edit WANT to the stroke ids / station windows printed by
 -- [HighwayProfilePinConflict].
 local HP = Mock.require(Mock.methods.FindFirstChild(World, "HighwayProfile"))
-local WANT = { HW2 = { 3700, 3950 }, HW3 = { 1500, 1700 }, HW58 = { -1, 200 } }
+local WANT = { HW6 = { 5300, 5900 } }
 for _, stroke in ipairs(HP.Strokes()) do
 	local window = WANT[stroke.id]
 	if window and stroke.G then

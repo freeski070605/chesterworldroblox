@@ -155,10 +155,13 @@ end
 -- Only the highway corridor may recover terrain-rejected strips. County source
 -- sometimes labels I-95 as "secondary"; match its exact name as well as class.
 -- Keep the original steep-grade rejection for neighborhood roads/sidewalks.
+-- Rail and pedestrian records classed as motorways (CSX Phila Subdivision is
+-- motorway_link) keep the rejection too, like Amtrak.
 local function isHighwayCorridor(attributes)
     if type(attributes) ~= "table" then return false end
     local cls = string.lower(tostring(attributes.CW_RoadClass or ""))
     local name = string.lower(tostring(attributes.ChesterStreet or ""))
+    if HighwayProfile.IsExcludedName(name) then return false end
     return cls == "motorway" or cls == "motorway_link"
         or cls == "trunk" or cls == "trunk_link"
         or name:match("^i[%s%-]*95$") ~= nil

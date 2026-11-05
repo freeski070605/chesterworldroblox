@@ -105,6 +105,10 @@ local function excluded(n)
 	-- "Cr Chester Secondary" is a Conrail line.
 	return string.sub(n, 1, 3) == "cr "
 end
+-- True for rail / pedestrian records the county data classes as motorways.
+function HighwayProfile.IsExcludedName(name)
+	return excluded(normName(name))
+end
 
 -- `level` is the V2 grade level (bridge => >=1).
 function HighwayProfile.IsCorridorRoad(road, level)
@@ -1212,30 +1216,17 @@ function HighwayProfile.Prepare(entries, opts)
 			pins = unique
 			if #pins > 0 then
 				stats.pins += #pins
-				-- Clamp G into the slope cones of every pin, first at 0.85g and
-				-- smoothed (rounded vertical curves where G meets a cone), then
-				-- at g. Where two pins are closer than the grade allows the lower
-				-- cone wins and the conflict is counted.
-				local function pinClamp(slope)
-					for k = 1, count do
-						local s = (k - 1) * ds
-						local lo, up = -math.huge, math.huge
-						for _, pin in ipairs(pins) do
-							local d = math.abs(s - pin.s)
-							lo = math.max(lo, pin.target - slope * d)
-							up = math.min(up, pin.target + slope * d)
-						end
-						G[k] = math.min(math.max(G[k], lo), up)
-					end
-				end
-				pinClamp(g * 0.85)
-				G = movingAverage(G, smoothW)
-				pinClamp(g)
-				for k = 1, count do
-					G[k] = math.min(G[k], capHull[k])
-				end
+				-- Where two pins are closer than the grade allows, that interval
+				-- alone gets the slope it needs (up to 3g) so the climb is spread
+				-- evenly instead of piling into the fade at one pin; the conflict
+				-- is still counted. w is the cumulative allowed rise along s.
+				local wAtPin = { pins[1].s * g }
 				for m = 2, #pins do
-					if math.abs(pins[m].target - pins[m - 1].target) > g * (pins[m].s - pins[m - 1].s) + 0.05 then
+					local run = pins[m].s - pins[m - 1].s
+					local rise = math.abs(pins[m].target - pins[m - 1].target)
+					local slope = g
+					if rise > g * run + 0.05 then
+						slope = math.min(rise / run, 3 * g)
 						stats.pinConflicts += 1
 						if #stats.pinConflictList < 20 then
 							table.insert(stats.pinConflictList, string.format("%s %s s=%.0f..%.0f dy=%.1f",
@@ -1243,6 +1234,43 @@ function HighwayProfile.Prepare(entries, opts)
 								pins[m].target - pins[m - 1].target))
 						end
 					end
+					pins[m - 1].slopeAfter = slope
+					wAtPin[m] = wAtPin[m - 1] + slope * run
+				end
+				local w = table.create(count)
+				local m = 1
+				for k = 1, count do
+					local s = (k - 1) * ds
+					while m < #pins and s > pins[m + 1].s do
+						m += 1
+					end
+					if s <= pins[1].s then
+						w[k] = s * g
+					elseif s >= pins[#pins].s then
+						w[k] = wAtPin[#pins] + (s - pins[#pins].s) * g
+					else
+						w[k] = wAtPin[m] + (s - pins[m].s) * pins[m].slopeAfter
+					end
+				end
+				-- Clamp G into the slope cones of every pin, first at 0.85 of the
+				-- allowed rise and smoothed (rounded vertical curves where G meets
+				-- a cone), then at the full allowed rise.
+				local function pinClamp(scale)
+					for k = 1, count do
+						local lo, up = -math.huge, math.huge
+						for index, pin in ipairs(pins) do
+							local d = scale * math.abs(w[k] - wAtPin[index])
+							lo = math.max(lo, pin.target - d)
+							up = math.min(up, pin.target + d)
+						end
+						G[k] = math.min(math.max(G[k], lo), up)
+					end
+				end
+				pinClamp(0.85)
+				G = movingAverage(G, smoothW)
+				pinClamp(1)
+				for k = 1, count do
+					G[k] = math.min(G[k], capHull[k])
 				end
 				-- The fade below now only absorbs the residual between a pin's
 				-- exact station and its nearest sample (<= g * ds / 2).

@@ -16,6 +16,8 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
+import numpy as np
+from PIL import Image, ImageDraw
 from shapely import affinity
 from shapely.geometry import box, shape
 from shapely.strtree import STRtree
@@ -26,6 +28,7 @@ COUNTY = DATA / "13_RegionalMaster" / "regional_buildings_base.geojson"
 OVERTURE = DATA / "01_Buildings" / "overture_buildings_region_20261021.geojson"
 TILES = ROOT / "src" / "shared" / "WorldData" / "Tiles"
 OUT = ROOT / "src" / "shared" / "WorldData" / "BuildingTiles"
+AERIAL = DATA / "19_Aerial"
 
 # EPSG:3857 metres -> source metres (tiles store x_m, z_m in this frame)
 X_OFFSET, Z_OFFSET = 8397592.0, -4837229.0
@@ -172,6 +175,51 @@ def classify_unlabelled(props, poly, neighbours):
     return "generic"
 
 
+class RoofSampler:
+    """Median roof colour of a footprint from the DVRPC 2025 1 m mosaic
+    (tools/fetch_aerial_mosaic.py). Shadows (darkest fifth) are ignored."""
+
+    def __init__(self):
+        self.tiles = json.loads((AERIAL / "index.json").read_text(encoding="utf-8")) if (AERIAL / "index.json").exists() else []
+        self.cache = {}
+
+    def image(self, tile):
+        if tile["file"] not in self.cache:
+            if len(self.cache) > 12:
+                self.cache.clear()
+            self.cache[tile["file"]] = np.asarray(Image.open(AERIAL / tile["file"]).convert("RGB"))
+        return self.cache[tile["file"]]
+
+    def colour(self, poly):
+        inner = poly.buffer(-0.8)
+        if inner.is_empty or inner.area < 4:
+            inner = poly
+        if inner.geom_type == "MultiPolygon":
+            inner = max(inner.geoms, key=lambda g: g.area)
+        # source metres -> EPSG:3857
+        mx, my = inner.centroid.x - X_OFFSET, inner.centroid.y - Z_OFFSET
+        for tile in self.tiles:
+            if tile["xmin"] <= mx < tile["xmax"] and tile["ymin"] <= my < tile["ymax"]:
+                img = self.image(tile)
+                scale = img.shape[1] / (tile["xmax"] - tile["xmin"])
+                pts = [((x - X_OFFSET - tile["xmin"]) * scale, (tile["ymax"] - (y - Z_OFFSET)) * scale)
+                       for x, y in inner.exterior.coords]
+                xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+                c0, r0 = max(int(min(xs)), 0), max(int(min(ys)), 0)
+                c1, r1 = min(int(max(xs)) + 1, img.shape[1]), min(int(max(ys)) + 1, img.shape[0])
+                if c1 <= c0 or r1 <= r0:
+                    return None
+                mask = Image.new("L", (c1 - c0, r1 - r0), 0)
+                ImageDraw.Draw(mask).polygon([(x - c0, y - r0) for x, y in pts], fill=1)
+                pixels = img[r0:r1, c0:c1][np.asarray(mask, bool)]
+                if len(pixels) < 3:
+                    return None
+                lum = pixels.sum(1)
+                keep = pixels[lum >= np.percentile(lum, 20)]
+                return tuple(int(v) for v in np.median(keep, 0))
+        return None
+
+
 def main(check_only=False):
     county = json.loads(COUNTY.read_text(encoding="utf-8"))["features"]
     owner = tile_of_ids()
@@ -193,6 +241,8 @@ def main(check_only=False):
     ov_tree = STRtree(ov_polys)
     tree = STRtree(polys)
 
+    roofs = RoofSampler()
+    roofed = 0
     tiles = defaultdict(list)
     styles = Counter()
     filled = 0
@@ -240,14 +290,16 @@ def main(check_only=False):
         for x0, x1, z0, z1 in rects:
             lx, lz = (x0 + x1) / 2 - c.x, (z0 + z1) / 2 - c.y
             out_rects.append((c.x + lx * ca - lz * sa, c.y + lx * sa + lz * ca, x1 - x0, z1 - z0))
+        roof = None if check_only else roofs.colour(poly)
+        roofed += roof is not None
         tiles[tile].append({
             "id": bid, "style": style, "h": round(height, 2), "a": math.degrees(angle),
             "floors": p.get("estimated_floors"), "name": p.get("poi_name") or p.get("site_name"),
-            "rects": out_rects,
+            "rects": out_rects, "roof": roof,
         })
 
     print("buildings", sum(len(v) for v in tiles.values()), "tiles", len(tiles), "rects", rect_total,
-          "maxRects", max_rects, "heightsFilled", filled)
+          "maxRects", max_rects, "heightsFilled", filled, "roofColours", roofed)
     print("styles", styles.most_common())
     if check_only:
         return
@@ -265,6 +317,9 @@ def main(check_only=False):
                 extra += ",floors=%d" % int(b["floors"])
             if b["name"]:
                 extra += ",name=%s" % lua_string(str(b["name"]))
+            if b["roof"]:
+                # roof colour measured from the 2025 aerial, 0xRRGGBB
+                extra += ",rc=0x%02x%02x%02x" % b["roof"]
             lines.append('\t["%s"]={style="%s",h=%.2f,a=%.2f%s,r={%s}},' % (
                 b["id"], b["style"], b["h"], b["a"], extra, rects))
         lines.append("}")

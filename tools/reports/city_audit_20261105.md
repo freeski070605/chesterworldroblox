@@ -86,3 +86,47 @@ before long Studio sessions. Tooling here keeps its caches on E: (`build/duckdb`
   material (looked like blue glass) replaced; more brick downtown.
 - Blocked: run 2 ended mid-build (40/102 tiles) with no script error, and Rojo stopped
   syncing. C: had 13 MB free. Free space on C: before the next run.
+- Step 4 (ground cover) baked into the place terrain: PASDA 2013 1 m land cover
+  (Chester City, Chester Twp, Brookhaven) -> 3 m majority grid
+  (`tools/build_ground_cover.py`, 26 tiles, 1.12 M runs) -> surface voxel materials
+  (`tools/studio/bake_ground_cover.luau`, run through the MCP over a local HTTP server):
+  grass -> Grass, tree canopy -> LeafyGrass, paved/structures -> Pavement,
+  roads -> Asphalt, water edges -> Mud, barren -> Ground. Occupancy written back
+  unchanged (shape untouched). ~18k blocks, ~2.5 min. Terrain material colours tuned.
+  Persists only when the place is saved; ChangeHistory waypoint "Before ground cover bake".
+  Not covered by the land cover (regional ring outside those three municipalities):
+  still plain Ground.
+- Roof colours: DVRPC 2025 orthophoto mosaic at 1 m (`tools/fetch_aerial_mosaic.py`, 56 tiles,
+  `E:\ChesterWorld\Data\19_Aerial`); each footprint's median roof colour (inset 0.8 m,
+  darkest fifth dropped) -> `rc=` in BuildingTiles; all 21,757 buildings measured. Builder
+  uses it for gable roofs, cornice caps and a roof slab on flat roofs.
+- Parks (step 10a): `tools/build_parks.py` -> `src/shared/WorldData/Parks.lua` (50 parks,
+  41 named; 95 OSM features) built by `ParkBuilder.server.lua`: name signs at the
+  road-side edge, inset walking loops with benches and lamps, basketball/tennis/volleyball
+  courts, baseball diamonds, soccer/football pitches, athletics tracks, playgrounds,
+  pools, cemetery headstones. Features sit at the highest ground under them with a skirt
+  so slopes neither bury nor float them. Studio: 18,265 parts, no errors.
+- Facades: three window textures drawn by `tools/make_facade_textures.py` (residential
+  double-hung, commercial three-pane, industrial strip; transparent around the window),
+  uploaded to the user's Roblox account (rbxassetid://87121421598977 /
+  125405099207126 / 112532330474936). TileBuilderV2 tiles them on each wall face
+  (bay 8 or 12 studs, storey = height / floors, clamped 8-13), from the roofline down;
+  garages and churches stay plain. Studio: 161,806 textures, no errors.
+- Ground storeys: door+window (rbxassetid://134036168835861) for rowhouse/twin/house/
+  apartment, shopfront with sign band (rbxassetid://113770832567908) for storefront/
+  commercial. Walls split into a ground storey (exactly one texture tile tall from street
+  level) and upper floors (window texture); a concrete foundation fills sloping lots.
+  Studio: 22,337 ground storeys, 158,803 building parts total, no errors.
+- Landmarks (step 10): `tools/build_landmarks.py` -> `src/shared/WorldData/Landmarks.lua`
+  (OSM area outline, oriented box and county building ids per landmark), built by
+  `LandmarkBuilder.server.lua` after the highway finish: City Hall (brick, white portico
+  on the street face, cupola, sign), Widener Old Main (stone, mansard, clock tower),
+  Deshong Museum (marble temple front), Subaru Park (9 footprint boxes replaced: pitch,
+  navy/gold tiers, canopies, outer wall, scoreboard; terrain cleared above pitch level),
+  Quick Stadium (football field, track, stands), Harrah's (dark casino, neon band, sign)
+  plus the harness track measured off the orthophoto, Commodore Barry Bridge (deck from
+  the approach road across the river, cantilever through-truss over the main span,
+  piers, closed at the world edge), and signed restyles of Chester High, Crozer North,
+  Crozer Building, Wolfgram Library and the Wharf at Rivertown. Studio: 13 built,
+  1,666 parts, no errors. Verified by screenshot: Subaru Park, the bridge, the racetrack,
+  City Hall's portico/sign; Old Main, Deshong and the restyles not yet inspected close up.

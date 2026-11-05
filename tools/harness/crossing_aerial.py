@@ -40,6 +40,12 @@ SITES = {
     "upland": (6845, -2420, 90),
     "city_8th_kerlin": (2900, 2250, 250),
     "city_downtown": (6750, 2050, 250),
+    "lm_subaru": (490, 8268, 450),
+    "lm_harrahs": (10644, 350, 650),
+    "lm_wharf": (-1297, 9965, 320),
+    "lm_cityhall": (6776, 2008, 200),
+    "lm_oldmain": (8194, -4316, 180),
+    "lm_bridge_main": (3025, 10575, 2600),
 }
 ONLY = set(sys.argv[2:])
 URL = "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/DVRPC2025/MapServer/export"

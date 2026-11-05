@@ -1547,6 +1547,67 @@ local BUILDING_STYLES = {
 		walls = { rgb(214, 208, 196), rgb(180, 176, 168), rgb(150, 146, 140) } },
 }
 
+-- Facade window textures (tools/make_facade_textures.py, uploaded 2026-11-05):
+-- one bay x one storey each, transparent around the window. Tiled from the
+-- roofline down so the top storey lines up with the cornice.
+local FACADES = {
+	residential = { texture = "rbxassetid://87121421598977", bay = 8 },
+	commercial = { texture = "rbxassetid://125405099207126", bay = 12 },
+	industrial = { texture = "rbxassetid://112532330474936", bay = 12 },
+}
+local FACADE_FOR_STYLE = {
+	rowhouse = "residential", house = "residential", twin = "residential", apartment = "residential",
+	storefront = "commercial", commercial = "commercial", school = "commercial", generic = "commercial",
+	industrial = "industrial", warehouse = "industrial",
+}
+-- Front/Back faces span the part's X size, Left/Right its Z size
+local FACES = {
+	{ Enum.NormalId.Front, "x" }, { Enum.NormalId.Back, "x" },
+	{ Enum.NormalId.Left, "z" }, { Enum.NormalId.Right, "z" },
+}
+
+local function applyFacade(block, styleKey, storey)
+	local facade = FACADES[FACADE_FOR_STYLE[styleKey] or ""]
+	if not facade then return end
+	local spans = { x = block.Size.X, z = block.Size.Z }
+	for _, face in ipairs(FACES) do
+		if spans[face[2]] >= facade.bay * 0.8 then
+			local texture = Instance.new("Texture")
+			texture.Texture = facade.texture
+			texture.Face = face[1]
+			texture.StudsPerTileU = facade.bay
+			texture.StudsPerTileV = storey
+			texture.Parent = block
+		end
+	end
+end
+
+-- Ground storey textures: front door + window per rowhouse bay, shopfront glass
+-- with a sign band. Stretched to the part's height (one tile).
+local GROUND_STOREYS = {
+	residential = { texture = "rbxassetid://134036168835861", bay = 15 },
+	storefront = { texture = "rbxassetid://113770832567908", bay = 16 },
+}
+local GROUND_FOR_STYLE = {
+	rowhouse = "residential", twin = "residential", house = "residential", apartment = "residential",
+	storefront = "storefront", commercial = "storefront",
+}
+
+local function applyGroundStorey(block, kind)
+	local ground = GROUND_STOREYS[kind]
+	local spans = { x = block.Size.X, z = block.Size.Z }
+	for _, face in ipairs(FACES) do
+		if spans[face[2]] >= ground.bay * 0.7 then
+			local texture = Instance.new("Texture")
+			texture.Texture = ground.texture
+			texture.Face = face[1]
+			texture.StudsPerTileU = ground.bay
+			texture.StudsPerTileV = block.Size.Y
+			texture.Parent = block
+		end
+	end
+end
+
 local function pick(list, seed, salt)
 	local n = #list
 	return list[((seed * 7919 + salt * 104729) % n) + 1]
@@ -1605,6 +1666,15 @@ local function buildFootprintBuilding(parent, building, shapeData)
 	model:SetAttribute("SourceHeightMeters", shapeData.h)
 	local gable = style.roof == "gable" and #shapeData.r <= 3
 	local roofColor = style.roofs and pick(style.roofs, seed, 2)
+	-- measured roof colour from the 2025 aerial (tools/build_building_tiles.py),
+	-- slightly darkened: the orthophoto is brighter than in-game lighting
+	local measured = shapeData.rc and Color3.fromRGB(
+		math.floor(shapeData.rc / 65536) % 256 * 0.9,
+		math.floor(shapeData.rc / 256) % 256 * 0.9,
+		shapeData.rc % 256 * 0.9)
+	if measured then
+		roofColor = measured
+	end
 	local built = 0
 	for _, rect in ipairs(shapeData.r) do
 		local x, z = sourceToStuds(rect[1], rect[2])
@@ -1622,14 +1692,40 @@ local function buildFootprintBuilding(parent, building, shapeData)
 			local rise = gable and math.clamp(math.min(along, across) * 0.32, 3, 14) or 0
 			local wallTop = centreGround + WorldConfig.BUILDING_BASE_Y_STUDS + heightStuds - rise * 0.6
 			local base = lowest - 1.5
-			local block = newPart(model, "Walls", Vector3.new(along, wallTop - base, across),
-				CFrame.new(x, (wallTop + base) / 2, z) * yaw, material, wall)
-			block:SetAttribute("GroundY", centreGround)
+			local floors = shapeData.floors or math.max(1, math.floor(shapeData.h / 3.2 + 0.5))
+			local storey = math.clamp(heightStuds / floors, 8, 13)
+			local groundKind = GROUND_FOR_STYLE[shapeData.style]
+			local streetLevel = centreGround - 0.4
+			local groundTop = streetLevel + (groundKind == "storefront" and math.max(storey, 12) or storey)
+			if groundKind and wallTop - groundTop >= 4 and math.min(along, across) >= 10 then
+				-- ground storey (doors / shopfronts) is exactly one texture tile
+				-- tall from street level; the floors above keep the windows
+				local ground = newPart(model, "GroundStorey", Vector3.new(along, groundTop - streetLevel, across),
+					CFrame.new(x, (groundTop + streetLevel) / 2, z) * yaw, material, wall)
+				ground:SetAttribute("GroundY", centreGround)
+				applyGroundStorey(ground, groundKind)
+				local upper = newPart(model, "Walls", Vector3.new(along, wallTop - groundTop, across),
+					CFrame.new(x, (wallTop + groundTop) / 2, z) * yaw, material, wall)
+				applyFacade(upper, shapeData.style, storey)
+				if streetLevel - base > 0.3 then
+					newPart(model, "Foundation", Vector3.new(along, streetLevel - base, across),
+						CFrame.new(x, (streetLevel + base) / 2, z) * yaw, Enum.Material.Concrete, Color3.fromRGB(128, 124, 118))
+				end
+			else
+				local block = newPart(model, "Walls", Vector3.new(along, wallTop - base, across),
+					CFrame.new(x, (wallTop + base) / 2, z) * yaw, material, wall)
+				block:SetAttribute("GroundY", centreGround)
+				applyFacade(block, shapeData.style, storey)
+			end
 			if style.roof == "cornice" then
 				newPart(model, "Cornice", Vector3.new(along + 0.8, 0.9, across + 0.8),
-					CFrame.new(x, wallTop + 0.45, z) * yaw, Enum.Material.Concrete, style.top)
+					CFrame.new(x, wallTop + 0.45, z) * yaw, Enum.Material.Concrete, roofColor or style.top)
 			elseif gable then
-				buildGable(model, "Roof", CFrame.new(x, wallTop, z) * yaw, along + 1.2, across + 1.2, rise, roofColor)
+				buildGable(model, "Roof", CFrame.new(x, wallTop, z) * yaw, along + 1.2, across + 1.2, rise,
+					roofColor or Color3.fromRGB(70, 66, 62))
+			elseif measured then
+				newPart(model, "Roof", Vector3.new(along, 0.4, across),
+					CFrame.new(x, wallTop + 0.2, z) * yaw, Enum.Material.Concrete, measured)
 			end
 			built += 1
 		end

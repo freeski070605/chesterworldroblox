@@ -1504,7 +1504,149 @@ local function buildIntersections(parent, markingsFolder, signsFolder, tileId)
     end
 end
 
-local function buildBuilding(parent, building)
+-- Footprint buildings (tools/build_building_tiles.py). Each building is a set of
+-- rectangles along its own axis; style picks material, palette and roof.
+local BuildingTiles = Shared:WaitForChild("WorldData"):FindFirstChild("BuildingTiles")
+
+local function rgb(r, g, b)
+	return Color3.fromRGB(r, g, b)
+end
+local BUILDING_STYLES = {
+	rowhouse = { material = Enum.Material.Brick, roof = "cornice",
+		walls = { rgb(138, 62, 48), rgb(156, 79, 58), rgb(120, 58, 46), rgb(170, 96, 74), rgb(112, 72, 62), rgb(196, 186, 168) },
+		top = rgb(58, 54, 52) },
+	storefront = { material = Enum.Material.Brick, roof = "cornice",
+		walls = { rgb(150, 82, 62), rgb(176, 160, 138), rgb(128, 70, 56), rgb(196, 190, 176), rgb(105, 98, 92) },
+		top = rgb(64, 60, 58) },
+	apartment = { material = Enum.Material.Brick, roof = "cornice",
+		walls = { rgb(146, 76, 58), rgb(168, 112, 86), rgb(186, 176, 160), rgb(122, 92, 80) },
+		top = rgb(66, 62, 60) },
+	-- downtown and mill buildings are mostly brick; `alt` gives some concrete
+	-- (Metal reflects the sky and reads as blue glass, so it is not used)
+	commercial = { material = Enum.Material.Brick, roof = "cornice", alt = Enum.Material.Concrete,
+		walls = { rgb(150, 86, 66), rgb(176, 160, 138), rgb(132, 74, 58), rgb(196, 190, 176), rgb(168, 120, 92) },
+		top = rgb(70, 66, 62) },
+	generic = { material = Enum.Material.Concrete, roof = "flat", alt = Enum.Material.Brick,
+		walls = { rgb(186, 178, 164), rgb(160, 150, 138), rgb(150, 92, 72), rgb(198, 188, 168) } },
+	industrial = { material = Enum.Material.Brick, roof = "flat", alt = Enum.Material.Concrete,
+		walls = { rgb(140, 78, 60), rgb(156, 146, 134), rgb(120, 82, 68), rgb(170, 164, 152) } },
+	warehouse = { material = Enum.Material.Concrete, roof = "flat",
+		walls = { rgb(176, 174, 166), rgb(150, 152, 150), rgb(190, 184, 170), rgb(132, 138, 140) } },
+	school = { material = Enum.Material.Brick, roof = "flat",
+		walls = { rgb(158, 88, 68), rgb(170, 104, 80) } },
+	church = { material = Enum.Material.Cobblestone, roof = "gable",
+		walls = { rgb(150, 140, 128), rgb(132, 118, 104), rgb(160, 90, 70) },
+		roofs = { rgb(70, 72, 76), rgb(84, 66, 58) } },
+	house = { material = Enum.Material.SmoothPlastic, roof = "gable",
+		walls = { rgb(226, 220, 204), rgb(200, 210, 214), rgb(230, 224, 196), rgb(190, 200, 180), rgb(216, 200, 184), rgb(176, 168, 158), rgb(154, 84, 64) },
+		roofs = { rgb(70, 62, 58), rgb(92, 54, 46), rgb(62, 66, 72), rgb(110, 102, 92) } },
+	twin = { material = Enum.Material.Brick, roof = "gable",
+		walls = { rgb(150, 80, 62), rgb(196, 188, 170), rgb(132, 74, 60), rgb(214, 206, 186) },
+		roofs = { rgb(70, 62, 58), rgb(62, 66, 72), rgb(96, 60, 50) } },
+	garage = { material = Enum.Material.SmoothPlastic, roof = "flat",
+		walls = { rgb(214, 208, 196), rgb(180, 176, 168), rgb(150, 146, 140) } },
+}
+
+local function pick(list, seed, salt)
+	local n = #list
+	return list[((seed * 7919 + salt * 104729) % n) + 1]
+end
+
+local function newPart(parent, name, size, cframe, material, color)
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Anchored = true
+	part.CanCollide = true
+	part.Material = material
+	part.Color = color
+	part.Size = size
+	part.CFrame = cframe
+	part.Parent = parent
+	return part
+end
+
+-- Gable roof over one rectangle: two wedges meeting at the ridge along the
+-- long side.
+local function buildGable(parent, name, cframe, along, across, rise, color)
+	local alongX = along >= across
+	local span = alongX and across or along
+	local length = alongX and along or across
+	for side = -1, 1, 2 do
+		local wedge = Instance.new("WedgePart")
+		wedge.Name = name
+		wedge.Anchored = true
+		wedge.Material = Enum.Material.Slate
+		wedge.Color = color
+		-- a wedge's tall edge is at its +Z face; turn each half so that edge
+		-- meets the other half at the ridge
+		wedge.Size = Vector3.new(length, rise, span / 2)
+		local offset = Vector3.new(0, rise / 2, side * span / 4)
+		local facing = side == 1 and math.pi or 0
+		local base = alongX and cframe or cframe * CFrame.Angles(0, math.pi / 2, 0)
+		wedge.CFrame = base * CFrame.new(offset) * CFrame.Angles(0, facing, 0)
+		wedge.Parent = parent
+	end
+end
+
+local function buildFootprintBuilding(parent, building, shapeData)
+	local style = BUILDING_STYLES[shapeData.style] or BUILDING_STYLES.generic
+	local seed = tonumber(building.id) or 1
+	local wall = pick(style.walls, seed, 1)
+	local material = style.material
+	if style.alt and seed % 3 == 0 then
+		material = style.alt
+	end
+	local heightStuds = math.max(shapeData.h * S, 6)
+	local yaw = CFrame.Angles(0, math.rad(shapeData.a), 0)
+	local model = Instance.new("Model")
+	model.Name = tostring(shapeData.name or building.id)
+	model:SetAttribute("ChesterBuildingId", tostring(building.id))
+	model:SetAttribute("BuildingStyle", shapeData.style)
+	model:SetAttribute("SourceHeightMeters", shapeData.h)
+	local gable = style.roof == "gable" and #shapeData.r <= 3
+	local roofColor = style.roofs and pick(style.roofs, seed, 2)
+	local built = 0
+	for _, rect in ipairs(shapeData.r) do
+		local x, z = sourceToStuds(rect[1], rect[2])
+		local along, across = math.max(rect[3] * S, 1), math.max(rect[4] * S, 1)
+		local frame = CFrame.new(x, 0, z) * yaw
+		-- ground: centre for the roofline, lowest corner for the foundation
+		local centreGround = terrainY(x, z)
+		if centreGround then
+			local lowest = centreGround
+			for _, corner in ipairs({ { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } }) do
+				local p = frame * Vector3.new(corner[1] * along / 2, 0, corner[2] * across / 2)
+				local g = terrainY(p.X, p.Z)
+				if g and g < lowest then lowest = g end
+			end
+			local rise = gable and math.clamp(math.min(along, across) * 0.32, 3, 14) or 0
+			local wallTop = centreGround + WorldConfig.BUILDING_BASE_Y_STUDS + heightStuds - rise * 0.6
+			local base = lowest - 1.5
+			local block = newPart(model, "Walls", Vector3.new(along, wallTop - base, across),
+				CFrame.new(x, (wallTop + base) / 2, z) * yaw, material, wall)
+			block:SetAttribute("GroundY", centreGround)
+			if style.roof == "cornice" then
+				newPart(model, "Cornice", Vector3.new(along + 0.8, 0.9, across + 0.8),
+					CFrame.new(x, wallTop + 0.45, z) * yaw, Enum.Material.Concrete, style.top)
+			elseif gable then
+				buildGable(model, "Roof", CFrame.new(x, wallTop, z) * yaw, along + 1.2, across + 1.2, rise, roofColor)
+			end
+			built += 1
+		end
+	end
+	if built > 0 then
+		model.Parent = parent
+		return true
+	end
+	model:Destroy()
+	return false
+end
+
+local function buildBuilding(parent, building, shapes)
+	local shapeData = shapes and shapes[tostring(building.id)]
+	if shapeData and buildFootprintBuilding(parent, building, shapeData) then
+		return
+	end
 	local heightStuds = math.max((building.height_m or 9.15) * S, 2)
 	local widthStuds = math.max((building.width_m or 5) * S, 1)
 	local depthStuds = math.max((building.depth_m or 8) * S, 1)
@@ -1558,8 +1700,10 @@ function TileBuilderV2.Build(tileModule)
 		if index % ROAD_YIELD_EVERY == 0 then task.wait() end
 	end
 	buildIntersections(intersectionsFolder, markingsFolder, signsFolder, tileId)
+	local shapeModule = BuildingTiles and BuildingTiles:FindFirstChild(tileId)
+	local shapes = shapeModule and require(shapeModule)
 	for index, building in ipairs(tile.buildings or {}) do
-		buildBuilding(buildingsFolder, building)
+		buildBuilding(buildingsFolder, building, shapes)
 		if index % BUILDING_YIELD_EVERY == 0 then task.wait() end
 	end
 	return tileFolder

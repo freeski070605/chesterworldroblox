@@ -38,6 +38,8 @@ SITES = {
     "bullens_west": (9310, -11560, 150),
     "highland": (-7430, 4340, 90),
     "upland": (6845, -2420, 90),
+    "city_8th_kerlin": (2900, 2250, 250),
+    "city_downtown": (6750, 2050, 250),
 }
 ONLY = set(sys.argv[2:])
 URL = "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/DVRPC2025/MapServer/export"

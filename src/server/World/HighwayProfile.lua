@@ -73,10 +73,19 @@ local MAINLINE_NAMES = {
 	["i 95"] = true, ["i 476"] = true, ["us 322"] = true,
 	["commodore john barry bridge"] = true, ["conchester"] = true,
 }
--- Source records the county data mis-classes that belong to a corridor: the
--- two Barry approach pieces at Flower St are "residential", which ended the
--- Barry stroke there and pinned it to the terrain under its own bridge.
-local CORRIDOR_SOURCES = { ["county:21223"] = true, ["county:21244"] = true }
+-- Source records the county data mis-classes that belong to a corridor. A
+-- mis-classed piece ends the stroke and pins it to the terrain as if a local
+-- street joined there.
+local CORRIDOR_SOURCES = {
+	-- Barry approach over Flower St and on toward 6th ("residential")
+	["county:21223"] = true, ["county:21244"] = true,
+	["county:21219"] = true, ["county:20300"] = true,
+	-- I 95 to I 476 at its merge with the N I 476 flyover ("primary")
+	["county:1177"] = true,
+	-- Bullens Ln deck east of I-476 over the MacDade ramp: its motorway-classed
+	-- neighbours are profiled, so it stepped 11 studs down at the joint
+	["county:21560"] = true,
+}
 -- County data assigns motorway classes to rail and pedestrian structures.
 local EXCLUDE_TOKENS = { "pedestrian", "amtrak", "csx", "subdivision", "railroad", "rail" }
 
@@ -1137,8 +1146,11 @@ function HighwayProfile.Prepare(entries, opts)
 						for k = math.max(1, math.floor((s - half) / ds) + 1), math.min(count, math.ceil((s + half) / ds) + 1) do
 							minReq[k] = math.max(minReq[k], need)
 						end
-					elseif cross.relation == "under" and not other.corridor then
-						-- A local street passes OVER the highway here. Never let a
+					elseif cross.relation == "under" and (not other.corridor
+						or (cross.basis == "registry" and not (other.stroke and other.stroke.G))) then
+						-- A local street (or a registry-confirmed highway not solved
+						-- yet: the I 476 to I 95 ramp in its real DEM cut under the
+						-- I-95 embankment) passes OVER the highway here. Never let a
 						-- notch fill raise the highway into that structure: cap it
 						-- at (street rim - clearance). A registry-confirmed overpass
 						-- keeps its street at grade and the highway drops into a cut
@@ -1152,7 +1164,8 @@ function HighwayProfile.Prepare(entries, opts)
 							end
 							local cap = rim - clearance - DECK_STACK
 							local half = (other.width / 2 + SIDE_MARGIN) / math.max(cross.sine, 0.35)
-							local cutAllowed = cross.basis == "registry"
+							-- only under a local street: an upper highway rises instead
+							local cutAllowed = cross.basis == "registry" and not other.corridor
 							for k = math.max(1, math.floor((s - half) / ds) + 1), math.min(count, math.ceil((s + half) / ds) + 1) do
 								maxReq[k] = math.min(maxReq[k], cutAllowed and cap or math.max(cap, t[k]))
 							end

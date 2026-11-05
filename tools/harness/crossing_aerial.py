@@ -33,6 +33,8 @@ SITES = {
     "csx_476": (12138, -7638, 70),
     "park_vallei": (280, -8670, 90),
     "i476_flyover": (12180, -6850, 110),
+    "n476_merge": (12250, -7250, 200),
+    "barry_7th": (-1200, 4870, 90),
 }
 ONLY = set(sys.argv[2:])
 URL = "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/DVRPC2025/MapServer/export"

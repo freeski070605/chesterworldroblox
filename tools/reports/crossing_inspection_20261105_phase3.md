@@ -30,3 +30,22 @@ Offline: lowClearance 0 (was 49 / 101 before phase 3), registry 176,
 gradeViolations 0, pinConflicts 0, buried 24, steps 5, Kerlin 16.03.
 Open: profile clearanceShort for the N I 476 flyover over I-95 (-3.9) on the
 synthetic interchange terrain; needs the real DEM (Studio) to judge.
+
+## Studio run with real DEM (2026-11-05, driven through the Studio MCP)
+
+The first real-terrain run exposed what the synthetic harness could not:
+
+| Problem (real DEM) | Cause | Fix |
+|---|---|---|
+| N I 476 flyover ~15 studs *below* I-95 (hidden: the audit skips pairs where the "upper" is >1.5 below) | Notch fill raised the I 476 to I 95 ramp out of its real DEM cut under the I-95 embankment, pushing I-95 to 61-67 | Registry "under" crossings cap the lower highway at (upper rim - clearance) even before the upper stroke is solved; no cut under another highway (the upper rises instead) |
+| Flyover dragged down over the I 476 to I 95 ramp | ramp relation undecided | `N476_FLYOVER_OVER_I476_TO_I95_RAMP` |
+| Flyover pinned to the valley floor at its "merge" (12256, -7360) -> CSX 9.3, I-95 4.2 | shares a source vertex with the I 95 to I 476 ramp but crosses over it [n476_merge] | `N476_FLYOVER_OVER_I95_TO_I476_RAMP`; county 1177 made corridor |
+| US 322 to US 13 "over" 7th (10.0) and a 12-stud step | ramp ends at a signalised junction with 7th [flower] | `Registry.AT_GRADE` US322_TO_US13_AT_7TH |
+| Barry over Flower 9.8 / 11.5 | Barry pinned to grade at 7th 200 studs on | `BARRY_OVER_7TH` (medium confidence: no 7th pavement across the Barry lanes); county 21219/20300 made corridor |
+| Bullens Ln over MacDade ramp 4.2, 11-stud step | county 21560 not corridor while its neighbours are | county 21560 made corridor |
+
+Final Studio run: HighwayProfile clearanceShort=0, gradeViolations=0, pinConflicts=0,
+registry=198; HighwayFinish lowClearance=0, minClearance=14.0; HighwayStructures steps=0,
+holes=0; HighwayCuts deepest 21.3 (Edgmont).
+Still reported (not clearance): 40 bridge terrain intrusions (worst Bullens Ln west bridge
+county 20931, 8.7), 21 unprofiled bridge parts, 1 tunnel obstruction.

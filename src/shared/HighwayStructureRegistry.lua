@@ -154,6 +154,13 @@ Registry.NAMED = {
 		"Barry approach over Flower St (county 20475/21224/20476) [flower]. Aerial: elevated deck casting a "
 			.. "shadow, Flower visible on both sides. Confidence high.",
 		{ status = "aerial_dvrpc2025", references = { DVRPC2025 } }),
+	namedEntry("BARRY_OVER_7TH", nil, { "commodore john barry" }, { "7th" },
+		-1195, 4865, 60, nil,
+		"Barry approach over 7th St (county 21223/21244/21219/20300 with 22739/26638) [barry_7th]. Aerial: "
+			.. "Barry lanes and markings continuous, no 7th pavement across them, so not an at-grade junction; "
+			.. "7th under the Barry is inferred from the Barry being elevated over Flower 200 studs north. "
+			.. "Confidence medium.",
+		{ status = "aerial_dvrpc2025", references = { DVRPC2025 } }),
 	namedEntry("BARRY_OVER_RIVERFRONT", nil, { "commodore john barry" }, { "chester riverfront" },
 		1058, 8172, 50, nil,
 		"Barry approach over Chester Riverfront (county 22418/27083) [riverfront]. Aerial: Barry deck "
@@ -178,6 +185,17 @@ Registry.NAMED = {
 		12256, -6888, 100, nil,
 		"I 95 to N I 476 flyover over I-95 (county 26689/26690 over 21447/20367) [i476_flyover]. Aerial: "
 			.. "curved flyover deck continuous across both carriageways. Confidence high.",
+		{ status = "aerial_dvrpc2025", references = { DVRPC2025 } }),
+	namedEntry("N476_FLYOVER_OVER_I95_TO_I476_RAMP", nil, { "i 95 to n i 476" }, { "i 95 to i 476" },
+		12256, -7360, 50, nil,
+		"I 95 to N I 476 flyover over the I 95 to I 476 ramp (county 26687/26691 over 26504/1177; they share "
+			.. "a source vertex but do not merge) [n476_merge]. Aerial: flyover deck continuous with shadow, "
+			.. "ramp passes beneath. Confidence high.",
+		{ status = "aerial_dvrpc2025", references = { DVRPC2025 } }),
+	namedEntry("N476_FLYOVER_OVER_I476_TO_I95_RAMP", nil, { "i 95 to n i 476" }, { "i 476 to i 95" },
+		12238, -6790, 45, nil,
+		"I 95 to N I 476 flyover over the I 476 to I 95 ramp (county 26689 over 26686/18307) [i476_flyover]. "
+			.. "Aerial: curved flyover deck continuous, ramp passes beneath. Confidence high.",
 		{ status = "aerial_dvrpc2025", references = { DVRPC2025 } }),
 	namedEntry("I95_OVER_I476_TO_I95_RAMP", nil, { "i 95" }, { "i 476 to i 95" },
 		12107, -6814, 100, nil,
@@ -235,6 +253,16 @@ Registry.AT_GRADE = {
 		radius = 45,
 		description = "I 95 to N I 476 diverges from I-95 (county 559 -> 26098, 36 deg) and I 476 to I 95 merges "
 			.. "(854 <- 26181) on the I-95 deck over Bullens Lane. Aerial: same deck surface. Confidence high.",
+		status = "aerial_dvrpc2025",
+	},
+	{
+		id = "US322_TO_US13_AT_7TH",
+		namesA = { "us 322 to us 13" },
+		namesB = { "7th" },
+		center = { -1157, 4840 },
+		radius = 30,
+		description = "US 322 to US 13 ends at a signalised junction with 7th St (aerial 2025 [flower]: "
+			.. "crosswalks at the ramp terminal); the county layer-1 tag is not a structure.",
 		status = "aerial_dvrpc2025",
 	},
 	{

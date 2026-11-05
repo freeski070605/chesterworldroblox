@@ -147,7 +147,7 @@ local function resetStats()
 	stats = {
 		corridorSegments = 0, strokes = 0, samples = 0, unprofilable = 0,
 		nodes = 0, mixedNodes = 0, levelCrossNodesKept = 0,
-		crossingsOver = 0, crossingsUnder = 0, crossingsRegistry = 0,
+		crossingsOver = 0, crossingsUnder = 0, crossingsRegistry = 0, crossingsAtGrade = 0,
 		crossingsCorridor = 0, crossingsUnresolved = 0, crossingsDem = 0,
 		crossingsLayer = 0, vertexSplits = 0, freewayCrossNodeSplits = 0,
 		notchFilledStations = 0, spikeCutStations = 0, cutStationsKept = 0, bridgeTagsDropped = 0,
@@ -405,6 +405,13 @@ function HighwayProfile.Prepare(entries, opts)
 	local function isFreewayName(nk)
 		return nk == "i 95" or nk == "i 476" or nk == "commodore john barry bridge"
 	end
+	-- The registry can also name a crossing at a shared vertex of two
+	-- non-freeway roads (I 95 From Exit 4 over Conchester); there only the
+	-- named lower/upper road is detached. Registry AT_GRADE gores stay joined.
+	local function registryCrosses(a, b, x, z)
+		return Registry.NamedRelation(a.seg.road.name, b.seg.road.name, x, z) ~= nil
+			or Registry.NamedRelation(b.seg.road.name, a.seg.road.name, x, z) ~= nil
+	end
 	local splitNodes = {}
 	for _, node in ipairs(nodes) do
 		local through = nil
@@ -412,6 +419,22 @@ function HighwayProfile.Prepare(entries, opts)
 			if arm.pair and isFreewayName(arm.seg.nameKey) and isFreewayName(arm.pair.seg.nameKey) then
 				through = arm
 				break
+			end
+		end
+		local namedOnly = false
+		if not through then
+			for _, arm in ipairs(node.arms) do
+				if arm.pair then
+					for _, other in ipairs(node.arms) do
+						if other.seg.nameKey ~= arm.seg.nameKey and registryCrosses(arm, other, node.x, node.z) then
+							through, namedOnly = arm, true
+							break
+						end
+					end
+				end
+				if through then
+					break
+				end
 			end
 		end
 		if through and #node.arms >= 3 then
@@ -427,7 +450,10 @@ function HighwayProfile.Prepare(entries, opts)
 				if arm.pair and fl > 1e-6 then
 					partnerSine = math.abs(arm.pair.dx * fz - arm.pair.dz * fx) / fl
 				end
-				if arm ~= through and arm ~= through.pair and math.max(sine, partnerSine) > 0.5 then
+				local eligible = arm ~= through and arm ~= through.pair
+					and not Registry.AtGrade(through.seg.road.name, arm.seg.road.name, node.x, node.z)
+					and (not namedOnly or registryCrosses(through, arm, node.x, node.z))
+				if eligible and math.max(sine, partnerSine) > 0.5 then
 					table.insert(detached, arm)
 				else
 					table.insert(keep, arm)
@@ -611,10 +637,23 @@ function HighwayProfile.Prepare(entries, opts)
 		end
 	end
 	-- Rail lines and pedestrian structures never meet ANY corridor road at
-	-- grade either (I 476 to I 95 shares a vertex with CSX Phila Subdivision).
+	-- grade either (I 476 to I 95 shares a vertex with CSX Phila Subdivision),
+	-- nor does a road the structure registry names as crossing a corridor road
+	-- at that vertex (2nd Street under the Barry approach).
+	local function registryCrossing(vertex, ref)
+		local x = ref.e == 1 and ref.item.ax or ref.item.bx
+		local z = ref.e == 1 and ref.item.az or ref.item.bz
+		for _, arm in ipairs(vertexArms[vertex]) do
+			local a, b = arm.seg.road.name, ref.item.road.name
+			if Registry.NamedRelation(a, b, x, z) or Registry.NamedRelation(b, a, x, z) then
+				return true
+			end
+		end
+		return false
+	end
 	for vertex in pairs(vertexArms) do
 		for _, ref in ipairs(otherByVertex[vertex] or {}) do
-			if freewayVertices[vertex] or excluded(ref.item.nameKey) then
+			if freewayVertices[vertex] or excluded(ref.item.nameKey) or registryCrossing(vertex, ref) then
 				local road = ref.item.road
 				local explicit = ref.e == 1 and road.node1_connection_group or road.node2_connection_group
 				overrides[road] = overrides[road] or {}
@@ -776,6 +815,13 @@ function HighwayProfile.Prepare(entries, opts)
 		local seg, other, x, z = cross.seg, cross.other, cross.x, cross.z
 		local function set(upper, basis, entry)
 			shared.upper, shared.basis, shared.entry = upper, basis, entry
+		end
+		-- a registry merge/diverge gore: same level, no clearance rule
+		local gore = Registry.AtGrade(seg.road.name, other.road.name, x, z)
+		if gore then
+			shared.basis, shared.entry = "at_grade", gore
+			stats.crossingsAtGrade += 1
+			return
 		end
 		local e = Registry.Relation(seg.group, other.group)
 		if e then
@@ -1637,10 +1683,10 @@ end
 
 function HighwayProfile.Summary()
 	return string.format(
-		"corridorSegments=%d strokes=%d samples=%d unprofilable=%d nodes=%d mixedNodes=%d vertexSplits=%d freewayCrossNodeSplits=%d crossingsHighwayOver=%d registry=%d dem=%d layer=%d unresolved=%d notchFilledStations=%d maxNotchFill=%.1f cutStationsKept=%d bridgeTagsDropped=%d spikeCutStations=%d maxSpikeCut=%.1f spans=%d spanStations=%d fillStations=%d gradeStations=%d cutStations=%d worstCut=%.1f gradeViolations=%d worstGradePct=%.1f clearanceShort=%d pins=%d pinConflicts=%d",
+		"corridorSegments=%d strokes=%d samples=%d unprofilable=%d nodes=%d mixedNodes=%d vertexSplits=%d freewayCrossNodeSplits=%d crossingsHighwayOver=%d registry=%d atGrade=%d dem=%d layer=%d unresolved=%d notchFilledStations=%d maxNotchFill=%.1f cutStationsKept=%d bridgeTagsDropped=%d spikeCutStations=%d maxSpikeCut=%.1f spans=%d spanStations=%d fillStations=%d gradeStations=%d cutStations=%d worstCut=%.1f gradeViolations=%d worstGradePct=%.1f clearanceShort=%d pins=%d pinConflicts=%d",
 		stats.corridorSegments, stats.strokes, stats.samples, stats.unprofilable,
 		stats.nodes, stats.mixedNodes, stats.vertexSplits, stats.freewayCrossNodeSplits, stats.crossingsOver,
-		stats.crossingsRegistry, stats.crossingsDem, stats.crossingsLayer, stats.crossingsUnresolved, stats.notchFilledStations,
+		stats.crossingsRegistry, stats.crossingsAtGrade, stats.crossingsDem, stats.crossingsLayer, stats.crossingsUnresolved, stats.notchFilledStations,
 		stats.maxNotchFill, stats.cutStationsKept, stats.bridgeTagsDropped, stats.spikeCutStations, stats.maxSpikeCut, stats.spans,
 		stats.spanStations, stats.fillStations, stats.gradeStations, stats.cutStations,
 		stats.worstCut, stats.gradeViolations, stats.worstGrade * 100,

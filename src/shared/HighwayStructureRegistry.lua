@@ -18,6 +18,7 @@
 -- convert at ~3.906 studs/m horizontally but 3.0 studs/m vertically.
 
 local Registry = {}
+local DVRPC2025 = "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/DVRPC2025/MapServer/4"
 
 Registry.STRUCTURES = {
 	{
@@ -93,14 +94,98 @@ Registry.NAMED = {
 		8901, -3688, 75, 5.33, "Melrose Avenue over I-95, ramps and CSX"),
 	namedEntry("HIGHLAND_OVER_I95", "14881", { "highland ave" }, { "i 95" },
 		-7366, 4463, 75, nil, "Highland Avenue (relocated) over I-95 (source tags I-95 as upper)"),
-	-- Added 2026-11-04 from user research. No underclearance value yet, so the
-	-- default underpass rule applies.
+	-- Added 2026-11-04 from the crossing inspection (user research package plus
+	-- the DVRPC 2025 orthophoto with county segments overlaid; see
+	-- tools/harness/crossing_aerial.py). No underclearance values, so the default
+	-- underpass rule applies. The county data tags the LOWER road's pieces
+	-- under a structure as layer 1 / bridge too, so its layer tags cannot decide
+	-- these crossings.
 	namedEntry("ENGLE_OVER_I95", nil, { "engle st" }, { "i 95" },
-		-4624, 3108, 60, nil, "Engle Street over I-95 (both carriageways)",
-		{ status = "published_inventory:dvrpc_highway_inventory", references = { "https://www.dvrpc.org/" } }),
-	namedEntry("BULLENS_OVER_I476", nil, { "bullens ln" }, { "i 476" },
-		9459, -11609, 60, nil, "Bullens Lane over I-476 (not the MacDade ramp, which is still unresolved)",
-		{ status = "published_inventory:bridge_inventory_and_photos", references = {} }),
+		-4624, 3108, 60, nil,
+		"Engle Street over I-95, both carriageways (county 21206/21207 over 681/682/783/784). "
+			.. "Aerial: Engle deck shadow across both carriageways. Confidence high.",
+		{ status = "published_inventory:dvrpc_highway_inventory+aerial_dvrpc2025", references = { DVRPC2025 } }),
+	namedEntry("BULLENS_OVER_I476", nil, { "bullens ln" }, { "i 476", "macdade blvd to i 476" },
+		9515, -11626, 70, nil,
+		"Bullens Lane over I-476 and the MacDade ramp lane: one structure (county 20931/21560/21561/21562 "
+			.. "over 437/474/20453 and 18298/20451/20452/473). Aerial: one deck spans the whole cut. Confidence high.",
+		{ status = "published_inventory:bridge_inventory_and_photos+aerial_dvrpc2025", references = { DVRPC2025 } }),
+	namedEntry("I95_OVER_COMM_BARRY_RAMP", "14886", { "i 95" }, { "i 95 to comm barry" },
+		-2538, 2040, 60, nil,
+		"I-95 over the I-95 to Commodore Barry ramp at both carriageways: (-2564, 2078) county 21257/21259 "
+			.. "over 26663/26562, and (-2513, 2003) 21256/21258 over 26562/26563. One skewed I-95 span between "
+			.. "deck joints covers both; the ramp's own structure (26563, layer 1) starts at the second "
+			.. "crossing, which made the layer rule put the ramp on top. Confidence high.",
+		{ status = "published_inventory:usbridges_nbi_14886+aerial_dvrpc2025", references = { DVRPC2025 } }),
+	namedEntry("I95_OVER_CONCHESTER", nil, { "i 95" }, { "conchester" },
+		-2811, 2150, 50, nil,
+		"I-95 (dual bridges) over Conchester / US 322 at both carriageways: (-2838, 2132) county "
+			.. "21255/21256 over 20524/21254, and (-2785, 2168) 16139/21257 over 21254/20525. Aerial: Conchester "
+			.. "passes between I-95 deck joints and emerges on both sides. Confidence high.",
+		{ status = "published_inventory:dvrpc_dual_i95_bridges+aerial_dvrpc2025", references = { DVRPC2025 } }),
+	namedEntry("EXIT4_RAMP_OVER_CONCHESTER", nil, { "i 95 from exit 4" }, { "conchester" },
+		-2912, 2097, 25, nil,
+		"I 95 From Exit 4 (county 26664 -> 22858) over Conchester (20523/20524). Aerial: the ramp leaves the "
+			.. "I-95 deck and continues as the elevated flyover; Conchester runs beneath in its shadow. The "
+			.. "real DEM puts the ramp ~52 studs above Conchester here. Not inventory-verified; confidence medium-high.",
+		{ status = "provisional:aerial_dvrpc2025+dem", references = { DVRPC2025 } }),
+	namedEntry("BARRY_MAINLINE_OVER_SECOND", nil, { "commodore john barry" }, { "2nd" },
+		15, 6815, 70, nil,
+		"Commodore Barry Bridge approach mainline (county 21239/21240/21212/21230) over 2nd Street / PA 291 "
+			.. "(26648-26651). Aerial: approach decks cast shadows onto 2nd, which is at ground level on both "
+			.. "sides. The ramp tie-ins at (80, 6754) and (-48, 6842) are NOT covered. Confidence high.",
+		{ status = "aerial_dvrpc2025", references = { DVRPC2025 } }),
+	namedEntry("I95_OVER_BULLENS", nil, { "i 95", "i 95 to n i 476", "i 476 to i 95" }, { "bullens ln", "bullens" },
+		10580, -5503, 45, nil,
+		"I-95 and its I-476 ramps over Bullens Lane: (10589, -5484) county 559/428/26098 over 21446/20386, "
+			.. "(10571, -5522) 854/26181 over Bullens. Aerial: concrete I-95 deck, Bullens visible beneath on "
+			.. "both sides. Confidence high.",
+		{ status = "aerial_dvrpc2025", references = { DVRPC2025 } }),
+}
+
+-- Source records for structures that do not exist on the ground. The tile
+-- data is left untouched; the builder skips these records at runtime.
+Registry.SUPPRESSED = {
+	{
+		id = "SIXTH_PHANTOM_BRIDGE",
+		sources = { "county:26640", "county:26641", "county:7819", "county:26529" },
+		description = "6th Street bridge across the US 322 / Barry approach. Aerial 2025: 6th ends at the west "
+			.. "barrier wall, lane markings run through, no deck; only vegetation between the highway and Flower St.",
+		status = "aerial_dvrpc2025",
+	},
+}
+local suppressedIndex = {}
+for _, entry in ipairs(Registry.SUPPRESSED) do
+	for _, id in ipairs(entry.sources) do
+		suppressedIndex[id] = entry
+	end
+end
+
+-- Shared source vertices that are genuine same-level merges / diverges, not
+-- crossings, even though the arm angle exceeds the freeway-crossing split
+-- threshold. HighwayProfile keeps these arms on the through road's node and
+-- applies no clearance rule between the pair.
+Registry.AT_GRADE = {
+	{
+		id = "I95_I476_RAMP_GORES",
+		namesA = { "i 95" },
+		namesB = { "i 95 to n i 476", "i 476 to i 95" },
+		center = { 10580, -5503 },
+		radius = 45,
+		description = "I 95 to N I 476 diverges from I-95 (county 559 -> 26098, 36 deg) and I 476 to I 95 merges "
+			.. "(854 <- 26181) on the I-95 deck over Bullens Lane. Aerial: same deck surface. Confidence high.",
+		status = "aerial_dvrpc2025",
+	},
+	{
+		id = "MACDADE_RAMP_MERGE_I476",
+		namesA = { "i 476" },
+		namesB = { "macdade blvd to i 476" },
+		center = { 9510, -12229 },
+		radius = 25,
+		description = "MacDade ramp lane (county 20452) merges into I-476 NB (65/473) at 16-18 deg. Aerial: "
+			.. "auxiliary lane inside the NB carriageway, no separate structure. Confidence high.",
+		status = "aerial_dvrpc2025",
+	},
 }
 
 local function normName(name)
@@ -135,6 +220,21 @@ function Registry.NamedRelation(upper, lower, x, z)
 	return nil
 end
 
+-- Returns the AT_GRADE entry when roads `a` and `b` (either order) merge or
+-- diverge at the same level at (x, z).
+function Registry.AtGrade(a, b, x, z)
+	local na, nb = normName(a), normName(b)
+	for _, entry in ipairs(Registry.AT_GRADE) do
+		local dx, dz = x - entry.center[1], z - entry.center[2]
+		if dx * dx + dz * dz <= entry.radius * entry.radius
+			and ((listHas(entry.namesA, na) and listHas(entry.namesB, nb))
+				or (listHas(entry.namesA, nb) and listHas(entry.namesB, na))) then
+			return entry
+		end
+	end
+	return nil
+end
+
 -- Index helpers -------------------------------------------------------------
 
 local function sourcePrefix(gradeGroup)
@@ -146,6 +246,12 @@ local function sourcePrefix(gradeGroup)
 	return a .. ":" .. b
 end
 Registry.sourcePrefix = sourcePrefix
+
+-- Returns the SUPPRESSED entry when a source record must not be built.
+function Registry.Suppressed(gradeGroup)
+	local prefix = sourcePrefix(gradeGroup)
+	return prefix and suppressedIndex[prefix] or nil
+end
 
 local upperIndex, lowerIndex = {}, {}
 for _, entry in ipairs(Registry.STRUCTURES) do

@@ -472,7 +472,8 @@ local function conformComponent(parts, groupKey)
                 local needed = groundTop + CLEARANCE
                     + (Config.HIGHWAY_DECK_THICKNESS_STUDS or 1.6) - baseline
                 targetLift = math.max(targetLift, needed)
-                table.insert(crossings, {t = station, needed = needed})
+                table.insert(crossings, {t = station, needed = needed,
+                    label = "over " .. attr(lower, "ChesterStreet")})
             end
         end
     end
@@ -494,7 +495,7 @@ local function conformComponent(parts, groupKey)
                     local baseline = lerp(startGround,endGround,t)
                         + ROAD_OFFSET-rec.part.Size.Y/2-deckDepth
                     table.insert(terrainRequirements,{
-                        t=t,needed=gy+1.0-baseline,
+                        t=t,needed=gy+1.0-baseline,label="terrain",
                     })
                 end
             end
@@ -512,6 +513,7 @@ local function conformComponent(parts, groupKey)
     -- against the highest plateau. If it lies on a ramp, solve for the deck
     -- peak needed to clear that lower road at the actual intersection point.
     -- Never exceed MAX_LIFT; impossible crossings stay flagged by the audit.
+    local drivenBy = "nominal"
     local allRequirements = {}
     for _, requirement in ipairs(crossings) do
         table.insert(allRequirements,requirement)
@@ -533,6 +535,9 @@ local function conformComponent(parts, groupKey)
         if ease > 0.001 then
             local requestedPeak = (crossing.needed
                 - terminalLift * (1 - ease)) / ease
+            if requestedPeak > targetLift then
+                drivenBy = string.format("%s@t=%.2f", crossing.label or "?", t)
+            end
             targetLift = math.clamp(math.max(targetLift, requestedPeak),
                 nominalClearance, math.max(MAX_LIFT, nominalClearance))
         end
@@ -562,10 +567,10 @@ local function conformComponent(parts, groupKey)
             rec.part:SetAttribute("CW_AchievableDeckLift", targetLift)
         end
         if stats.insufficientApproachLength <= 12 then
-            warn(("[ChesterWorld BridgeGradeLimited] name=%s group=%s x=%.1f z=%.1f span=%.1f requested=%.1f feasible=%.1f rampStart=%.1f rampEnd=%.1f"):format(
+            warn(("[ChesterWorld BridgeGradeLimited] name=%s group=%s x=%.1f z=%.1f span=%.1f requested=%.1f feasible=%.1f rampStart=%.1f rampEnd=%.1f drivenBy=%s"):format(
                 bridgeName, groupKey,
                 (lowPoint.X+highPoint.X)/2, (lowPoint.Z+highPoint.Z)/2,
-                span, requestedLift, targetLift, startLength, endLength))
+                span, requestedLift, targetLift, startLength, endLength, drivenBy))
         end
     end
 
@@ -724,15 +729,110 @@ local function conformComponent(parts, groupKey)
     return profile
 end
 
+-- The county source tags the LOWER road's pieces under a structure as bridge
+-- too (2nd under the Barry approach, the MacDade ramp under Bullens Lane).
+-- A tagged component that passes under a profiled highway span or elevated
+-- highway, or under a road the structure registry names as its upper road,
+-- is a ground road: it stays on the terrain and overpasses clear it.
+local Registry = require(Shared:WaitForChild("HighwayStructureRegistry"))
+local ELEVATED_HIGHWAY = Config.HIGHWAY_LOWER_ROAD_DETECT_STUDS or 8
+local bridgeGrid = {}
+for _, group in pairs(corridorBridges) do
+    for _, part in ipairs(group) do
+        local a, b = endpoints(part)
+        for gx = math.floor(math.min(a.X, b.X) / CELL), math.floor(math.max(a.X, b.X) / CELL) do
+            for gz = math.floor(math.min(a.Z, b.Z) / CELL), math.floor(math.max(a.Z, b.Z) / CELL) do
+                local cellKey = gx .. ":" .. gz
+                bridgeGrid[cellKey] = bridgeGrid[cellKey] or {}
+                table.insert(bridgeGrid[cellKey], part)
+            end
+        end
+    end
+end
+local function upperRoadOver(component)
+    for _, part in ipairs(component) do
+        local a, b = endpoints(part)
+        local myName = attr(part, "ChesterStreet")
+        local myKey = normalizedRoadName(myName)
+        local candidates = underRoadsForSegment(a, b)
+        for gx = math.floor(math.min(a.X, b.X) / CELL) - 1, math.floor(math.max(a.X, b.X) / CELL) + 1 do
+            for gz = math.floor(math.min(a.Z, b.Z) / CELL) - 1, math.floor(math.max(a.Z, b.Z) / CELL) + 1 do
+                for _, other in ipairs(bridgeGrid[gx .. ":" .. gz] or {}) do
+                    table.insert(candidates, other)
+                end
+            end
+        end
+        for _, other in ipairs(candidates) do
+            local otherName = attr(other, "ChesterStreet")
+            if other ~= part and normalizedRoadName(otherName) ~= myKey then
+                local c, d = endpoints(other)
+                local t, u = crossingT(a, b, c, d)
+                if t then
+                    local position = a:Lerp(b, t)
+                    if other:GetAttribute("CW_HighwayProfiled") == true then
+                        local top = lerp(c.Y, d.Y, u) + other.Size.Y / 2
+                        local ground = terrainY(position.X, position.Z)
+                        if other:GetAttribute("CW_HighwayStructure") == "span"
+                            or (ground and top - ground > ELEVATED_HIGHWAY) then
+                            return otherName, position
+                        end
+                    elseif Registry.NamedRelation(otherName, myName, position.X, position.Z) then
+                        return otherName, position
+                    end
+                end
+            end
+        end
+    end
+    return nil
+end
+local bridgeComponents = {}
+local lowerRoadParts, lowerRoadComponents = 0, 0
+local loweredGroups = {}
 for key, group in pairs(corridorBridges) do
     stats.groups += 1
     stats.bridgeParts += #group
     for _, component in ipairs(components(group)) do
-        stats.components += 1
-        conformComponent(component, key)
-        task.wait()
+        local upperName, position = upperRoadOver(component)
+        if upperName then
+            for _, part in ipairs(component) do
+                -- TileBuilderV2 built it terrain-following at the level proxy
+                -- height; drop it back to the terrain.
+                local level = tonumber(part:GetAttribute("CW_GradeLevel")) or 1
+                local drop = math.max(level, 0) * (Config.GRADE_SEPARATION_CLEARANCE_STUDS or 0)
+                if drop > 0 then
+                    part.CFrame -= Vector3.new(0, drop, 0)
+                    loweredGroups[attr(part, "CW_GradeGroup")] = drop
+                end
+                part:SetAttribute("CW_LowerRoadUnderStructure", upperName)
+                part:SetAttribute("CW_TerrainConformed", true)
+                part:SetAttribute("CW_ElevationOwner", "TileBuilderV3")
+                table.insert(atGrade, part)
+                addGroundGrid(part)
+                lowerRoadParts += 1
+            end
+            lowerRoadComponents += 1
+            if lowerRoadComponents <= 12 then
+                print(("[ChesterWorld LowerRoadNotLifted] %s under %s at (%.1f, %.1f)")
+                    :format(attr(component[1], "ChesterStreet"), upperName, position.X, position.Z))
+            end
+        else
+            table.insert(bridgeComponents, { parts = component, key = key })
+        end
     end
 end
+for _, marking in ipairs(allMarks) do
+    local drop = loweredGroups[attr(marking, "CW_GradeGroup")]
+    if drop then
+        marking.CFrame -= Vector3.new(0, drop, 0)
+    end
+end
+for _, item in ipairs(bridgeComponents) do
+    stats.components += 1
+    conformComponent(item.parts, item.key)
+    task.wait()
+end
+print(("[ChesterWorld RoadTerrainConformer] lowerRoadPartsNotLifted=%d (county bridge tags on the road beneath a structure)")
+    :format(lowerRoadParts))
 
 -- Reposition yellow lane markings using the same grade group and X/Z deck
 -- profile. They must never be left hovering at the old 18-stud proxy height.

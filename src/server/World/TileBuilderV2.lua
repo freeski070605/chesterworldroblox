@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local WorldConfig = require(Shared:WaitForChild("WorldConfig"))
+local Registry = require(Shared:WaitForChild("HighwayStructureRegistry"))
 
 local HighwayProfile = require(script.Parent:WaitForChild("HighwayProfile"))
 
@@ -706,7 +707,9 @@ function TileBuilderV2.Prepare(tileModules)
 			if ok and tile then
 				local tileId = tostring(tile.tile_id or tileModule.Name)
 				for _, road in ipairs(tile.roads or {}) do
-					table.insert(entries, { road = road, tileId = tileId })
+					if not Registry.Suppressed(road.grade_group) then
+						table.insert(entries, { road = road, tileId = tileId })
+					end
 				end
 			end
 		end
@@ -1549,7 +1552,9 @@ function TileBuilderV2.Build(tileModule)
 	local signsFolder = makeFolder(tileFolder, "StreetSigns")
 	local buildingsFolder = makeFolder(tileFolder, "Buildings")
 	for index, road in ipairs(tile.roads or {}) do
-		buildRoad(roadsFolder, sidewalksFolder, markingsFolder, road)
+		if not Registry.Suppressed(road.grade_group) then
+			buildRoad(roadsFolder, sidewalksFolder, markingsFolder, road)
+		end
 		if index % ROAD_YIELD_EVERY == 0 then task.wait() end
 	end
 	buildIntersections(intersectionsFolder, markingsFolder, signsFolder, tileId)

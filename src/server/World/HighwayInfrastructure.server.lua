@@ -1,6 +1,7 @@
 -- ChesterWorld I-95 bridge structure and underpass clearance audit.
 -- Runs AFTER the grade-aware RoadTerrainConformer.
--- Adds only physical decks/parapets/supports; never edits terrain or junctions.
+-- Adds physical decks/parapets/supports and clears terrain above highway
+-- pavement that runs in a cut; never edits junctions.
 
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -84,7 +85,8 @@ for _, tile in ipairs(world:GetChildren()) do
                     end
                 elseif part:GetAttribute("CW_RampProfiled") == true then
                     table.insert(ramps,part)
-                elseif part:GetAttribute("CW_Bridge")==true or level>0 then
+                elseif (part:GetAttribute("CW_Bridge")==true or level>0)
+                    and not part:GetAttribute("CW_LowerRoadUnderStructure") then
                     -- This is a bridge missing terrain data, NOT a lower road.
                     table.insert(unprofiledBridges,part)
                 else
@@ -372,6 +374,86 @@ for index,road in ipairs(profiled) do
     end
     if index%40==0 then task.wait() end
 end
+
+-- Highway cuts. Where profiled pavement runs below the terrain (a depressed
+-- section under local overpasses; the bare-earth DEM often has no notch for
+-- the real cut) the terrain above the roadway is cleared and deep cuts are
+-- lined with concrete retaining walls. Never under spans. A wall is skipped
+-- where other profiled pavement (a ramp at a gore) occupies its line.
+local CUT_SHOULDER=Config.HIGHWAY_CUT_SHOULDER_STUDS or 4
+local CUT_MAX_DEPTH=Config.HIGHWAY_CUT_MAX_DEPTH_STUDS or 32
+local CUT_WALL_MIN=Config.HIGHWAY_CUT_WALL_MIN_STUDS or 3
+local cut={pieces=0,walls=0,deepest=0,capped=0,deepX=0,deepZ=0}
+local paveGrid={}
+for _,road in ipairs(profiled) do
+    local key=math.floor(road.Position.X/CELL)..":"..math.floor(road.Position.Z/CELL)
+    paveGrid[key]=paveGrid[key] or {}
+    table.insert(paveGrid[key],road)
+end
+local function otherPavementAt(point,self)
+    local gx,gz=math.floor(point.X/CELL),math.floor(point.Z/CELL)
+    for ix=gx-1,gx+1 do
+        for iz=gz-1,gz+1 do
+            for _,other in ipairs(paveGrid[ix..":"..iz] or {}) do
+                if other~=self and math.abs(other.Position.Y-point.Y)<6
+                    and roadSegmentDistanceXZ(point,other)<other.Size.X/2+0.5 then
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+for index,road in ipairs(profiled) do
+    if road:GetAttribute("CW_HighwayStructure")~="span" then
+        local a,b=endpoints(road)
+        local right=road.CFrame.RightVector
+        local half=road.Size.X/2+CUT_SHOULDER
+        local over=0
+        for _,t in ipairs({0,0.5,1}) do
+            local p=a:Lerp(b,t)
+            for _,side in ipairs({-1,-0.5,0,0.5,1}) do
+                local q=p+right*side*half
+                local y=terrainY(q.X,q.Z)
+                if y and y-(p.Y+road.Size.Y/2)>over then
+                    over=y-(p.Y+road.Size.Y/2)
+                end
+            end
+        end
+        if over>0.3 then
+            local depth=math.min(over,CUT_MAX_DEPTH)
+            if over>CUT_MAX_DEPTH then cut.capped+=1 end
+            local height=depth+6
+            -- from just below the pavement top to above the terrain
+            local base=road.Size.Y/2-0.4
+            Terrain:FillBlock(road.CFrame*CFrame.new(0,base+height/2,0),
+                Vector3.new(half*2,height,road.Size.Z+2),Enum.Material.Air)
+            road:SetAttribute("CW_HighwayCutDepth",over)
+            cut.pieces+=1
+            if over>cut.deepest then
+                cut.deepest,cut.deepX,cut.deepZ=over,road.Position.X,road.Position.Z
+            end
+            if depth>CUT_WALL_MIN then
+                for _,side in ipairs({-1,1}) do
+                    local offset=side*(half+0.6)
+                    local probe=road.Position+right*offset+Vector3.new(0,road.Size.Y/2,0)
+                    if not otherPavementAt(probe,road) then
+                        local wall=partAt(hwFolder,"HighwayCutWall",
+                            Vector3.new(1.2,depth+1,road.Size.Z+0.4),
+                            road.CFrame*CFrame.new(offset,road.Size.Y/2+(depth+1)/2-0.5,0),
+                            STRUCT_COLOR,true)
+                        wall.Material=Enum.Material.Concrete
+                        wall:SetAttribute("CW_StrokeId",tostring(road:GetAttribute("CW_StrokeId") or ""))
+                        cut.walls+=1
+                    end
+                end
+            end
+        end
+    end
+    if index%40==0 then task.wait() end
+end
+print(("[ChesterWorld HighwayCuts] pieces=%d walls=%d deepest=%.1f at (%.1f, %.1f) cappedAt%d=%d")
+    :format(cut.pieces,cut.walls,cut.deepest,cut.deepX,cut.deepZ,CUT_MAX_DEPTH,cut.capped))
 
 -- Abutments at the two ends of every span structure, and pier bents inside
 -- long spans. Ends are the pieces with the lowest / highest stroke station.

@@ -215,7 +215,7 @@ local function auditSegments(list, step, withProfile)
 	local m = {
 		segments = #list, samples = 0, missing = 0, buried = 0,
 		steps = 0, unsafe = 0, cliff = 0, missingSegments = 0, worstStep = 0,
-		_buriedEx = {}, _stepEx = {},
+		_buriedEx = {}, _stepEx = {}, _buriedZones = {},
 	}
 	local missingExamples = {}
 	for _, seg in ipairs(list) do
@@ -238,11 +238,22 @@ local function auditSegments(list, step, withProfile)
 					end
 					prev = nil
 				else
-					local ground = terrain(x, z)
+					local ground = Mock.groundAt(x, z)
 					if withProfile and ground > top + 0.05 then
 						m.buried += 1
 						if #m._buriedEx < 12 then
 							table.insert(m._buriedEx, string.format("%s (%.1f, %.1f) top=%.2f ground=%.2f", name, x, z, top, ground))
+						end
+						-- per road and 300-stud cell, for locating burial clusters
+						local key = string.format("%s|%d|%d", name, math.floor(x / 300), math.floor(z / 300))
+						local zone = m._buriedZones[key]
+						if not zone then
+							zone = { name = name, n = 0, depth = 0 }
+							m._buriedZones[key] = zone
+						end
+						zone.n += 1
+						if ground - top > zone.depth then
+							zone.depth, zone.x, zone.z = ground - top, x, z
 						end
 					end
 					if prev then
@@ -347,6 +358,21 @@ end
 for _, line in ipairs(corridorMetrics._buriedEx) do
 	print("AUDIT_BURIED " .. line)
 end
+do
+	local zones = {}
+	for _, zone in pairs(corridorMetrics._buriedZones) do
+		table.insert(zones, zone)
+	end
+	table.sort(zones, function(a, b)
+		return a.n > b.n
+	end)
+	for i = 1, math.min(25, #zones) do
+		local zone = zones[i]
+		print(string.format("AUDIT_BURIEDZONE %s samples=%d maxDepth=%.2f at (%.1f, %.1f)",
+			zone.name, zone.n, zone.depth, zone.x, zone.z))
+	end
+end
+corridorMetrics._buriedZones = nil
 for _, line in ipairs(corridorMetrics._stepEx) do
 	print("AUDIT_STEP " .. line)
 end

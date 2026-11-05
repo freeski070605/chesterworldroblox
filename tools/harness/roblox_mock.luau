@@ -88,6 +88,8 @@ CFmt.__mul = function(a, b)
 	end
 	return a.p + rot(a, b)
 end
+CFmt.__add = function(a, v) return cf(a.p + v, a.R, a.U, a.B) end
+CFmt.__sub = function(a, v) return cf(a.p - v, a.R, a.U, a.B) end
 CFmt.__index = function(c, k)
 	if k == "Position" then return c.p end
 	if k == "LookVector" then return -c.B end
@@ -336,6 +338,43 @@ M.game, M.Workspace, M.Terrain = game, Workspace, Terrain
 -- terrain function: set by harness
 M.terrainFn = function(_x, _z) return 0 end
 
+-- Terrain:FillBlock(cf, size, Air) carves an oriented box. groundAt() lowers
+-- the analytic surface to the box floor wherever the surface lies inside it.
+local CARVE_CELL = 64
+local carveGrid = {}
+M.carveCount = 0
+function methods.FillBlock(_terrain, cf, size, material)
+	if tostring(material) ~= "Enum.Material.Air" then
+		return
+	end
+	local box = { cf = cf, hx = size.X / 2, hy = size.Y / 2, hz = size.Z / 2 }
+	local reach = math.sqrt(box.hx * box.hx + box.hz * box.hz)
+	local p = cf.Position
+	for gx = math.floor((p.X - reach) / CARVE_CELL), math.floor((p.X + reach) / CARVE_CELL) do
+		for gz = math.floor((p.Z - reach) / CARVE_CELL), math.floor((p.Z + reach) / CARVE_CELL) do
+			local key = gx * 100003 + gz
+			carveGrid[key] = carveGrid[key] or {}
+			table.insert(carveGrid[key], box)
+		end
+	end
+	M.carveCount += 1
+end
+function M.groundAt(x, z)
+	local y = M.terrainFn(x, z)
+	if not y then
+		return y
+	end
+	for _, box in ipairs(carveGrid[math.floor(x / CARVE_CELL) * 100003 + math.floor(z / CARVE_CELL)] or {}) do
+		local here = box.cf:PointToObjectSpace(v3(x, y, z))
+		if math.abs(here.X) <= box.hx and math.abs(here.Z) <= box.hz and here.Y <= box.hy and here.Y > -box.hy then
+			-- floor of the box under (x, z)
+			local floor = box.cf.Position.Y - box.hy + (y - box.cf.Position.Y - here.Y)
+			y = math.min(y, floor)
+		end
+	end
+	return y
+end
+
 -- part spatial index for vertical raycasts
 local INDEX_CELL = 48
 local cache = {}
@@ -403,7 +442,7 @@ function methods.Raycast(_ws, origin, direction, params)
 		if inst == Terrain then terrainIncluded = true end
 	end
 	if terrainIncluded then
-		local y = M.terrainFn(origin.X, origin.Z)
+		local y = M.groundAt(origin.X, origin.Z)
 		if y then
 			local t = (y - origin.Y) / direction.Y
 			if t >= 0 and t <= 1 then bestT, best, bestInst = t, v3(origin.X, y, origin.Z), Terrain end

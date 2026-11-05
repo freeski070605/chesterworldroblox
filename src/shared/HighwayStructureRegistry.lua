@@ -58,7 +58,9 @@ Registry.STRUCTURES = {
 -- inventory minimum vertical underclearance converted at 3 studs per metre.
 -- center/radius are Roblox studs and only select which source crossings the
 -- entry governs; they are NOT structure footprints.
-local function namedEntry(id, structure, upper, lower, cx, cz, radius, clearanceM, note)
+-- `source` optionally overrides the status/references for entries that are
+-- not from the city-data NBI listing.
+local function namedEntry(id, structure, upper, lower, cx, cz, radius, clearanceM, note, source)
 	return {
 		id = id,
 		description = note,
@@ -68,8 +70,8 @@ local function namedEntry(id, structure, upper, lower, cx, cz, radius, clearance
 		radius = radius,
 		inventoryStructure = structure,
 		inventoryUnderclearanceStuds = clearanceM and clearanceM * 3 or nil,
-		inventoryStatus = "published_inventory:nbi_" .. structure,
-		references = {
+		inventoryStatus = source and source.status or ("published_inventory:nbi_" .. structure),
+		references = source and source.references or {
 			"https://www.city-data.com/bridges/bridges-Chester-Pennsylvania.html",
 			"https://www.city-data.com/bridges/bridges-Chester-Pennsylvania2.html",
 		},
@@ -91,6 +93,14 @@ Registry.NAMED = {
 		8901, -3688, 75, 5.33, "Melrose Avenue over I-95, ramps and CSX"),
 	namedEntry("HIGHLAND_OVER_I95", "14881", { "highland ave" }, { "i 95" },
 		-7366, 4463, 75, nil, "Highland Avenue (relocated) over I-95 (source tags I-95 as upper)"),
+	-- Added 2026-11-04 from user research. No underclearance value yet, so the
+	-- default underpass rule applies.
+	namedEntry("ENGLE_OVER_I95", nil, { "engle st" }, { "i 95" },
+		-4624, 3108, 60, nil, "Engle Street over I-95 (both carriageways)",
+		{ status = "published_inventory:dvrpc_highway_inventory", references = { "https://www.dvrpc.org/" } }),
+	namedEntry("BULLENS_OVER_I476", nil, { "bullens ln" }, { "i 476" },
+		9459, -11609, 60, nil, "Bullens Lane over I-476 (not the MacDade ramp, which is still unresolved)",
+		{ status = "published_inventory:bridge_inventory_and_photos", references = {} }),
 }
 
 local function normName(name)

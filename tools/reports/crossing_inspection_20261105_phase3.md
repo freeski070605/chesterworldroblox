@@ -49,3 +49,26 @@ registry=198; HighwayFinish lowClearance=0, minClearance=14.0; HighwayStructures
 holes=0; HighwayCuts deepest 21.3 (Edgmont).
 Still reported (not clearance): 40 bridge terrain intrusions (worst Bullens Ln west bridge
 county 20931, 8.7), 21 unprofiled bridge parts, 1 tunnel obstruction.
+
+## Bridge terrain intrusions and the Amtrak underpass (Studio, real DEM)
+
+The 40 "bridge segments intersect terrain" were county bridge tags that cover
+a structure's approach embankments (aerial [bullens_west], [highland],
+[upland]): the conformer's straight deck line between a component's ends ran
+under that fill (Bullens Ln from Governors Rd, 8.7 studs).
+
+- RoadTerrainConformer `[BridgeEmbankment]`: a non-profiled bridge piece's
+  surface never sits below the terrain (two-pass endpoint plan keyed by street
+  and position so neighbouring pieces stay joined; markings follow). Pieces left
+  resting on the ground are `CW_OnEmbankment` approaches.
+- HighwayInfrastructure: embankment approaches are not counted as decks through
+  terrain (`embankmentApproachParts`); tunnel/underpass pieces with terrain over
+  them are cut open like the highway (`CW_TunnelCutDepth`).
+- Bug found on the way: keying shared endpoints by position alone let another
+  street's piece lift Upland St 46 studs; keys now include the street name (also
+  in the RegistryOverpass pass).
+
+Studio: bridgeTerrainIntrusions 40 -> 0, tunnelObstructions 1 -> 0 (Amtrak at
+(-9012, 10610) cut open), embankment max lift 7.4 (Bullens Ln), lowClearance 0,
+minClearance 14.0. The 21 "unprofiled" bridge parts are over creeks where the
+DEM has no terrain (9th St over Chester Creek, Industrial, Morton); harmless.

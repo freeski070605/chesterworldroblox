@@ -672,7 +672,13 @@ end
 local bridgeTerrainIntrusions=0
 local bridgeTerminalContacts=0
 local intrusionDetails={}
+local embankmentApproaches=0
 for _,road in ipairs(bridge) do
+    if road:GetAttribute("CW_OnEmbankment")==true then
+        -- a county-tagged approach resting on its fill (RoadTerrainConformer)
+        embankmentApproaches+=1
+        continue
+    end
     local a,b=endpoints(road)
     local terminalHit=false
     local midspanHit=false
@@ -704,21 +710,30 @@ for _,road in ipairs(bridge) do
 end
 table.sort(intrusionDetails,function(a,b) return a.gap<b.gap end)
 
--- A tagged tunnel whose terrain rises through its roadway needs an engineered
--- cut/portal. We DO NOT destroy imported regional terrain automatically.
+-- A tagged tunnel / underpass whose terrain rises through its roadway gets
+-- the same terrain cut as the highway (cuts are allowed; see the cut pass).
 local tunnelObstructions=0
+local tunnelCuts=0
 for _,road in ipairs(lower) do
     if road:GetAttribute("CW_Tunnel")==true
         or (tonumber(road:GetAttribute("CW_GradeLevel")) or 0)<0 then
         local a,b=endpoints(road)
         local mid=road.Position
+        local worst=0
         for _,p in ipairs({a,mid,b}) do
             local gy=terrainY(p.X,p.Z)
             if gy and gy>p.Y+road.Size.Y/2+1 then
-                road:SetAttribute("CW_TunnelTerrainObstruction",true)
-                tunnelObstructions+=1
-                break
+                worst=math.max(worst,gy-(p.Y+road.Size.Y/2))
             end
+        end
+        if worst>0 then
+            -- terrain cuts are allowed: open the underpass the way the
+            -- highway cut pass does (no retaining walls on rail/local cuts)
+            local height=math.min(worst,CUT_MAX_DEPTH)+6
+            Terrain:FillBlock(road.CFrame*CFrame.new(0,road.Size.Y/2+height/2,0),
+                Vector3.new(road.Size.X+CUT_SHOULDER*2,height,road.Size.Z+2),Enum.Material.Air)
+            road:SetAttribute("CW_TunnelCutDepth",worst)
+            tunnelCuts+=1
         end
     end
 end
@@ -730,6 +745,7 @@ Workspace:SetAttribute("CW_HighwayBridgeTerrainIntrusions",bridgeTerrainIntrusio
 Workspace:SetAttribute("CW_HighwayBridgeEmbankmentContacts",bridgeTerminalContacts)
 Workspace:SetAttribute("CW_HighwayCrossingsVerified",crossings>0)
 
+print(("[ChesterWorld HighwayFinish] embankmentApproachParts=%d (county bridge tags resting on their fill)"):format(embankmentApproaches))
 print(("[ChesterWorld HighwayFinish] bridgeRoadParts=%d rampRoadParts=%d deckSlabs=%d guardrails=%d supports=%d crossings=%d minClearance=%.1f lowClearance=%d tunnelObstructions=%d bridgeTerrainIntrusions=%d terminalEmbankmentContacts=%d unprofiledBridgeParts=%d gradeLimitedBridgeParts=%d crossingsVerified=%s")
     :format(#bridge,#ramps,deckCount,railCount,pierCount,crossings,
     minClearance==math.huge and -1 or minClearance,tooLow,tunnelObstructions,bridgeTerrainIntrusions,bridgeTerminalContacts,#unprofiledBridges,#gradeLimited,tostring(crossings>0)))
@@ -759,6 +775,6 @@ end
 if bridgeTerminalContacts>0 then
     print(("[ChesterWorld HighwayFinish] %d additional bridge parts contact embankments at their ends only."):format(bridgeTerminalContacts))
 end
-if tunnelObstructions>0 then
-    warn(("[ChesterWorld HighwayFinish] %d tunnel segments have terrain intrusions. No destructive terrain edits were made."):format(tunnelObstructions))
+if tunnelCuts>0 then
+    print(("[ChesterWorld HighwayFinish] %d tunnel/underpass segments had terrain over them; cut open."):format(tunnelCuts))
 end

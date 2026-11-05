@@ -35,6 +35,9 @@ SITES = {
     "i476_flyover": (12180, -6850, 110),
     "n476_merge": (12250, -7250, 200),
     "barry_7th": (-1200, 4870, 90),
+    "bullens_west": (9310, -11560, 150),
+    "highland": (-7430, 4340, 90),
+    "upland": (6845, -2420, 90),
 }
 ONLY = set(sys.argv[2:])
 URL = "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/DVRPC2025/MapServer/export"

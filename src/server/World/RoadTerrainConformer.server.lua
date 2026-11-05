@@ -983,8 +983,9 @@ if #overpassDecks > 0 then
     -- by position so neighbouring pieces stay joined)
     local planned = {}
     local endpointNeed = {}
-    local function endpointKey(point)
-        return math.floor(point.X + 0.5) .. ":" .. math.floor(point.Z + 0.5)
+    local function endpointKey(part, point)
+        return normalizedRoadName(attr(part, "ChesterStreet")) .. "|"
+            .. math.floor(point.X + 0.5) .. ":" .. math.floor(point.Z + 0.5)
     end
     for _, part in ipairs(allRoads) do
         local decks = overpassByName[normalizedRoadName(attr(part, "ChesterStreet"))]
@@ -1015,7 +1016,7 @@ if #overpassDecks > 0 then
             end
             table.insert(planned, { part = part, a = a, b = b, half = half })
             for _, item in ipairs({ { a, ya }, { b, yb } }) do
-                local key = endpointKey(item[1])
+                local key = endpointKey(part, item[1])
                 endpointNeed[key] = math.max(endpointNeed[key] or -math.huge, item[2])
             end
         end
@@ -1024,8 +1025,8 @@ if #overpassDecks > 0 then
     local raisedByGroup = {}
     for _, plan in ipairs(planned) do
         local a, b, part = plan.a, plan.b, plan.part
-        local ya = math.max(a.Y, endpointNeed[endpointKey(a)])
-        local yb = math.max(b.Y, endpointNeed[endpointKey(b)])
+        local ya = math.max(a.Y, endpointNeed[endpointKey(part, a)])
+        local yb = math.max(b.Y, endpointNeed[endpointKey(part, b)])
         local lift = math.max(ya - a.Y, yb - b.Y)
         if lift > 0.05 and setEndpoints(part, Vector3.new(a.X, ya, a.Z), Vector3.new(b.X, yb, b.Z)) then
             part:SetAttribute("CW_RegistryOverpassDeck", true)
@@ -1072,6 +1073,112 @@ if #overpassDecks > 0 then
 end
 print(("[ChesterWorld RegistryOverpass] crossings=%d parts=%d marks=%d maxLift=%.1f %s")
     :format(#overpassDecks, overpassParts, overpassMarks, overpassLiftMax, overpassLiftAt))
+
+-- County bridge tags often cover a structure's approach embankments (Bullens
+-- Ln from Governors Rd, the Highland and Upland approaches). The deck line
+-- between a component's ends then runs below that fill. Never let a bridge
+-- piece's surface sit below the terrain; a piece left resting on the ground
+-- is an embankment approach, not a deck over terrain.
+local DECK_DEPTH = Config.HIGHWAY_DECK_THICKNESS_STUDS or 1.6
+local embankmentPlans, embankmentNeed = {}, {}
+-- keyed by street too: a different road's piece can end at the same point
+local function embankmentKey(part, point)
+    return normalizedRoadName(attr(part, "ChesterStreet")) .. "|"
+        .. math.floor(point.X + 0.5) .. ":" .. math.floor(point.Z + 0.5)
+end
+for _, item in ipairs(bridgeComponents) do
+    for _, part in ipairs(item.parts) do
+        if part.Parent and part:GetAttribute("CW_HighwayProfiled") ~= true
+            and part:GetAttribute("CW_LowerRoadUnderStructure") == nil then
+            local a, b = endpoints(part)
+            local ga, gb = terrainY(a.X, a.Z), terrainY(b.X, b.Z)
+            local ya = math.max(a.Y, ga and ga + ROAD_OFFSET or -math.huge)
+            local yb = math.max(b.Y, gb and gb + ROAD_OFFSET or -math.huge)
+            for _, t in ipairs({0.25, 0.5, 0.75}) do
+                local p = a:Lerp(b, t)
+                local g = terrainY(p.X, p.Z)
+                local short = g and (g + ROAD_OFFSET - lerp(ya, yb, t)) or 0
+                if short > 0 then
+                    ya += short
+                    yb += short
+                end
+            end
+            table.insert(embankmentPlans, {part = part, a = a, b = b})
+            for _, pair in ipairs({{a, ya}, {b, yb}}) do
+                local key = embankmentKey(part, pair[1])
+                embankmentNeed[key] = math.max(embankmentNeed[key] or -math.huge, pair[2])
+            end
+        end
+    end
+end
+local embankmentRaised, embankmentResting, embankmentLiftMax = 0, 0, 0
+local embankmentLiftAt = ""
+local embankmentRaisedGroups = {}
+for _, plan in ipairs(embankmentPlans) do
+    local a, b, part = plan.a, plan.b, plan.part
+    local ya = math.max(a.Y, embankmentNeed[embankmentKey(part, a)])
+    local yb = math.max(b.Y, embankmentNeed[embankmentKey(part, b)])
+    local lift = math.max(ya - a.Y, yb - b.Y)
+    if lift > 0.05 and setEndpoints(part, Vector3.new(a.X, ya, a.Z), Vector3.new(b.X, yb, b.Z)) then
+        embankmentRaised += 1
+        if lift > embankmentLiftMax then
+            embankmentLiftMax = lift
+            embankmentLiftAt = ("%s %s at (%.0f, %.0f)"):format(attr(part, "ChesterStreet"),
+                attr(part, "CW_GradeGroup"), part.Position.X, part.Position.Z)
+        end
+        embankmentRaisedGroups[attr(part, "CW_GradeGroup")] = true
+        a, b = Vector3.new(a.X, ya, a.Z), Vector3.new(b.X, yb, b.Z)
+    end
+    for _, t in ipairs({0.2, 0.4, 0.5, 0.6, 0.8}) do
+        local p = a:Lerp(b, t)
+        local g = terrainY(p.X, p.Z)
+        if g and p.Y - part.Size.Y / 2 - DECK_DEPTH < g + 0.25 then
+            part:SetAttribute("CW_OnEmbankment", true)
+            embankmentResting += 1
+            break
+        end
+    end
+end
+-- centre-line markings follow the raised pieces
+if embankmentRaised > 0 then
+    local raisedParts = {}
+    for _, plan in ipairs(embankmentPlans) do
+        local gradeGroup = attr(plan.part, "CW_GradeGroup")
+        if embankmentRaisedGroups[gradeGroup] then
+            raisedParts[gradeGroup] = raisedParts[gradeGroup] or {}
+            table.insert(raisedParts[gradeGroup], plan.part)
+        end
+    end
+    for _, marking in ipairs(allMarks) do
+        local parts = raisedParts[attr(marking, "CW_GradeGroup")]
+        if parts then
+            local function markY(point)
+                local best, bestDistance = nil, math.huge
+                for _, road in ipairs(parts) do
+                    local x, y = endpoints(road)
+                    local d = Vector3.new(y.X - x.X, 0, y.Z - x.Z)
+                    local d2 = d:Dot(d)
+                    if d2 > 0.01 then
+                        local t = math.clamp(Vector3.new(point.X - x.X, 0, point.Z - x.Z):Dot(d) / d2, 0, 1)
+                        local nearest = x:Lerp(y, t)
+                        local distance = hdist(nearest, point)
+                        if distance < bestDistance then
+                            bestDistance, best = distance, nearest.Y
+                        end
+                    end
+                end
+                return bestDistance < 15 and best and best + (MARK_OFFSET - ROAD_OFFSET) or nil
+            end
+            local a, b = endpoints(marking)
+            local ya, yb = markY(a), markY(b)
+            if ya and yb and (ya > a.Y + 0.05 or yb > b.Y + 0.05) then
+                setEndpoints(marking, Vector3.new(a.X, math.max(a.Y, ya), a.Z), Vector3.new(b.X, math.max(b.Y, yb), b.Z))
+            end
+        end
+    end
+end
+print(("[ChesterWorld BridgeEmbankment] raised=%d resting=%d maxLift=%.1f %s")
+    :format(embankmentRaised, embankmentResting, embankmentLiftMax, embankmentLiftAt))
 
 local conformed = #atGrade - stats.rampParts + stats.rampParts
     + stats.bridgeConformed

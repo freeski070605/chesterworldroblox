@@ -273,7 +273,8 @@ local BARRIER_COLOR=Config.HIGHWAY_BARRIER_COLOR or COLOR
 local BARRIER_HEIGHT=Config.HIGHWAY_BARRIER_HEIGHT_STUDS or RAIL_HEIGHT
 local BARRIER_MIN_FILL=Config.HIGHWAY_BARRIER_MIN_FILL_STUDS or 4
 local PIER_SPACING=Config.HIGHWAY_PIER_MAX_SPACING_STUDS or 95
-local hw={decks=0,girders=0,barriers=0,abutments=0,piers=0,fills=0,
+local OVERPASS_FENCE_HEIGHT=Config.HIGHWAY_OVERPASS_FENCE_HEIGHT_STUDS or 7
+local hw={decks=0,girders=0,barriers=0,abutments=0,piers=0,fills=0,fences=0,
     spans=0,spanPieces=0,fillPieces=0,gradePieces=0}
 
 local function minTerrainUnder(part,lateral)
@@ -346,6 +347,23 @@ for index,road in ipairs(profiled) do
         end
         for key,value in pairs(attrs) do deck:SetAttribute(key,value) end
         barrierPair(road,hwFolder,attrs)
+        -- Local streets over I-95 carry tall protective fencing on the parapet
+        -- (KartaView frames 2017-2022 at Upland/Potter/Chestnut/Melrose:
+        -- E:\ChesterWorld\Data\HighwayReference\imagery).
+        if OVERPASS_FENCE_HEIGHT>0 and string.match(attrs.CW_StructureBasis,"^registry:.+_OVER_I95$") then
+            for _,side in ipairs({-1,1}) do
+                local fence=partAt(hwFolder,"HighwayOverpassFence",
+                    Vector3.new(0.2,OVERPASS_FENCE_HEIGHT,road.Size.Z),
+                    road.CFrame*CFrame.new(side*(road.Size.X/2-0.55),
+                        road.Size.Y/2+BARRIER_HEIGHT+OVERPASS_FENCE_HEIGHT/2,0),
+                    Color3.fromRGB(122,128,126),true)
+                fence.Material=Enum.Material.DiamondPlate
+                fence.Transparency=0.6
+                for key,value in pairs(attrs) do fence:SetAttribute(key,value) end
+                fence:SetAttribute("CW_Evidence","KartaView street frames (HighwayReference/imagery)")
+                hw.fences+=1
+            end
+        end
     elseif kind=="fill" then
         hw.fillPieces+=1
         local bottom=minTerrainUnder(road,road.Size.X/2)
@@ -599,9 +617,9 @@ for id,list in pairs(byStroke) do
 end
 Workspace:SetAttribute("CW_HighwayHoles",holes)
 Workspace:SetAttribute("CW_HighwaySpans",hw.spans)
-print(("[ChesterWorld HighwayStructures] profiledParts=%d spans=%d spanPieces=%d fillPieces=%d gradePieces=%d decks=%d fascia=%d barriers=%d abutments=%d piers=%d fills=%d holes=%d padCoveredGaps=%d steps=%d worstStep=%.2f")
+print(("[ChesterWorld HighwayStructures] profiledParts=%d spans=%d spanPieces=%d fillPieces=%d gradePieces=%d decks=%d fascia=%d barriers=%d abutments=%d piers=%d fills=%d overpassFences=%d holes=%d padCoveredGaps=%d steps=%d worstStep=%.2f")
     :format(#profiled,hw.spans,hw.spanPieces,hw.fillPieces,hw.gradePieces,hw.decks,
-    hw.girders,hw.barriers,hw.abutments,hw.piers,hw.fills,holes,coveredGaps,steps,worstStep))
+    hw.girders,hw.barriers,hw.abutments,hw.piers,hw.fills,hw.fences,holes,coveredGaps,steps,worstStep))
 for _,line in ipairs(holeList) do
     warn("[ChesterWorld HighwayHole] "..line)
 end

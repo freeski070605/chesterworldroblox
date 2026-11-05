@@ -769,14 +769,15 @@ local function upperRoadOver(component)
                 local t, u = crossingT(a, b, c, d)
                 if t then
                     local position = a:Lerp(b, t)
+                    local elevatedHighway = false
                     if other:GetAttribute("CW_HighwayProfiled") == true then
                         local top = lerp(c.Y, d.Y, u) + other.Size.Y / 2
                         local ground = terrainY(position.X, position.Z)
-                        if other:GetAttribute("CW_HighwayStructure") == "span"
-                            or (ground and top - ground > ELEVATED_HIGHWAY) then
-                            return otherName, position
-                        end
-                    elseif Registry.NamedRelation(otherName, myName, position.X, position.Z) then
+                        elevatedHighway = other:GetAttribute("CW_HighwayStructure") == "span"
+                            or (ground ~= nil and top - ground > ELEVATED_HIGHWAY)
+                    end
+                    if elevatedHighway
+                        or Registry.NamedRelation(otherName, myName, position.X, position.Z) then
                         return otherName, position
                     end
                 end
@@ -793,6 +794,15 @@ for key, group in pairs(corridorBridges) do
     stats.bridgeParts += #group
     for _, component in ipairs(components(group)) do
         local upperName, position = upperRoadOver(component)
+        if not upperName then
+            for _, part in ipairs(component) do
+                local grounded = Registry.Grounded(attr(part, "CW_GradeGroup"))
+                if grounded then
+                    upperName, position = "no structure (" .. grounded.id .. ")", part.Position
+                    break
+                end
+            end
+        end
         if upperName then
             for _, part in ipairs(component) do
                 -- TileBuilderV2 built it terrain-following at the level proxy
@@ -914,6 +924,154 @@ for groupKey, parts in pairs(rampsByGroup) do
         end
     end
 end
+
+-- Registry-confirmed local overpasses (Edgmont, Madison, Melrose over I-95).
+-- County data shares vertices between the street and the highway beneath it,
+-- so the street's bridge pieces start on the highway centreline and the
+-- bare-earth DEM has no deck: both put the street down in the highway cut.
+-- Hold the street at deck level over each carriageway (street rim, and never
+-- less than the highway top + clearance), easing back to the terrain-
+-- following street at MAX_GRADE. Only raises; never lowers a street.
+local HighwayProfile = require(script.Parent:WaitForChild("HighwayProfile"))
+local OVERPASS_PLATEAU = 20
+local overpassDecks = {}
+local overpassByName = {}
+for _, crossing in ipairs(HighwayProfile.LocalOverpasses()) do
+    local highwayTop = -math.huge
+    local key = normalizedRoadName(crossing.name)
+    for _, part in ipairs(allRoads) do
+        -- (a street with motorway-classed pieces is profiled too: skip itself)
+        if part:GetAttribute("CW_HighwayProfiled") == true
+            and normalizedRoadName(attr(part, "ChesterStreet")) ~= key
+            and math.abs(part.Position.X - crossing.x) < 40
+            and math.abs(part.Position.Z - crossing.z) < 40 then
+            local a, b = endpoints(part)
+            local d = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+            local d2 = d:Dot(d)
+            if d2 > 0.01 then
+                local t = math.clamp(Vector3.new(crossing.x - a.X, 0, crossing.z - a.Z):Dot(d) / d2, 0, 1)
+                local p = a:Lerp(b, t)
+                if hdist(p, Vector3.new(crossing.x, 0, crossing.z)) < part.Size.X / 2 + 2 then
+                    highwayTop = math.max(highwayTop, p.Y + part.Size.Y / 2)
+                end
+            end
+        end
+    end
+    local deck = {
+        x = crossing.x, z = crossing.z,
+        -- deck surface; part centre/marking offsets are added per part
+        surface = math.max(crossing.rim,
+            highwayTop + crossing.clearance + (Config.HIGHWAY_DECK_THICKNESS_STUDS or 1.6)),
+    }
+    overpassByName[key] = overpassByName[key] or {}
+    table.insert(overpassByName[key], deck)
+    table.insert(overpassDecks, deck)
+end
+local function overpassSurface(decks, point)
+    local best = -math.huge
+    for _, deck in ipairs(decks) do
+        local distance = hdist(point, Vector3.new(deck.x, 0, deck.z))
+        best = math.max(best, deck.surface - math.max(0, distance - OVERPASS_PLATEAU) * MAX_GRADE)
+    end
+    return best
+end
+local overpassParts, overpassLiftMax, overpassMarks = 0, 0, 0
+local overpassLiftAt = ""
+local overpassGroups = {}
+if #overpassDecks > 0 then
+    -- pass 1: required centre height at each endpoint (shared endpoints keyed
+    -- by position so neighbouring pieces stay joined)
+    local planned = {}
+    local endpointNeed = {}
+    local function endpointKey(point)
+        return math.floor(point.X + 0.5) .. ":" .. math.floor(point.Z + 0.5)
+    end
+    for _, part in ipairs(allRoads) do
+        local decks = overpassByName[normalizedRoadName(attr(part, "ChesterStreet"))]
+        if decks and part:GetAttribute("CW_HighwayProfiled") ~= true then
+            local a, b = endpoints(part)
+            local half = part.Size.Y / 2
+            local ya = math.max(a.Y, overpassSurface(decks, a) + half)
+            local yb = math.max(b.Y, overpassSurface(decks, b) + half)
+            -- A piece spanning a crossing is straight between its endpoints:
+            -- raise both ends until its chord clears the deck there too.
+            local inZone = false
+            local d = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+            local d2 = d:Dot(d)
+            for _, deck in ipairs(decks) do
+                local t = d2 > 0.01 and math.clamp(Vector3.new(deck.x - a.X, 0, deck.z - a.Z):Dot(d) / d2, 0, 1) or 0
+                local p = a:Lerp(b, t)
+                if hdist(p, Vector3.new(deck.x, 0, deck.z)) <= OVERPASS_PLATEAU + 40 then
+                    inZone = true
+                    local short = overpassSurface(decks, p) + half - lerp(ya, yb, t)
+                    if short > 0 then
+                        ya += short
+                        yb += short
+                    end
+                end
+            end
+            if inZone then
+                part:SetAttribute("CW_RegistryOverpassDeck", true)
+            end
+            table.insert(planned, { part = part, a = a, b = b, half = half })
+            for _, item in ipairs({ { a, ya }, { b, yb } }) do
+                local key = endpointKey(item[1])
+                endpointNeed[key] = math.max(endpointNeed[key] or -math.huge, item[2])
+            end
+        end
+    end
+    -- pass 2: apply
+    local raisedByGroup = {}
+    for _, plan in ipairs(planned) do
+        local a, b, part = plan.a, plan.b, plan.part
+        local ya = math.max(a.Y, endpointNeed[endpointKey(a)])
+        local yb = math.max(b.Y, endpointNeed[endpointKey(b)])
+        local lift = math.max(ya - a.Y, yb - b.Y)
+        if lift > 0.05 and setEndpoints(part, Vector3.new(a.X, ya, a.Z), Vector3.new(b.X, yb, b.Z)) then
+            part:SetAttribute("CW_RegistryOverpassDeck", true)
+            part:SetAttribute("CW_ElevationOwner", "RoadTerrainConformer:RegistryOverpass")
+            local gradeGroup = attr(part, "CW_GradeGroup")
+            raisedByGroup[gradeGroup] = raisedByGroup[gradeGroup] or {}
+            table.insert(raisedByGroup[gradeGroup], part)
+            overpassParts += 1
+            if lift > overpassLiftMax then
+                overpassLiftMax = lift
+                overpassLiftAt = ("%s at (%.0f, %.0f)"):format(attr(part, "ChesterStreet"), part.Position.X, part.Position.Z)
+            end
+        end
+    end
+    -- markings follow the raised piece they lie on
+    for _, marking in ipairs(allMarks) do
+        local parts = raisedByGroup[attr(marking, "CW_GradeGroup")]
+        if parts then
+            local function markY(point)
+                local best, bestDistance = nil, math.huge
+                for _, road in ipairs(parts) do
+                    local x, y = endpoints(road)
+                    local d = Vector3.new(y.X - x.X, 0, y.Z - x.Z)
+                    local d2 = d:Dot(d)
+                    if d2 > 0.01 then
+                        local t = math.clamp(Vector3.new(point.X - x.X, 0, point.Z - x.Z):Dot(d) / d2, 0, 1)
+                        local nearest = x:Lerp(y, t)
+                        local distance = hdist(nearest, point)
+                        if distance < bestDistance then
+                            bestDistance, best = distance, nearest.Y
+                        end
+                    end
+                end
+                return bestDistance < 15 and best and best + (MARK_OFFSET - ROAD_OFFSET) or nil
+            end
+            local a, b = endpoints(marking)
+            local ya, yb = markY(a), markY(b)
+            if ya and yb and (ya > a.Y + 0.05 or yb > b.Y + 0.05)
+                and setEndpoints(marking, Vector3.new(a.X, math.max(a.Y, ya), a.Z), Vector3.new(b.X, math.max(b.Y, yb), b.Z)) then
+                overpassMarks += 1
+            end
+        end
+    end
+end
+print(("[ChesterWorld RegistryOverpass] crossings=%d parts=%d marks=%d maxLift=%.1f %s")
+    :format(#overpassDecks, overpassParts, overpassMarks, overpassLiftMax, overpassLiftAt))
 
 local conformed = #atGrade - stats.rampParts + stats.rampParts
     + stats.bridgeConformed

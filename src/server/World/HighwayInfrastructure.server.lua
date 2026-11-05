@@ -611,6 +611,7 @@ end
 local crossings,tooLow,minClearance=0,0,math.huge
 local minRequired=Config.HIGHWAY_MIN_CLEARANCE_STUDS or 18
 local clearancePairs={}
+local clearanceSeen={}
 
 local uppers=table.clone(bridge)
 for _,part in ipairs(profiled) do
@@ -642,7 +643,8 @@ for i,upper in ipairs(uppers) do
                     tostring(upper.Name),tostring(groundRoad.Name),clearance))
             end
             local required=minRequired
-            if upper:GetAttribute("CW_HighwayProfiled")==true then
+            if upper:GetAttribute("CW_HighwayProfiled")==true
+                or upper:GetAttribute("CW_RegistryOverpassDeck")==true then
                 -- generator-owned span: underpass rule (registry inventory
                 -- clearances are enforced by HighwayProfile itself)
                 required=Config.HIGHWAY_UNDERPASS_MIN_CLEARANCE_STUDS or 14
@@ -650,9 +652,13 @@ for i,upper in ipairs(uppers) do
             if clearance+0.25<required then
                 tooLow+=1
                 upper:SetAttribute("CW_LowClearance",true)
-                local msg=tostring(upper.Name).." over "..tostring(groundRoad.Name)
-                if #clearancePairs<12 then
-                    table.insert(clearancePairs,string.format("%s=%.1f",msg,clearance))
+                local at=a:Lerp(b,t)
+                local pairKey=tostring(upper.Name).."|"..tostring(groundRoad.Name).."|"
+                    ..math.floor(at.X/60)..":"..math.floor(at.Z/60)
+                if not clearanceSeen[pairKey] and #clearancePairs<40 then
+                    clearanceSeen[pairKey]=true
+                    table.insert(clearancePairs,string.format("%s over %s at (%.0f, %.0f)=%.1f need=%.0f",
+                        tostring(upper.Name),tostring(groundRoad.Name),at.X,at.Z,clearance,required))
                 end
             end
         end

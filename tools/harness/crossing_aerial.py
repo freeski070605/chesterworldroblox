@@ -25,6 +25,14 @@ SITES = {
     "sixth_wide": (-1000, 5200, 150),
     "exit4_wide": (-2850, 2080, 170),
     "macdade_wide": (9530, -11950, 160),
+    "chester_pke": (13730, -6985, 130),
+    "flower": (-1330, 4680, 80),
+    "riverfront": (1050, 8180, 90),
+    "crosby": (5800, -2020, 80),
+    "csx_crum": (14420, -10378, 70),
+    "csx_476": (12138, -7638, 70),
+    "park_vallei": (280, -8670, 90),
+    "i476_flyover": (12180, -6850, 110),
 }
 ONLY = set(sys.argv[2:])
 URL = "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/DVRPC2025/MapServer/export"

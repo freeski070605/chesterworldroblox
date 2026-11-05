@@ -89,7 +89,7 @@ Registry.NAMED = {
 	namedEntry("POTTER_OVER_I95", "15446", { "potter st" }, { "i 95" },
 		7280, -2752, 65, 5.21, "Potter Street over I-95 and CSX"),
 	namedEntry("CHESTNUT_OVER_I95", "15448", { "chestnut st" }, { "i 95", "i 95 to edgmont ave" },
-		8114, -3199, 65, 5.43, "Chestnut Street over I-95 and CSX (source wrongly tags I-95 as upper)"),
+		8114, -3199, 90, 5.43, "Chestnut Street over I-95 and CSX (source wrongly tags I-95 as upper)"),
 	namedEntry("MELROSE_OVER_I95", "15449", { "melrose ave" }, { "i 95", "chestnut st to i 95" },
 		8901, -3688, 75, 5.33, "Melrose Avenue over I-95, ramps and CSX"),
 	namedEntry("HIGHLAND_OVER_I95", "14881", { "highland ave" }, { "i 95" },
@@ -141,7 +141,68 @@ Registry.NAMED = {
 			.. "(10571, -5522) 854/26181 over Bullens. Aerial: concrete I-95 deck, Bullens visible beneath on "
 			.. "both sides. Confidence high.",
 		{ status = "aerial_dvrpc2025", references = { DVRPC2025 } }),
+	-- Added 2026-11-05 from the offline LOW CLEARANCE audit; every one checked
+	-- against the DVRPC 2025 orthophoto (crossing_aerial.py sites in brackets).
+	-- Source layer tags had the relation backwards at most of these.
+	namedEntry("I95_OVER_CHESTER_PKE", nil, { "i 95", "i 95 to i 476", "i 476 to i 95" }, { "chester pke" },
+		13730, -6985, 115, nil,
+		"I-95 and the I-476 ramps over Chester Pike (county 1451/20526/21450/21449) [chester_pke]. Aerial: "
+			.. "three concrete decks with shadows; Chester Pike hidden beneath. Confidence high.",
+		{ status = "aerial_dvrpc2025", references = { DVRPC2025 } }),
+	namedEntry("BARRY_OVER_FLOWER", nil, { "commodore john barry" }, { "flower st", "flower" },
+		-1330, 4680, 60, nil,
+		"Barry approach over Flower St (county 20475/21224/20476) [flower]. Aerial: elevated deck casting a "
+			.. "shadow, Flower visible on both sides. Confidence high.",
+		{ status = "aerial_dvrpc2025", references = { DVRPC2025 } }),
+	namedEntry("BARRY_OVER_RIVERFRONT", nil, { "commodore john barry" }, { "chester riverfront" },
+		1058, 8172, 50, nil,
+		"Barry approach over Chester Riverfront (county 22418/27083) [riverfront]. Aerial: Barry deck "
+			.. "shadow, Riverfront continuous beneath. Confidence high.",
+		{ status = "aerial_dvrpc2025", references = { DVRPC2025 } }),
+	namedEntry("CROSBY_FOOTBRIDGE_OVER_I95", nil, { "crosby st pedestrian" }, { "i 95", "edgmont ave to i 95" },
+		5800, -2020, 90, nil,
+		"Crosby St pedestrian bridge over I-95, the Edgmont ramp and CSX (county 21308/21309/21286/21310) "
+			.. "[crosby]. Aerial: continuous footbridge deck and shadow. Confidence high.",
+		{ status = "aerial_dvrpc2025", references = { DVRPC2025 } }),
+	namedEntry("I95_N476_RAMP_OVER_CSX", nil, { "i 95 to n i 476" }, { "csx phila subdivision" },
+		12138, -7638, 40, nil,
+		"I 95 to N I 476 over CSX (county 26688/26691 over 21158) [csx_476]. Aerial: ramp deck continuous, "
+			.. "tracks pass beneath. Confidence high.",
+		{ status = "aerial_dvrpc2025", references = { DVRPC2025 } }),
+	namedEntry("CRUM_LYNNE_OVER_CSX", nil, { "crum lynne" }, { "csx phila subdivision" },
+		14420, -10378, 50, nil,
+		"Crum Lynne Rd over CSX (county 21737 over 762/763) [csx_crum]. Aerial: road deck with shadow, "
+			.. "tracks beneath. Confidence high.",
+		{ status = "aerial_dvrpc2025", references = { DVRPC2025 } }),
+	namedEntry("N476_FLYOVER_OVER_I95", nil, { "i 95 to n i 476" }, { "i 95" },
+		12256, -6888, 100, nil,
+		"I 95 to N I 476 flyover over I-95 (county 26689/26690 over 21447/20367) [i476_flyover]. Aerial: "
+			.. "curved flyover deck continuous across both carriageways. Confidence high.",
+		{ status = "aerial_dvrpc2025", references = { DVRPC2025 } }),
+	namedEntry("I95_OVER_I476_TO_I95_RAMP", nil, { "i 95" }, { "i 476 to i 95" },
+		12107, -6814, 100, nil,
+		"I-95 decks over the I 476 to I 95 ramp (county 855/856 over 26684/26685) [i476_flyover]. Aerial: "
+			.. "light concrete I-95 decks, ramp passes beneath. Confidence high.",
+		{ status = "aerial_dvrpc2025", references = { DVRPC2025 } }),
 }
+
+-- Bridge-tagged source records that are at grade on the ground (no
+-- structure). RoadTerrainConformer keeps them on the terrain.
+Registry.GROUNDED = {
+	{
+		id = "PARK_VALLEI_PHANTOM_BRIDGE",
+		sources = { "county:21295", "county:21296" },
+		description = "Park Vallei bridge tags inside an apartment parking lot [park_vallei]. Aerial 2025: "
+			.. "flat paved lot, no structure.",
+		status = "aerial_dvrpc2025",
+	},
+}
+local groundedIndex = {}
+for _, entry in ipairs(Registry.GROUNDED) do
+	for _, id in ipairs(entry.sources) do
+		groundedIndex[id] = entry
+	end
+end
 
 -- Source records for structures that do not exist on the ground. The tile
 -- data is left untouched; the builder skips these records at runtime.
@@ -251,6 +312,11 @@ Registry.sourcePrefix = sourcePrefix
 function Registry.Suppressed(gradeGroup)
 	local prefix = sourcePrefix(gradeGroup)
 	return prefix and suppressedIndex[prefix] or nil
+end
+
+function Registry.Grounded(gradeGroup)
+	local prefix = sourcePrefix(gradeGroup)
+	return prefix and groundedIndex[prefix] or nil
 end
 
 local upperIndex, lowerIndex = {}, {}

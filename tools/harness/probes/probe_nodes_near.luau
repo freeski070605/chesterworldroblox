@@ -2,10 +2,9 @@
 -- Edit WANT to the coordinates under investigation.
 local HP = Mock.require(Mock.methods.FindFirstChild(World, "HighwayProfile"))
 local WANT = {
-	{ -2837.6, 2131.5 }, { -2784.9, 2167.9 }, { -2911.9, 2096.5 }, { 9510.5, -12228.7 },
-	{ 10588.9, -5483.8 }, { 10570.7, -5521.8 }, { -2564.0, 2077.8 }, { -2512.6, 2002.7 },
+	{ 12107, -6814 }, { 12256, -6888 },
 }
-local RADIUS = 12
+local RADIUS = 30
 local seen = {}
 for _, stroke in ipairs(HP.Strokes()) do
 	for _, part in ipairs(stroke.parts) do

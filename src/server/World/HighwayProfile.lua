@@ -73,6 +73,10 @@ local MAINLINE_NAMES = {
 	["i 95"] = true, ["i 476"] = true, ["us 322"] = true,
 	["commodore john barry bridge"] = true, ["conchester"] = true,
 }
+-- Source records the county data mis-classes that belong to a corridor: the
+-- two Barry approach pieces at Flower St are "residential", which ended the
+-- Barry stroke there and pinned it to the terrain under its own bridge.
+local CORRIDOR_SOURCES = { ["county:21223"] = true, ["county:21244"] = true }
 -- County data assigns motorway classes to rail and pedestrian structures.
 local EXCLUDE_TOKENS = { "pedestrian", "amtrak", "csx", "subdivision", "railroad", "rail" }
 
@@ -117,6 +121,10 @@ function HighwayProfile.IsCorridorRoad(road, level)
 		return false
 	end
 	if MAINLINE_NAMES[n] then
+		return true
+	end
+	local source = string.match(tostring(road.grade_group or ""), "^([^:]+:[^:]+)")
+	if source and CORRIDOR_SOURCES[source] then
 		return true
 	end
 	local cls = string.lower(tostring(road.road_class or ""))
@@ -715,7 +723,11 @@ function HighwayProfile.Prepare(entries, opts)
 							-- this corridor AT GRADE through a sibling arm (a ramp
 							-- terminal at a bridge end) is a junction, not a
 							-- crossing.
-							if t and not forced and (t < 1e-4 or t > 1 - 1e-4) and (u < 1e-4 or u > 1 - 1e-4) then
+							-- A pair the registry names as crossing here stays a crossing
+							-- (I-476 ramps meeting I-95 on separate level nodes).
+							if t and not forced and (t < 1e-4 or t > 1 - 1e-4) and (u < 1e-4 or u > 1 - 1e-4)
+								and not Registry.NamedRelation(seg.road.name, other.road.name, x, z)
+								and not Registry.NamedRelation(other.road.name, seg.road.name, x, z) then
 								for _, arm in ipairs(vertexArms[vkey(x, z)] or {}) do
 									local armKey = arm.e == 1 and arm.seg.k1 or arm.seg.k2
 									if armKey == other.k1 or armKey == other.k2 then
@@ -1128,8 +1140,10 @@ function HighwayProfile.Prepare(entries, opts)
 					elseif cross.relation == "under" and not other.corridor then
 						-- A local street passes OVER the highway here. Never let a
 						-- notch fill raise the highway into that structure: cap it
-						-- at (street rim - clearance), but never below the terrain
-						-- (the overpass approach lift is RoadTerrainConformer's job).
+						-- at (street rim - clearance). A registry-confirmed overpass
+						-- keeps its street at grade and the highway drops into a cut
+						-- (HighwayInfrastructure clears the terrain); weaker evidence
+						-- never goes below the terrain.
 						local rim = cross.shared.rims and cross.shared.rims[other]
 						if rim and rim > -math.huge then
 							local clearance = UNDER_CLEARANCE
@@ -1138,8 +1152,9 @@ function HighwayProfile.Prepare(entries, opts)
 							end
 							local cap = rim - clearance - DECK_STACK
 							local half = (other.width / 2 + SIDE_MARGIN) / math.max(cross.sine, 0.35)
+							local cutAllowed = cross.basis == "registry"
 							for k = math.max(1, math.floor((s - half) / ds) + 1), math.min(count, math.ceil((s + half) / ds) + 1) do
-								maxReq[k] = math.min(maxReq[k], math.max(cap, t[k]))
+								maxReq[k] = math.min(maxReq[k], cutAllowed and cap or math.max(cap, t[k]))
 							end
 						end
 					elseif cross.relation == "under" and other.corridor and other.stroke and other.stroke.G then
@@ -1679,6 +1694,31 @@ end
 
 function HighwayProfile.Strokes()
 	return strokes
+end
+
+-- Registry-confirmed local streets passing over the highway: one record per
+-- carriageway crossing, with the street rim the highway was capped under.
+-- RoadTerrainConformer holds the street at deck level across the crossing.
+function HighwayProfile.LocalOverpasses()
+	local list = {}
+	if not enabled then
+		return list
+	end
+	for _, stroke in ipairs(strokes) do
+		for _, cross in ipairs(stroke.G and stroke.crossings or {}) do
+			local other = cross.other
+			local rim = cross.shared.rims and cross.shared.rims[other]
+			if cross.relation == "under" and cross.basis == "registry" and not other.corridor
+				and rim and rim > -math.huge then
+				table.insert(list, {
+					name = other.road.name, x = cross.x, z = cross.z, rim = rim,
+					clearance = math.max(UNDER_CLEARANCE,
+						cross.entry and cross.entry.inventoryUnderclearanceStuds or 0),
+				})
+			end
+		end
+	end
+	return list
 end
 
 function HighwayProfile.Summary()

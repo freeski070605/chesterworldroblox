@@ -1059,7 +1059,108 @@ do
             end
         end
     end
-    print(("[ChesterWorld RegistryOverpass] railCrossings=%d"):format(railDecks))
+    -- Registry streets over a rail line only (CRUM_LYNNE_OVER_CSX): rail is not
+    -- part of HighwayProfile, so LocalOverpasses() never lists them and the
+    -- street followed the DEM (bridge removed) down into the rail cut and
+    -- across the tracks at their level. Deck = top of rail + clearance.
+    local function railOnly(names)
+        for _, n in ipairs(names or {}) do
+            local padded = " " .. n .. " "
+            if not (padded:find(" csx ") or padded:find(" amtrak ") or padded:find("^ cr ")
+                or padded:find(" linwood ")) then
+                return false
+            end
+        end
+        return names ~= nil and #names > 0
+    end
+    local railOnlyDecks = 0
+    for _, entry in ipairs(Registry.NAMED or {}) do
+        if railOnly(entry.lowerNames) then
+            local cx, cz = entry.center[1], entry.center[2]
+            local top
+            for _, rail in ipairs(railBeds) do
+                if hdist(rail.Position, Vector3.new(cx, 0, cz)) < (entry.radius or 50) + rail.Size.Z / 2 then
+                    top = math.max(top or -math.huge, rail.Position.Y + rail.Size.Y / 2)
+                end
+            end
+            if top then
+                local deck = { x = cx, z = cz,
+                    surface = top + RAIL_CLEARANCE + (Config.HIGHWAY_DECK_THICKNESS_STUDS or 1.6) }
+                for _, upper in ipairs(entry.upperNames or {}) do
+                    local key = normalizedRoadName(upper)
+                    overpassByName[key] = overpassByName[key] or {}
+                    table.insert(overpassByName[key], deck)
+                end
+                table.insert(overpassDecks, deck)
+                railOnlyDecks += 1
+            end
+        end
+    end
+    -- Streets over a rail cut not in the registry (Pennell St over the NEC):
+    -- a street piece meeting a rail bed at track level while the street's
+    -- ground is well above the track on BOTH sides of the line is a bridge the
+    -- bare-earth DEM removed. A level crossing (Fairview Rd over the CSX,
+    -- aerial csx_fairview) has the street at track level on both sides.
+    local CUT_RISE = 8
+    local roadOverlap = OverlapParams.new()
+    roadOverlap.FilterType = Enum.RaycastFilterType.Include
+    local streetParts = {}
+    for _, part in ipairs(allRoads) do
+        if part:GetAttribute("CW_Rail") ~= true and part:GetAttribute("CW_HighwayProfiled") ~= true
+            and part:GetAttribute("CW_Tunnel") ~= true and part.Name ~= "Rail" then
+            table.insert(streetParts, part)
+        end
+    end
+    roadOverlap.FilterDescendantsInstances = streetParts
+    local function groundAt(x, z)
+        local hit = Workspace:Raycast(Vector3.new(x, 3000, z), Vector3.new(0, -6000, 0), terrainParams)
+        return hit and hit.Position.Y or nil
+    end
+    local cutDecks, seen = 0, {}
+    for i, rail in ipairs(railBeds) do
+        if i % 300 == 0 then task.wait() end
+        local top = rail.Position.Y + rail.Size.Y / 2
+        for _, q in ipairs(Workspace:GetPartBoundsInBox(rail.CFrame, Vector3.new(rail.Size.X, 10, rail.Size.Z), roadOverlap)) do
+            local qTop = q.Position.Y + q.Size.Y / 2
+            local key = normalizedRoadName(attr(q, "ChesterStreet"))
+            local dedupe = key .. "|" .. math.floor(q.Position.X / 80) .. ":" .. math.floor(q.Position.Z / 80)
+            if math.abs(qTop - top) < 4 and key ~= "" and not seen[dedupe] then
+                seen[dedupe] = true
+                -- street direction, flattened; must actually cross the line
+                local dir = Vector3.new(q.CFrame.LookVector.X, 0, q.CFrame.LookVector.Z)
+                local rdir = Vector3.new(rail.CFrame.LookVector.X, 0, rail.CFrame.LookVector.Z)
+                if dir.Magnitude > 0.01 and rdir.Magnitude > 0.01
+                    and math.abs(dir.Unit:Dot(rdir.Unit)) < 0.85 then
+                    dir = dir.Unit
+                    local reach = rail.Size.X / 2 / math.max(math.sqrt(1 - dir:Dot(rdir.Unit) ^ 2), 0.4)
+                    local sides = {}
+                    for s = -1, 1, 2 do
+                        local best = -math.huge
+                        for _, d in ipairs({ 15, 30, 45, 60 }) do
+                            local p = rail.Position + dir * s * (reach + d)
+                            local g = groundAt(p.X, p.Z)
+                            if g then best = math.max(best, g) end
+                        end
+                        sides[s] = best
+                    end
+                    if math.min(sides[-1], sides[1]) - top > CUT_RISE then
+                        local deck = { x = rail.Position.X, z = rail.Position.Z,
+                            surface = top + RAIL_CLEARANCE + (Config.HIGHWAY_DECK_THICKNESS_STUDS or 1.6) }
+                        overpassByName[key] = overpassByName[key] or {}
+                        table.insert(overpassByName[key], deck)
+                        table.insert(overpassDecks, deck)
+                        cutDecks += 1
+                        if cutDecks <= 12 then
+                            print(("[ChesterWorld RailCutOverpass] %s over %s at (%.0f, %.0f) track=%.1f banks=%.1f/%.1f")
+                                :format(q.Name, rail.Name, rail.Position.X, rail.Position.Z, top, sides[-1], sides[1]))
+                        end
+                    end
+                end
+            end
+        end
+    end
+    print(("[ChesterWorld RegistryOverpass] railCrossings=%d railOnlyOverpasses=%d railCutOverpasses=%d")
+        :format(railDecks, railOnlyDecks, cutDecks))
 end
 -- Approach anchors: where the overpass street meets a differently-named
 -- ground street (Edgmont Ave / Edgmont at Providence) the county pieces of

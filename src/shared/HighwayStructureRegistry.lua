@@ -171,6 +171,12 @@ Registry.NAMED = {
 		"Crosby St pedestrian bridge over I-95, the Edgmont ramp and CSX (county 21308/21309/21286/21310) "
 			.. "[crosby]. Aerial: continuous footbridge deck and shadow. Confidence high.",
 		{ status = "aerial_dvrpc2025", references = { DVRPC2025 } }),
+	namedEntry("WALNUT_FOOTBRIDGE_OVER_I95", nil, { "walnut st pedestrian" }, { "i 95" },
+		7722, -3060, 90, nil,
+		"Walnut St pedestrian bridge over I-95 and the CSX (county footway record crossing both). "
+			.. "Without it the footway followed the DEM down the cut and crossed the freeway and the tracks "
+			.. "at their level (audit 2026-11-06).",
+		{ status = "county_footway_record", references = { DVRPC2025 } }),
 	namedEntry("I95_N476_RAMP_OVER_CSX", nil, { "i 95 to n i 476" }, { "csx phila subdivision" },
 		12138, -7638, 40, nil,
 		"I 95 to N I 476 over CSX (county 26688/26691 over 21158) [csx_476]. Aerial: ramp deck continuous, "

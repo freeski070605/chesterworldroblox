@@ -66,11 +66,28 @@ end
 local surfaceParams = RaycastParams.new()
 surfaceParams.FilterType = Enum.RaycastFilterType.Include
 surfaceParams.FilterDescendantsInstances = surfaceFolders
+-- rail beds: no pole on the tracks (a signal stood on the CSX at Edgmont)
+local railBeds = {}
+for _, f in ipairs(surfaceFolders) do
+	for _, p in ipairs(f:GetChildren()) do
+		if p:IsA("BasePart") and p:GetAttribute("CW_Rail") == true and p.Name ~= "Rail" then
+			table.insert(railBeds, p)
+		end
+	end
+end
+local railParams = RaycastParams.new()
+railParams.FilterType = Enum.RaycastFilterType.Include
+railParams.FilterDescendantsInstances = railBeds
 local function surfaceY(x, z)
 	local t = Workspace:Raycast(Vector3.new(x, 2000, z), Vector3.new(0, -4000, 0), terrainParams)
 	if not t then return nil end
 	local s = Workspace:Raycast(Vector3.new(x, t.Position.Y + 6, z), Vector3.new(0, -12, 0), surfaceParams)
-	return math.max(t.Position.Y, s and s.Position.Y or -math.huge)
+	local y = math.max(t.Position.Y, s and s.Position.Y or -math.huge)
+	if #railBeds > 0 then
+		local r = Workspace:Raycast(Vector3.new(x, y + 6, z), Vector3.new(0, -12, 0), railParams)
+		if r then return nil end
+	end
+	return y
 end
 
 -- ---------------------------------------------------------------------------
@@ -380,6 +397,11 @@ for i, seg in ipairs(segments) do
 			local p = c + outward * (seg.half + 1.2)
 			if not nearJunction(c, seg.half + 22) and not nearLight(p, SPACING * 0.8) then
 				local y = surfaceY(p.X, p.Z)
+				-- not under a rail bridge (the pole would stand up through the deck)
+				if y and #railBeds > 0
+					and Workspace:Raycast(Vector3.new(p.X, y + 1, p.Z), Vector3.new(0, 26, 0), railParams) then
+					y = nil
+				end
 				if y then
 					local H = 22
 					part(root, "LightPole", Vector3.new(0.55, H, 0.55), CFrame.new(p.X, y + H / 2, p.Z), Enum.Material.Metal, POLE)

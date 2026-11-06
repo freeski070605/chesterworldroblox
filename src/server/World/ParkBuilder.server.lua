@@ -259,10 +259,31 @@ local featureFolder = Instance.new("Folder")
 featureFolder.Name = "Features"
 featureFolder.Parent = root
 local built, skipped = {}, 0
+-- a sports feature box lying across a rail bed is a mis-drawn polygon (a
+-- 460 x 444 "outfield" over the CSX): skip it rather than pave the tracks
+local railBeds = {}
+for _, tile in ipairs(Workspace:WaitForChild("ChesterWorld"):GetChildren()) do
+	local roads = tile:FindFirstChild("Roads")
+	for _, p in ipairs(roads and roads:GetChildren() or {}) do
+		if p:IsA("BasePart") and p:GetAttribute("CW_Rail") == true and p.Name ~= "Rail" then
+			table.insert(railBeds, p)
+		end
+	end
+end
+local railParams = OverlapParams.new()
+railParams.FilterType = Enum.RaycastFilterType.Include
+railParams.FilterDescendantsInstances = railBeds
+railParams.MaxParts = 1
+local onRail = 0
 for _, item in ipairs(Parks.features) do
 	local key = item.kind == "pitch" and (item.sport or "pitch") or item.kind
 	local builder = BUILDERS[key] or BUILDERS[item.sport or ""] or (item.kind == "pitch" and BUILDERS.pitch)
 	local frame = frameOf(item.box)
+	if frame and #railBeds > 0 and key ~= "cemetery"
+		and #Workspace:GetPartBoundsInBox(frame, Vector3.new(item.box[3], 40, item.box[4]), railParams) > 0 then
+		onRail += 1
+		frame = nil
+	end
 	if builder and frame then
 		local model = Instance.new("Model")
 		model.Name = key
@@ -417,6 +438,6 @@ end
 local summary = {}
 for k, v in pairs(built) do table.insert(summary, k .. "=" .. v) end
 table.sort(summary)
-print(("[ChesterWorld Parks] parks=%d signs=%d pathParts=%d benches=%d lamps=%d features: %s skipped=%d parts=%d")
-	:format(#Parks.parks, signs, pathParts, benches, lamps, table.concat(summary, " "), skipped, parts))
+print(("[ChesterWorld Parks] parks=%d signs=%d pathParts=%d benches=%d lamps=%d features: %s skipped=%d onRail=%d parts=%d")
+	:format(#Parks.parks, signs, pathParts, benches, lamps, table.concat(summary, " "), skipped, onRail, parts))
 Workspace:SetAttribute("CW_ParksComplete", true)

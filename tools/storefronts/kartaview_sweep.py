@@ -132,7 +132,13 @@ def cmd_download(a):
     for n, p in enumerate(todo[: a.limit], 1):
         dest = OUT / "images" / p["sequence"] / f"{p['seq_index']:05d}_{p['id']}.jpg"
         try:
-            body, ctype = s.http(p["url"], raw=True, timeout=60)
+            try:
+                body, ctype = s.http(p["url"], raw=True, timeout=60)
+            except Exception:
+                # some storage hosts return 502; the KartaView CDN proxies the same file (recompressed)
+                import base64
+                cdn = "https://cdn.kartaview.org/pr:sharp/" + base64.urlsafe_b64encode(p["url"].encode()).decode().rstrip("=")
+                body, ctype = s.http(cdn, raw=True, timeout=60)
             if not (ctype.startswith("image/") or body[:2] == b"\xff\xd8"):
                 raise ValueError("not an image")
             dest.parent.mkdir(parents=True, exist_ok=True)

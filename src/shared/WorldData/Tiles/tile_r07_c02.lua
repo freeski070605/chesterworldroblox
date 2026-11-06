@@ -2,7 +2,7 @@ return {
     tile_id = "tile_r07_c02",
     roads = {
         {name="Road",x1=2782.832,z1=7000,x2=2794.368,z2=7007.604,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:856201277:g0",source="osm"},
-        {name="Road",x1=2300.143,z1=7642.465,x2=2235.655,z2=7618.422,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580092296:g0",source="osm"},
+        {name="Road",x1=2300.143,z1=7642.465,x2=2235.655,z2=7618.422,width_m=4.089,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580092296:g0",source="osm"},
         {name="Road",x1=2235.655,z1=7618.422,x2=2217.585,z2=7609.081,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580092296:g0",source="osm"},
         {name="Road",x1=2772.616,z1=7017.029,x2=2785.718,z2=7022.365,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580092177:g0",source="osm"},
         {name="Road",x1=2785.718,z1=7022.365,x2=2794.368,z2=7007.604,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580092177:g0",source="osm"},

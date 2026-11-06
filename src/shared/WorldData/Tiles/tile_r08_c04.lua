@@ -13,7 +13,7 @@ return {
         {name="Road",x1=4767.35,z1=8802.84,x2=4803.072,z2=8808.496,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:825707589:g0",source="osm"},
         {name="Road",x1=4803.072,z1=8808.496,x2=4809.752,z2=8812.31,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:825707589:g0",source="osm"},
         {name="Road",x1=4809.752,z1=8812.31,x2=4811.967,z2=8820.258,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:825707589:g0",source="osm"},
-        {name="Road",x1=4811.967,z1=8820.258,x2=4814.806,z2=8842.113,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:825707589:g0",source="osm"},
+        {name="Road",x1=4811.967,z1=8820.258,x2=4814.806,z2=8842.113,width_m=4.764,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:825707589:g0",source="osm"},
         {name="Road",x1=4814.806,z1=8842.113,x2=4817.377,z2=8861.895,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:825707589:g0",source="osm"},
         {name="Road",x1=4817.377,z1=8861.895,x2=4815.785,z2=8908.608,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:825707589:g0",source="osm"},
         {name="Road",x1=4815.785,z1=8908.608,x2=4801.481,z2=8937.527,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:825707589:g0",source="osm"},

@@ -67,7 +67,7 @@ return {
         {name="3rd",x1=9017.02,z1=6726.246,x2=9020.623,z2=6725.982,width_m=7.35,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:2544:g0",source="county"},
         {name="3rd",x1=9020.623,z1=6725.982,x2=9024.223,z2=6726.288,width_m=7.35,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:2544:g0",source="county"},
         {name="3rd",x1=9024.223,z1=6726.288,x2=9027.731,z2=6727.157,width_m=7.35,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:2544:g0",source="county"},
-        {name="3rd",x1=9027.731,z1=6727.157,x2=9031.059,z2=6728.569,width_m=7.35,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:2544:g0",source="county"},
+        {name="3rd",x1=9027.731,z1=6727.157,x2=9031.059,z2=6728.569,width_m=7.35,road_class="residential",bridge=false,tunnel=false,layer=0,sidewalk=false,grade_group="county:2544:g0",source="county"},
         {name="3rd",x1=9031.059,z1=6728.569,x2=9102.13,z2=6789.108,width_m=7.35,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:2544:g0",source="county"},
         {name="Madison",x1=9127.42,z1=6757.438,x2=9102.13,z2=6789.108,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:7367:g0",source="county"},
         {name="Industrial",x1=9004.315,z1=6732.677,x2=9011.21,z2=6741.894,width_m=16.8,road_class="primary",bridge=false,tunnel=false,layer=0,grade_group="county:18265:g0",source="county"},

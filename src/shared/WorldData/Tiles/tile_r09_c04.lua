@@ -217,7 +217,7 @@ return {
         {name="Chandler",x1=4831.914,z1=9819.555,x2=4814.334,z2=9839.546,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:7019:g0",source="county"},
         {name="Chandler",x1=4814.334,z1=9839.546,x2=4800.172,z2=9861.785,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:7019:g0",source="county"},
         {name="Chandler",x1=4800.172,z1=9861.785,x2=4792.124,z2=9882.802,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:7019:g0",source="county"},
-        {name="Kirk",x1=5000,z1=9909.577,x2=4992.513,z2=9902.452,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:26947:g0",source="county"},
+        {name="Kirk",x1=5000,z1=9909.577,x2=4992.513,z2=9902.452,width_m=5.321,road_class="residential",bridge=false,tunnel=false,layer=0,sidewalk=false,grade_group="county:26947:g0",source="county"},
         {name="Kirk",x1=4992.513,z1=9902.452,x2=4977.654,z2=9890.82,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:26947:g0",source="county"},
         {name="Kirk",x1=4977.654,z1=9890.82,x2=4946.856,z2=9883.268,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:26947:g0",source="county"},
         {name="Woodland",x1=5000,z1=9969.076,x2=4987.152,z2=9982.811,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:9924:g0",source="county"},

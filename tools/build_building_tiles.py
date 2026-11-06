@@ -47,7 +47,8 @@ def load_stores():
     for b in json.loads(STORES.read_text(encoding="utf-8"))["businesses"]:
         bld = b.get("building") or {}
         if b.get("review_status") in STORE_OK and bld.get("objectid") and bld.get("distance_m", 99) <= 12:
-            out[str(bld["objectid"])] = (b["name"], b["group"])
+            front = (b.get("frontage") or {}).get("front_bearing")
+            out[str(bld["objectid"])] = (b["name"], b["group"], front)
     return out
 
 
@@ -73,6 +74,14 @@ DEFAULT_BY_STYLE = {"rowhouse": 9.5, "house": 7.5, "twin": 8.5, "garage": 3.5, "
 SNAP_M = 0.35          # vertex snap along the building axis
 MIN_SLAB_M = 1.2       # slabs narrower than this merge into a neighbour
 MAX_RECTS = 14
+ROW_MIN_ALONE_M = 26.0  # a free-standing footprint this long is a row, not a house
+STOREY_M = {"rowhouse": 3.2, "twin": 3.2, "house": 3.2, "apartment": 3.1, "garage": 3.5,
+            "storefront": 3.8, "commercial": 3.9, "generic": 3.8, "school": 4.2, "church": 5.0,
+            "industrial": 5.0, "warehouse": 6.0}
+MAX_RECTS_HARD = 48    # complex footprints may use more rather than a bounding box
+MAX_FIT_INFLATION = 1.12  # a simplified fit may not exceed the real footprint by more
+# (simplify tolerance m, slab merge width m), most detailed first
+FIT_STEPS = [(0, None), (0.5, 2.0), (1.0, 3.0), (2.0, 4.0), (3.0, 6.0), (4.0, 8.0), (6.0, 10.0)]
 
 # collapse the prep archetypes to the builder's style keys
 STYLE = {
@@ -125,9 +134,11 @@ def principal_angle(poly):
     return angle
 
 
-def decompose(poly):
+def decompose(poly, min_slab=None, angle=None):
     """Rectangles (in the building's local frame, axis = principal edge) covering poly."""
-    angle = principal_angle(poly)
+    MIN_SLAB_M = min_slab or globals()["MIN_SLAB_M"]
+    if angle is None:
+        angle = principal_angle(poly)
     c = poly.centroid
     local = affinity.rotate(poly, -angle, origin=c, use_radians=True)
     local = local.buffer(0)
@@ -178,10 +189,48 @@ def decompose(poly):
     return angle, c, rects
 
 
+def fit_rects(poly):
+    """Decompose poly into at most MAX_RECTS rectangles without inventing area.
+
+    Complex footprints (courtyards, L/U wings, many small jogs) used to fall back
+    to the minimum rotated rectangle, which filled courtyards and the streets
+    between wings (e.g. a 451 x 249 m box for a 65,000 m2 plant). Instead,
+    simplify the outline and widen the slab merge step until the rectangle count
+    fits, keeping the most detailed fit whose area stays close to the real one.
+    """
+    angle = principal_angle(poly)
+    best = None
+    for tol, slab in FIT_STEPS:
+        shape_ = poly.simplify(tol, preserve_topology=True) if tol else poly
+        if shape_.is_empty or shape_.geom_type != "Polygon":
+            continue
+        _, c, rects = decompose(shape_, slab, angle)
+        if not rects:
+            continue
+        area = sum((x1 - x0) * (z1 - z0) for x0, x1, z0, z1 in rects)
+        if area > poly.area * MAX_FIT_INFLATION:
+            continue
+        if best is None or len(rects) < len(best[2]):
+            best = (angle, c, rects)
+        if len(rects) <= MAX_RECTS:
+            return angle, c, rects
+    if best and len(best[2]) <= MAX_RECTS_HARD:
+        return best
+    # last resort: the bounding rectangle (only for degenerate outlines)
+    return decompose(poly.minimum_rotated_rectangle)
+
+
 def rect_sides(poly):
     coords = list(poly.minimum_rotated_rectangle.exterior.coords)
     sides = sorted(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(coords, coords[1:]))
     return sides[-1], sides[0]
+
+
+def floors_for(style, height):
+    """Storeys from the height (the county estimated_floors puts 3 floors on a
+    7.7 m two-storey rowhouse; audit 2026-11-06)."""
+    storey = STOREY_M.get(style, 3.6)
+    return max(1, int((height - 0.5) / storey + 0.4))
 
 
 def is_row(poly):
@@ -284,6 +333,7 @@ def main(check_only=False):
     filled = 0
     rect_total = 0
     max_rects = 0
+    refit = 0
     for index, (poly, p) in enumerate(zip(polys, props)):
         bid = str(p.get("OBJECTID"))
         tile = owner.get(bid)
@@ -305,11 +355,14 @@ def main(check_only=False):
             height = 1.0 + 3.1 * float(p["estimated_floors"])
         height = float(height or 0) or None
         style = STYLE.get(p.get("generator_archetype") or "")
-        if style in ("house", "twin", "apartment", "generic") and is_row(poly):
-            # the prep classifier calls a merged row of rowhouses one detached house
+        touching = sum(1 for j in tree.query(poly.buffer(0.6), predicate="intersects") if j != index)
+        if style in ("house", "apartment", "generic") and is_row(poly) and (
+                touching >= 1 or rect_sides(poly)[0] >= ROW_MIN_ALONE_M):
+            # the prep classifier calls a merged row of rowhouses one detached house;
+            # a long single house standing alone (audit 2026-11-06: 276 detached
+            # houses on 19th St / Meadow Ln were turned into rowhouses) stays a house
             style = "rowhouse"
         if not style:
-            touching = sum(1 for j in tree.query(poly.buffer(0.6), predicate="intersects") if j != index)
             style = classify_unlabelled(p, poly, touching)
         store = stores.get(bid)
         if store and store[1] == "store_market" and style in ("house", "rowhouse", "twin", "generic", "apartment"):
@@ -319,8 +372,8 @@ def main(check_only=False):
         styles[style] += 1
         angle, c, rects = decompose(poly)
         if not rects or len(rects) > MAX_RECTS:
-            rect = poly.minimum_rotated_rectangle
-            angle, c, rects = decompose(rect)
+            angle, c, rects = fit_rects(poly)
+            refit += 1
         rect_total += len(rects)
         max_rects = max(max_rects, len(rects))
         # local frame -> source metres -> studs is done in Lua; emit metres here
@@ -333,13 +386,14 @@ def main(check_only=False):
         roofed += roof is not None
         tiles[tile].append({
             "id": bid, "style": style, "h": round(height, 2), "a": math.degrees(angle),
-            "floors": p.get("estimated_floors"),
+            "floors": floors_for(style, height),
             "name": (store[0] if store else None) or p.get("poi_name") or p.get("site_name"),
             "rects": out_rects, "roof": roof, "facade": facades.get(bid),
+            "sign": store[2] if store and store[1] == "store_market" and store[2] is not None else None,
         })
 
     print("buildings", sum(len(v) for v in tiles.values()), "tiles", len(tiles), "rects", rect_total,
-          "maxRects", max_rects, "heightsFilled", filled, "roofColours", roofed,
+          "maxRects", max_rects, "refit", refit, "heightsFilled", filled, "roofColours", roofed,
           "facadeColours", sum(1 for v in tiles.values() for b in v if b["facade"]))
     print("styles", styles.most_common())
     if check_only:
@@ -367,6 +421,9 @@ def main(check_only=False):
                 extra += ",wc=0x%02x%02x%02x" % rgb
                 if mat:
                     extra += ',wm="%s"' % mat
+            if b["sign"] is not None:
+                # verified store: compass bearing its front faces (street imagery frontage)
+                extra += ",sb=%.0f" % b["sign"]
             lines.append('\t["%s"]={style="%s",h=%.2f,a=%.2f%s,r={%s}},' % (
                 b["id"], b["style"], b["h"], b["a"], extra, rects))
         lines.append("}")

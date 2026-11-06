@@ -1,7 +1,7 @@
 return {
     tile_id = "tile_r07_c10",
     roads = {
-        {name="Road",x1=10105.142,z1=7245.422,x2=10071.368,z2=7219.655,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:1220269700:g0",source="osm"},
+        {name="Road",x1=10105.142,z1=7245.422,x2=10072.584,z2=7220.583,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:1220269700:g0",source="osm"},
         {name="Road",x1=10000,z1=7278.781,x2=10003.095,z2=7274.684,width_m=3.5,road_class="parking_aisle",bridge=false,tunnel=false,layer=0,grade_group="osm:475888018:g0",source="osm"},
         {name="Road",x1=10003.095,z1=7274.684,x2=10003.696,z2=7270.798,width_m=3.5,road_class="parking_aisle",bridge=false,tunnel=false,layer=0,grade_group="osm:475888018:g0",source="osm"},
         {name="Road",x1=10003.696,z1=7270.798,x2=10004.142,z2=7264.983,width_m=3.5,road_class="parking_aisle",bridge=false,tunnel=false,layer=0,grade_group="osm:475888018:g0",source="osm"},
@@ -71,7 +71,7 @@ return {
         {name="Cr Chester Secondary",x1=10594.398,z1=7077.699,x2=10627.676,z2=7010.007,width_m=12,road_class="secondary",bridge=false,tunnel=false,layer=0,grade_group="county:1067:g0",source="county"},
         {name="2nd",x1=10597.462,z1=7527.26,x2=10689.172,z2=7572.62,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:22645:g0",source="county"},
         {name="2nd",x1=10689.172,z1=7572.62,x2=10749.17,z2=7602.378,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:22644:g0",source="county"},
-        {name="Saville",x1=10839.023,z1=7625.703,x2=10864.791,z2=7571.777,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:17698:g0",source="county"},
+        {name="Saville",x1=10839.023,z1=7625.703,x2=10864.791,z2=7571.777,width_m=3.6,road_class="residential",bridge=false,tunnel=false,layer=0,sidewalk=false,grade_group="county:17698:g0",source="county"},
         {name="2nd",x1=10749.17,z1=7602.378,x2=10830.909,z2=7642.683,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:22643:g0",source="county"},
         {name="Saville",x1=10835.539,z1=7632.993,x2=10839.023,z2=7625.703,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:27155:g0",source="county"},
         {name="Saville",x1=10830.909,z1=7642.683,x2=10835.539,z2=7632.993,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:22351:g0",source="county"},
@@ -207,7 +207,7 @@ return {
         {name="Cr Chester Secondary",x1=10930.966,z1=7894.16,x2=11000,z2=7882.937,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:1065:g0",source="county"},
         {name="Eddystone",x1=10405.287,z1=7919.943,x2=10397.978,z2=7931.035,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:11779:g0",source="county"},
         {name="Eddystone",x1=10397.978,z1=7931.035,x2=10362.94,z2=8000,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:11779:g0",source="county"},
-        {name="8th",x1=10129.037,z1=7970.422,x2=10189.529,z2=8000,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:11789:g0",source="county"},
+        {name="8th",x1=10129.037,z1=7970.422,x2=10189.529,z2=8000,width_m=6.83,road_class="residential",bridge=false,tunnel=false,layer=0,sidewalk=false,grade_group="county:11789:g0",source="county"},
         {name="7th",x1=10514.095,z1=7988.864,x2=10525.473,z2=8000,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:25472:g0",source="county"},
         {name="Ashland",x1=10514.095,z1=7988.864,x2=10508.636,z2=8000,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:11780:g0",source="county"},
         {name="4th",x1=10000,z1=7525.072,x2=10021.892,z2=7540.034,width_m=10,road_class="tertiary",bridge=false,tunnel=false,layer=0,grade_group="county:26121:g0",source="county"},

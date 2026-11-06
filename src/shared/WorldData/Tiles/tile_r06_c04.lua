@@ -232,7 +232,7 @@ return {
         {name="Green",x1=4446.874,z1=6364.77,x2=4267.134,z2=6293.264,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:2818:g0",source="county"},
         {name="Road",x1=4114.272,z1=6296.143,x2=4082.624,z2=6377.062,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:466731496:g0",source="osm"},
         {name="Felton",x1=4267.134,z1=6293.264,x2=4219.06,z2=6412.068,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:12061:g0",source="county"},
-        {name="Road",x1=4133.085,z1=6400.956,x2=4082.624,z2=6377.062,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:466731495:g0",source="osm"},
+        {name="Road",x1=4133.085,z1=6400.956,x2=4082.624,z2=6377.062,width_m=4.364,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:466731495:g0",source="osm"},
         {name="Road",x1=4082.624,z1=6377.062,x2=4045.599,z2=6361.533,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:466731495:g0",source="osm"},
         {name="Road",x1=4445.225,z1=6384.775,x2=4483.775,z2=6374.437,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:1132389831:g0",source="osm"},
         {name="Road",x1=4483.775,z1=6374.437,x2=4489.975,z2=6400.318,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:1132389831:g0",source="osm"},

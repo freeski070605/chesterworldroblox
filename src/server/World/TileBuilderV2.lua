@@ -144,6 +144,11 @@ local function shouldBuildSidewalk(road)
 	if truthy(road.bridge) or truthy(road.tunnel) then
 		return false
 	end
+	-- tools/fit_roads_to_buildings.py: back streets whose houses are built to
+	-- the edge of the lane have no room for sidewalks
+	if road.sidewalk == false then
+		return false
+	end
 	local cls = roadClass(road)
 	return cls ~= "motorway"
 		and cls ~= "motorway_link"
@@ -151,6 +156,7 @@ local function shouldBuildSidewalk(road)
 		and cls ~= "trunk_link"
 		and cls ~= "service"
 		and cls ~= "alley"
+		and cls ~= "footway"
 end
 
 -- Only the highway corridor may recover terrain-rejected strips. County source
@@ -1147,6 +1153,33 @@ local function buildProfiledHighway(roadsFolder, markingsFolder, road, info)
 	end
 end
 
+local RAIL_LINES = {
+	["Cr Chester Secondary"] = true,
+	["Amtrak Ne Corridor"] = true,
+	["Linwood Industrial Track"] = true,
+}
+local RAIL_BED_STUDS = 4.2 * S
+local RAIL_HALF_GAUGE_STUDS = 0.72 * S
+local BALLAST_COLOR = Color3.fromRGB(112, 104, 96)
+local RAIL_COLOR = Color3.fromRGB(92, 70, 58)
+
+local function buildRailTrack(roadsFolder, name, a2D, b2D, road)
+	local attrs = roadAttributes(road, RAIL_BED_STUDS)
+	attrs.CW_Rail = true
+	buildAdaptiveCenterStrip(roadsFolder, name, a2D.X, a2D.Z, b2D.X, b2D.Z,
+		RAIL_BED_STUDS, WorldConfig.ROAD_THICKNESS_STUDS, Enum.Material.Pebble, BALLAST_COLOR,
+		WorldConfig.ROAD_SURFACE_OFFSET_STUDS, gradeOffsetForRoad(road), 0, attrs)
+	local dx, dz = b2D.X - a2D.X, b2D.Z - a2D.Z
+	local len = math.sqrt(dx * dx + dz * dz)
+	if len < 0.5 then return end
+	local px, pz = -dz / len * RAIL_HALF_GAUGE_STUDS, dx / len * RAIL_HALF_GAUGE_STUDS
+	for side = -1, 1, 2 do
+		buildAdaptiveCenterStrip(roadsFolder, "Rail", a2D.X + px * side, a2D.Z + pz * side,
+			b2D.X + px * side, b2D.Z + pz * side, 0.3, 0.5, Enum.Material.Metal, RAIL_COLOR,
+			WorldConfig.ROAD_SURFACE_OFFSET_STUDS + 0.45, gradeOffsetForRoad(road), 0, { CW_Rail = true })
+	end
+end
+
 local function buildRoad(roadsFolder, sidewalksFolder, markingsFolder, road)
 	local profiled = HighwayProfile.Lookup(road)
 	if profiled then
@@ -1160,6 +1193,25 @@ local function buildRoad(roadsFolder, sidewalksFolder, markingsFolder, road)
 	local a2D, b2D = trimmedEndpoints(road, 0)
 	if not a2D or not b2D then
 		omissions.trimConsumed += 1
+	end
+	if roadClass(road) == "footway" then
+		-- pedestrian paths / footbridges (tools/fit_roads_to_buildings.py)
+		if a2D and b2D then
+			buildAdaptiveCenterStrip(roadsFolder, streetName ~= "" and streetName or "Footway",
+				a2D.X, a2D.Z, b2D.X, b2D.Z, roadWidth, WorldConfig.ROAD_THICKNESS_STUDS,
+				WorldConfig.SIDEWALK_MATERIAL, WorldConfig.SIDEWALK_COLOR,
+				WorldConfig.ROAD_SURFACE_OFFSET_STUDS, gradeOffsetForRoad(road), 0,
+				roadAttributes(road, roadWidth))
+		end
+		return
+	end
+	if RAIL_LINES[streetName] then
+		-- county centrelines for rail lines: ballast bed + two rails, no
+		-- sidewalks or road markings (audit 2026-11-06: were paved as streets)
+		if a2D and b2D then
+			buildRailTrack(roadsFolder, streetName, a2D, b2D, road)
+		end
+		return
 	end
 	if a2D and b2D then
 		buildAdaptiveCenterStrip(
@@ -1558,7 +1610,8 @@ local FACADES = {
 local FACADE_FOR_STYLE = {
 	rowhouse = "residential", house = "residential", twin = "residential", apartment = "residential",
 	storefront = "commercial", commercial = "commercial", school = "commercial", generic = "commercial",
-	industrial = "industrial", warehouse = "industrial",
+	industrial = "industrial",
+	-- warehouses stay windowless: blank walls in the 2026-11-06 Street View audit
 }
 -- Front/Back faces span the part's X size, Left/Right its Z size
 local FACES = {
@@ -1649,6 +1702,94 @@ local function buildGable(parent, name, cframe, along, across, rise, color)
 	end
 end
 
+-- Sign band over the shopfront of a street-imagery verified corner store /
+-- deli / market: on the face of its largest block that looks toward the
+-- frontage bearing (sb, compass degrees) recorded by the storefront sweep.
+local SIGN_COLORS = {
+	{ Color3.fromRGB(176, 32, 36), Color3.fromRGB(255, 255, 255) },
+	{ Color3.fromRGB(24, 74, 140), Color3.fromRGB(255, 255, 255) },
+	{ Color3.fromRGB(30, 110, 60), Color3.fromRGB(255, 255, 255) },
+	{ Color3.fromRGB(240, 196, 40), Color3.fromRGB(30, 30, 30) },
+	{ Color3.fromRGB(245, 245, 240), Color3.fromRGB(180, 30, 30) },
+}
+-- local face normal of a footprint rectangle that looks toward a compass bearing
+local function faceToward(frame, bearingDeg)
+	local rad = math.rad(bearingDeg)
+	local front = Vector3.new(math.sin(rad), 0, -math.cos(rad))
+	local best, bestDot
+	for _, n in ipairs({ Vector3.xAxis, -Vector3.xAxis, Vector3.zAxis, -Vector3.zAxis }) do
+		local d = frame:VectorToWorldSpace(n):Dot(front)
+		if not bestDot or d > bestDot then
+			best, bestDot = n, d
+		end
+	end
+	return best
+end
+
+-- Front porch (tools/add_porches.py: pb = bearing of the street front, pd =
+-- depth in source metres, sized to stay clear of the sidewalk): floor, shed
+-- roof at the ground-storey top and corner posts.
+local PORCH_TRIM = Color3.fromRGB(226, 224, 216)
+local PORCH_ROOF = Color3.fromRGB(78, 80, 84)
+local PORCH_FLOOR = Color3.fromRGB(150, 146, 140)
+local function buildPorch(model, shapeData, rect, yaw)
+	local frame = CFrame.new(rect.x, 0, rect.z) * yaw
+	local n = faceToward(frame, shapeData.pb)
+	local depth = (n.X ~= 0) and rect.along or rect.across
+	local span = (n.X ~= 0) and rect.across or rect.along
+	local porchDepth = shapeData.pd * S
+	local width = span * 0.96
+	local base, top = rect.streetLevel, rect.porchTop
+	if top - base < 7 then return end
+	local out = frame:VectorToWorldSpace(n)
+	local look = CFrame.lookAt(Vector3.new(), out)
+	local centre = Vector3.new(rect.x, 0, rect.z) + out * (depth / 2 + porchDepth / 2)
+	-- lookAt: local -Z = outward, local X = along the face
+	local function at(y, o)
+		return CFrame.new(centre.X, y, centre.Z) * look.Rotation * CFrame.new(o or Vector3.zero)
+	end
+	local floor = newPart(model, "PorchFloor", Vector3.new(width, 1.4, porchDepth), at(base + 0.5),
+		Enum.Material.Concrete, PORCH_FLOOR)
+	floor.CanCollide = true
+	local roof = newPart(model, "PorchRoof", Vector3.new(width + 0.6, 0.7, porchDepth + 0.6),
+		at(top + 0.35) * CFrame.Angles(math.rad(-6), 0, 0), Enum.Material.SmoothPlastic, PORCH_ROOF)
+	roof.CanCollide = false
+	for _, side in ipairs({ -1, 1 }) do
+		local post = newPart(model, "PorchPost", Vector3.new(0.7, top - base - 1.2, 0.7),
+			at((top + base + 1.2) / 2, Vector3.new(side * (width / 2 - 0.5), 0, -(porchDepth / 2 - 0.5))),
+			Enum.Material.SmoothPlastic, PORCH_TRIM)
+		post.CanCollide = false
+	end
+end
+
+local function buildStoreSign(model, shapeData, rect, yaw)
+	local frame = CFrame.new(rect.x, rect.bandY, rect.z) * yaw
+	local best = faceToward(frame, shapeData.sb)
+	local depth = (best.X ~= 0) and rect.along or rect.across
+	local span = (best.X ~= 0) and rect.across or rect.along
+	local width = math.clamp(span * 0.85, 8, 40)
+	local centre = frame * CFrame.new(best * (depth / 2 + 0.35))
+	local look = CFrame.lookAt(centre.Position, centre.Position + frame:VectorToWorldSpace(best))
+	local colors = SIGN_COLORS[(tonumber(model:GetAttribute("ChesterBuildingId")) or 0) % #SIGN_COLORS + 1]
+	local board = newPart(model, "StoreSign", Vector3.new(width, 2.6, 0.5), look, Enum.Material.SmoothPlastic, colors[1])
+	board.CanCollide = false
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 24
+	gui.LightInfluence = 0.4
+	gui.Parent = board
+	local text = Instance.new("TextLabel")
+	text.Size = UDim2.fromScale(1, 1)
+	text.BackgroundTransparency = 1
+	text.Text = string.upper(shapeData.name)
+	text.TextColor3 = colors[2]
+	text.Font = Enum.Font.GothamBlack
+	text.TextScaled = true
+	text.Parent = gui
+	model:SetAttribute("StoreName", shapeData.name)
+end
+
 local function buildFootprintBuilding(parent, building, shapeData)
 	local style = BUILDING_STYLES[shapeData.style] or BUILDING_STYLES.generic
 	local seed = tonumber(building.id) or 1
@@ -1689,6 +1830,8 @@ local function buildFootprintBuilding(parent, building, shapeData)
 		roofColor = measured
 	end
 	local built = 0
+	local signRect
+	local builtRects = {}
 	for _, rect in ipairs(shapeData.r) do
 		local x, z = sourceToStuds(rect[1], rect[2])
 		local along, across = math.max(rect[3] * S, 1), math.max(rect[4] * S, 1)
@@ -1708,6 +1851,10 @@ local function buildFootprintBuilding(parent, building, shapeData)
 			local floors = shapeData.floors or math.max(1, math.floor(shapeData.h / 3.2 + 0.5))
 			local storey = math.clamp(heightStuds / floors, 8, 13)
 			local groundKind = GROUND_FOR_STYLE[shapeData.style]
+			if shapeData.gs then
+				-- main-street block built to the sidewalk (tools/add_porches.py)
+				groundKind = "storefront"
+			end
 			local streetLevel = centreGround - 0.4
 			local groundTop = streetLevel + (groundKind == "storefront" and math.max(storey, 12) or storey)
 			if groundKind and wallTop - groundTop >= 4 and math.min(along, across) >= 10 then
@@ -1741,7 +1888,35 @@ local function buildFootprintBuilding(parent, building, shapeData)
 					CFrame.new(x, wallTop + 0.2, z) * yaw, Enum.Material.Concrete, measured)
 			end
 			built += 1
+			local area = along * across
+			local info = { x = x, z = z, along = along, across = across, area = area,
+				bandY = math.min(streetLevel + math.max(storey, 12) - 1.4, wallTop - 1.6),
+				streetLevel = streetLevel, porchTop = math.min(streetLevel + storey, wallTop - 1) }
+			table.insert(builtRects, info)
+			if not signRect or area > signRect.area then
+				signRect = info
+			end
 		end
+	end
+	if built > 0 and shapeData.sb and shapeData.name and signRect then
+		-- the sign goes on the block that reaches furthest toward the street front
+		local rad = math.rad(shapeData.sb)
+		local front = Vector3.new(math.sin(rad), 0, -math.cos(rad))
+		local best, bestScore = signRect, -math.huge
+		for _, r in ipairs(builtRects) do
+			local frame = CFrame.new(r.x, 0, r.z) * yaw
+			local n = faceToward(frame, shapeData.sb)
+			local extent = (n.X ~= 0) and r.along / 2 or r.across / 2
+			local span = (n.X ~= 0) and r.across or r.along
+			local score = Vector3.new(r.x, 0, r.z):Dot(front) + extent
+			if span >= 8 and score > bestScore + 0.5 then
+				best, bestScore = r, score
+			end
+		end
+		buildStoreSign(model, shapeData, best, yaw)
+	end
+	if built > 0 and shapeData.pb and shapeData.pd and signRect then
+		buildPorch(model, shapeData, signRect, yaw)
 	end
 	if built > 0 then
 		model.Parent = parent

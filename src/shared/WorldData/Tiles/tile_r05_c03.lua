@@ -463,7 +463,7 @@ return {
         {name="Bethel",x1=3757.99,z1=5965.676,x2=3747.281,z2=5971.555,width_m=10,road_class="tertiary",bridge=false,tunnel=false,layer=0,grade_group="county:14186:g0",source="county"},
         {name="Road",x1=3712.921,z1=5941.518,x2=3686.159,z2=5930.543,width_m=4.58,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580091975:g0",source="osm"},
         {name="Road",x1=3686.159,z1=5930.543,x2=3683.777,z2=5883.22,width_m=4.58,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580091975:g0",source="osm"},
-        {name="Road",x1=3683.777,z1=5883.22,x2=3648.244,z2=5874.709,width_m=4.58,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580091975:g0",source="osm"},
+        {name="Road",x1=3683.777,z1=5883.22,x2=3648.244,z2=5874.709,width_m=4.187,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580091975:g0",source="osm"},
         {name="Road",x1=3648.244,z1=5874.709,x2=3599.876,z2=5871.273,width_m=4.58,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580091975:g0",source="osm"},
         {name="Road",x1=3599.876,z1=5871.273,x2=3546.131,z2=5875.608,width_m=4.58,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580091975:g0",source="osm"},
         {name="Road",x1=3546.131,z1=5875.608,x2=3556.431,z2=6000,width_m=4.58,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580091975:g0",source="osm"},

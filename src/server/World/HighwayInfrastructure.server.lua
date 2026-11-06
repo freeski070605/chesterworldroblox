@@ -69,7 +69,9 @@ for _, tile in ipairs(world:GetChildren()) do
     local roads=tile:FindFirstChild("Roads")
     if roads then
         for _, part in ipairs(roads:GetDescendants()) do
-            if part:IsA("BasePart") then
+            -- steel rail strips (TileBuilderV2 buildRailTrack) are decoration on
+            -- the ballast bed, not roads: keep them out of the structure audit
+            if part:IsA("BasePart") and not (part.Name=="Rail" and part:GetAttribute("CW_Rail")) then
                 local level=tonumber(part:GetAttribute("CW_GradeLevel")) or 0
                 if part:GetAttribute("CW_HighwayProfiled") == true then
                     -- Generator-owned highway pavement (HighwayProfile). It is
@@ -274,7 +276,16 @@ local BARRIER_HEIGHT=Config.HIGHWAY_BARRIER_HEIGHT_STUDS or RAIL_HEIGHT
 local BARRIER_MIN_FILL=Config.HIGHWAY_BARRIER_MIN_FILL_STUDS or 4
 local PIER_SPACING=Config.HIGHWAY_PIER_MAX_SPACING_STUDS or 95
 local OVERPASS_FENCE_HEIGHT=Config.HIGHWAY_OVERPASS_FENCE_HEIGHT_STUDS or 7
-local hw={decks=0,girders=0,barriers=0,abutments=0,piers=0,fills=0,fences=0,
+local RETAINING_WALL_BASES={["registry:KERLIN_I95"]=true}
+local STEEL_GIRDER_BASES={["registry:I95_OVER_BULLENS"]=true,["registry:I95_OVER_COMM_BARRY_RAMP"]=true}
+local LOCAL_OVERPASS_BASES={
+    ["registry:BULLENS_OVER_I476"]=true, ["registry:EDGMONT_OVER_I95"]=true,
+    ["registry:MADISON_OVER_I95"]=true, ["registry:UPLAND_OVER_I95"]=true,
+    ["registry:POTTER_OVER_I95"]=true, ["registry:CHESTNUT_OVER_I95"]=true,
+    ["registry:MELROSE_OVER_I95"]=true, ["registry:HIGHLAND_OVER_I95"]=true,
+    ["registry:ENGLE_OVER_I95"]=true, ["registry:CROSBY_FOOTBRIDGE_OVER_I95"]=true,
+}
+local hw={decks=0,girders=0,barriers=0,abutments=0,piers=0,fills=0,fences=0,retainingWalls=0,
     spans=0,spanPieces=0,fillPieces=0,gradePieces=0}
 
 local function minTerrainUnder(part,lateral)
@@ -343,6 +354,12 @@ for index,road in ipairs(profiled) do
                     -road.Size.Y/2-DECK_THICKNESS-1.3+0.6,0),
                 STRUCT_COLOR,false)
             girder:SetAttribute("CW_StructureId",id)
+            if STEEL_GIRDER_BASES[attrs.CW_StructureBasis] then
+                -- weathered steel plate girders in the Street View captures
+                girder.Material=Enum.Material.CorrodedMetal
+                girder.Color=Color3.fromRGB(122,78,56)
+                girder.Size=Vector3.new(0.9,3.4,length)
+            end
             hw.girders+=1
         end
         for key,value in pairs(attrs) do deck:SetAttribute(key,value) end
@@ -351,8 +368,10 @@ for index,road in ipairs(profiled) do
         -- parapet (KartaView 2017-2022 + Google Street View 2024-2026 at every
         -- *_OVER_I95 / BULLENS_OVER_I476 entry: Data\HighwayReference\imagery).
         local basis=attrs.CW_StructureBasis
-        if OVERPASS_FENCE_HEIGHT>0 and (string.match(basis,"^registry:.+_OVER_I95$")
-            or string.match(basis,"^registry:.+_OVER_I476$")) then
+        -- Only local streets: highway flyovers (N476_FLYOVER_OVER_I95 ...) carry
+        -- Jersey barriers, not fencing (audit 2026-11-06). The city-street
+        -- overpasses over I-95 are road-tile bridges, fenced in the finish pass.
+        if OVERPASS_FENCE_HEIGHT>0 and LOCAL_OVERPASS_BASES[basis] then
             for _,side in ipairs({-1,1}) do
                 local fence=partAt(hwFolder,"HighwayOverpassFence",
                     Vector3.new(0.2,OVERPASS_FENCE_HEIGHT,road.Size.Z),
@@ -505,6 +524,29 @@ for id,entry in pairs(structures) do
         wall:SetAttribute("CW_StructureId",id)
         wall:SetAttribute("CW_StructureBasis",entry.basis)
         hw.abutments+=1
+        if RETAINING_WALL_BASES[entry.basis] then
+            -- long concrete retaining walls continue along the street below
+            -- (Kerlin St approaches, Street View 2025): stepped wing walls
+            local along=CFrame.lookAt(c,c+flat).RightVector
+            for _,side in ipairs({-1,1}) do
+                for k,frac in ipairs({1.0,0.75,0.5}) do
+                    local seg=24
+                    local centre=c+along*side*((piece.Size.X+2.0)/2+seg*(k-0.5))
+                    local g=terrainY(centre.X,centre.Z)
+                    if g then
+                        local wTop=ground+(top-ground)*frac
+                        local h=wTop-(g-1.5)
+                        if h>2 then
+                            local wing=partAt(hwFolder,"HighwayRetainingWall",Vector3.new(seg,h,2.4),
+                                CFrame.lookAt(Vector3.new(centre.X,wTop-h/2,centre.Z),
+                                    Vector3.new(centre.X,wTop-h/2,centre.Z)+flat),STRUCT_COLOR,true)
+                            wing:SetAttribute("CW_StructureBasis",entry.basis)
+                            hw.retainingWalls+=1
+                        end
+                    end
+                end
+            end
+        end
     end
     local function farEnd(piece,fromPiece)
         local a,b=endpoints(piece)
@@ -757,6 +799,116 @@ for _,road in ipairs(lower) do
         end
     end
 end
+
+-- Buildings under elevated freeway spans (Commodore Barry approach viaduct
+-- etc.) may not poke through the deck (audit 2026-11-06: 33 buildings). A
+-- block with headroom under the deck is cut down to just below it; one
+-- without headroom (the deck runs through its lower storeys) is removed.
+local underDeckTrimmed,underDeckRemoved=0,0
+do
+    local MIN_HEADROOM=9
+    local params=OverlapParams.new()
+    params.FilterType=Enum.RaycastFilterType.Include
+    params.FilterDescendantsInstances=buildingFolders
+    local probe=Instance.new("Part")
+    probe.Anchored=true
+    probe.CanCollide=false
+    probe.CanQuery=false
+    probe.CanTouch=false
+    probe.Transparency=1
+    probe.Parent=Workspace
+    for i,span in ipairs(profiled) do
+        if span:GetAttribute("CW_HighwayStructure")=="span" and span.Parent then
+            local underside=span.Position.Y-span.Size.Y/2-DECK_THICKNESS-0.5
+            probe.Size=Vector3.new(span.Size.X+1,60,span.Size.Z)
+            probe.CFrame=CFrame.new(span.Position.X,underside+30,span.Position.Z)*span.CFrame.Rotation
+            for _,p in ipairs(Workspace:GetPartsInPart(probe,params)) do
+                if p.Parent and p:IsA("BasePart") then
+                    local bottom=p.Position.Y-p.Size.Y/2
+                    local top=p.Position.Y+p.Size.Y/2
+                    if top>underside then
+                        local isWall=p.Name=="Walls" or p.Name=="GroundStorey" or p.Name=="Foundation"
+                        if isWall and underside-bottom>=MIN_HEADROOM then
+                            local newTop=underside-1
+                            p.Size=Vector3.new(p.Size.X,newTop-bottom,p.Size.Z)
+                            p.CFrame=p.CFrame+Vector3.new(0,(newTop+bottom)/2-p.Position.Y,0)
+                            underDeckTrimmed+=1
+                        else
+                            p:Destroy()
+                            underDeckRemoved+=1
+                        end
+                    end
+                end
+            end
+        end
+        if i%60==0 then task.wait() end
+    end
+    probe:Destroy()
+end
+print(("[ChesterWorld UnderDeckBuildings] trimmed=%d removed=%d"):format(underDeckTrimmed,underDeckRemoved))
+
+-- City streets over I-95 / I-476 (Edgmont, Madison, Upland, Potter, Chestnut,
+-- Melrose, Highland, Engle ...) are road-tile bridges, not highway spans. Every
+-- one carries a concrete parapet topped by tall chain-link fencing in the
+-- 2024-2026 Street View captures (Data\HighwayReference\imagery\google,
+-- STRUCTURE_REVIEW_2026-11-05.md). Fence each street piece that crosses over
+-- profiled freeway pavement.
+local overFreewayFences,overFreewayPieces=0,0
+do
+    local candidates={}
+    for _,part in ipairs(bridge) do table.insert(candidates,part) end
+    for _,part in ipairs(lower) do
+        if part:GetAttribute("CW_RegistryOverpassDeck")==true then table.insert(candidates,part) end
+    end
+    local fenceFolder=Instance.new("Folder")
+    fenceFolder.Name="OverpassFencing"
+    fenceFolder.Parent=folder
+    local fenced={}
+    for i,upper in ipairs(candidates) do
+        if not fenced[upper] and upper:GetAttribute("CW_HighwayProfiled")~=true
+            and upper:GetAttribute("CW_Rail")~=true then
+            local a,b=endpoints(upper)
+            for _,groundRoad in ipairs(lowerNearby(a,b)) do
+                if groundRoad~=upper and groundRoad:GetAttribute("CW_HighwayProfiled")==true then
+                    local c,d=endpoints(groundRoad)
+                    local t,u=lineIntersection(a,b,c,d)
+                    if t then
+                        local clearance=(a.Y+(b.Y-a.Y)*t)-(c.Y+(d.Y-c.Y)*u)
+                        if clearance>10 then
+                            fenced[upper]=true
+                            break
+                        end
+                    end
+                end
+            end
+            if fenced[upper] then
+                overFreewayPieces+=1
+                local length,width=upper.Size.Z,upper.Size.X
+                local hasParapet=upper:GetAttribute("CW_BridgeProfiled")==true
+                    and upper:GetAttribute("CW_GradeLimited")~=true
+                for _,side in ipairs({-1,1}) do
+                    if not hasParapet then
+                        partAt(fenceFolder,"OverpassParapet",Vector3.new(0.8,RAIL_HEIGHT,length),
+                            upper.CFrame*CFrame.new(side*(width/2+0.3),upper.Size.Y/2+RAIL_HEIGHT/2,0),
+                            COLOR,true)
+                    end
+                    local fence=partAt(fenceFolder,"HighwayOverpassFence",
+                        Vector3.new(0.2,OVERPASS_FENCE_HEIGHT,length),
+                        upper.CFrame*CFrame.new(side*(width/2+0.3),
+                            upper.Size.Y/2+RAIL_HEIGHT+OVERPASS_FENCE_HEIGHT/2,0),
+                        Color3.fromRGB(122,128,126),true)
+                    fence.Material=Enum.Material.DiamondPlate
+                    fence.Transparency=0.6
+                    fence:SetAttribute("CW_SourceRoad",upper.Name)
+                    fence:SetAttribute("CW_Evidence","Google Street View 2024-2026 (HighwayReference/imagery/google)")
+                    overFreewayFences+=1
+                end
+            end
+        end
+        if i%40==0 then task.wait() end
+    end
+end
+print(("[ChesterWorld OverpassFencing] streetPiecesOverFreeway=%d fences=%d"):format(overFreewayPieces,overFreewayFences))
 
 Workspace:SetAttribute("CW_HighwayFinishComplete",true)
 Workspace:SetAttribute("CW_HighwayClearanceFailures",tooLow)

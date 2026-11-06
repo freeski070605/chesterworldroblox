@@ -95,7 +95,6 @@ return {
         {name="Road",x1=9183.583,z1=10006.864,x2=9192.745,z2=10013.768,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:1431075078:g0",source="osm"},
         {name="Road",x1=9192.745,z1=10013.768,x2=9200.771,z2=10019.802,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:1431075078:g0",source="osm"},
         {name="Road",x1=9200.771,z1=10019.802,x2=9209.666,z2=10026.46,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:1431075078:g0",source="osm"},
-        {name="Road",x1=9209.666,z1=10026.46,x2=9218.182,z2=10011.418,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:1431075078:g0",source="osm"},
         {name="Road",x1=9218.182,z1=10011.418,x2=9216.233,z2=10004.761,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:1431075078:g0",source="osm"},
         {name="Bullens",x1=9255.063,z1=10010.234,x2=9202.171,z2=10059.241,width_m=13.6,road_class="tertiary",bridge=false,tunnel=false,layer=0,grade_group="county:18220:g0",source="county"},
         {name="Macdade",x1=9345.363,z1=10103.731,x2=9255.063,z2=10010.234,width_m=13.6,road_class="tertiary",bridge=false,tunnel=false,layer=0,grade_group="county:25788:g0",source="county"},

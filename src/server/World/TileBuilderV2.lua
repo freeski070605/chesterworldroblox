@@ -769,6 +769,35 @@ function TileBuilderV2.Prepare(tileModules)
 			end
 		end
 	end
+	-- Bridge approaches: same-name records joining a bridge-tagged record at a
+	-- shared vertex, and the record after that (two deep).
+	do
+		local function vk(x, z) return math.floor(x * 2 + 0.5) .. ":" .. math.floor(z * 2 + 0.5) end
+		local frontier = {}
+		for _, entry in ipairs(entries) do
+			local road = entry.road
+			if truthy(road.bridge) then
+				local name = tostring(road.name or "")
+				frontier[name .. "|" .. vk(road.x1, road.z1)] = true
+				frontier[name .. "|" .. vk(road.x2, road.z2)] = true
+			end
+		end
+		for _ = 1, 2 do
+			local nextFrontier = {}
+			for _, entry in ipairs(entries) do
+				local road = entry.road
+				if not truthy(road.bridge) and not road.__bridgeApproach then
+					local name = tostring(road.name or "")
+					local k1, k2 = name .. "|" .. vk(road.x1, road.z1), name .. "|" .. vk(road.x2, road.z2)
+					if frontier[k1] or frontier[k2] then
+						road.__bridgeApproach = true
+						nextFrontier[frontier[k1] and k2 or k1] = true
+					end
+				end
+			end
+			frontier = nextFrontier
+		end
+	end
 	for index, entry in ipairs(entries) do
 		local road = entry.road
 		-- level crossings are not street junctions: no asphalt pad or zebra
@@ -864,11 +893,27 @@ local function buildAdaptiveCenterStrip(parent, name, x1, z1, x2, z2, width, thi
 	depth = depth or 0
 	gradeOffset = gradeOffset or 0
 	local allowSteepHighway = WorldConfig.RECOVER_STEEP_HIGHWAY_PAVEMENT == true and isHighwayCorridor(attributes)
+	-- the approach of a creek / ravine bridge climbs the valley side on the
+	-- bare-earth DEM; RoadTerrainConformer lifts it onto the bridge line, so
+	-- it must exist (omitting it left gaps at Chestnut / Brookhaven)
+	if type(attributes) == "table" and attributes.CW_BridgeApproach then
+		allowSteepHighway = true
+	end
 	local a, b, grade = groundPair(x1, z1, x2, z2, surfaceOffset, gradeOffset)
 	if not a or not b then
 		if parent.Name == "Roads" and math.abs(x2 - x1) + math.abs(z2 - z1) > 0.1 then
 			omissions.noTerrainPieces += 1
 			noteOmission("no-terrain", (x1 + x2) / 2, (z1 + z2) / 2, " " .. tostring(name))
+		end
+		return
+	end
+	-- bridge approach: one straight piece between its two ends (no splitting
+	-- along the valley side, which made saw-teeth once some slivers were
+	-- lifted onto the bridge line and others were not)
+	if type(attributes) == "table" and attributes.CW_BridgeApproach then
+		local part = makeStripPart(parent, name, a, b, width, thickness, material, color)
+		if part then
+			for key, value in pairs(attributes) do part:SetAttribute(key, value) end
 		end
 		return
 	end
@@ -930,6 +975,8 @@ local function roadAttributes(road, roadWidth)
 		CW_GradeSeparated = level ~= 0 or bridge or tunnel,
 		CW_GradeGroup = tostring(road.grade_group or ""),
 		CW_GradeClearanceStuds = math.max(level, 0) * WorldConfig.GRADE_SEPARATION_CLEARANCE_STUDS,
+		-- same-street record joining a bridge (see markBridgeApproaches)
+		CW_BridgeApproach = road.__bridgeApproach == true or nil,
 	}
 end
 
@@ -1092,6 +1139,19 @@ local function buildProfiledHighway(roadsFolder, markingsFolder, road, info)
 	local ax, az = sourceToStuds(road.x1, road.z1)
 	local bx, bz = sourceToStuds(road.x2, road.z2)
 	local full = math.sqrt((bx - ax) ^ 2 + (bz - az) ^ 2)
+	-- An end standing well above the ground (a viaduct over a street that the
+	-- county joins to it at a shared vertex: the Barry approach over Delaware
+	-- Ave / Flower St left 39-stud holes) is not cut back for that street's
+	-- junction pad: the street passes underneath.
+	if full >= 0.05 then
+		for index, f in ipairs({ 0, 1 }) do
+			local g, t = HighwayProfile.GradeAt(info, f), HighwayProfile.TerrainAt(info, f)
+			if g and t and g - t > 6 then
+				local p = Vector3.new(index == 1 and ax or bx, 0, index == 1 and az or bz)
+				if index == 1 then a2D = p else b2D = p end
+			end
+		end
+	end
 	if not a2D or not b2D or full < 0.05 then
 		omissions.trimConsumed += 1
 		omissions.trimConsumedHighway += 1

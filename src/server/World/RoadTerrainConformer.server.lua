@@ -477,6 +477,50 @@ local function conformComponent(parts, groupKey)
             end
         end
     end
+    -- No road or track passes under this deck: it is a creek / ravine
+    -- crossing (Chester Creek at 2nd, 7th, 9th and Bridgewater; Brookhaven,
+    -- Chestnut, Morton - DVRPC 2025 aerial, crossing_aerial.py st_*). Those
+    -- are level street bridges straight across the valley between the two
+    -- banks; the clearance lift and bank-terrain requirements only gave them
+    -- humps of 17-37 % grade. Deck = straight chord between the bank ends.
+    local waterCrossing = #crossings == 0
+    if waterCrossing then
+        nominalClearance, startLift, endLift, targetLift = 0, 0, 0, 0
+        stats.waterCrossings = (stats.waterCrossings or 0) + 1
+        -- The county bridge segment often lies in the valley floor (Chestnut:
+        -- banks 27-30, floor 6; Brookhaven: banks 43, floor 30) and the real
+        -- bridge spans the ravine at bank height. Scan the ground outward
+        -- from each end to the top of the valley side and hang the deck chord
+        -- between the two bank tops.
+        local function bankTop(point, outward)
+            local ys = {}
+            for i = 0, 40 do
+                local p = point + outward * (i * 6)
+                ys[i] = terrainY(p.X, p.Z)
+                if not ys[i] then break end
+            end
+            local y0 = ys[0]
+            if not y0 then return nil end
+            for i = 5, #ys do
+                if ys[i] and ys[i - 5] and ys[i] > y0 + 3 and ys[i] - ys[i - 5] < 1.5 then
+                    return ys[i]
+                end
+            end
+            return nil
+        end
+        local bankA = bankTop(lowPoint, -direction)
+        local bankB = bankTop(highPoint, direction)
+        -- a ravine has a bank on BOTH sides and a near-level deck between
+        -- them; a one-sided rise is a hillside street (Bridgewater), not a bank
+        local spanLen = math.max(high - low, 1)
+        if bankA and bankB and (bankA > startGround + 3 or bankB > endGround + 3)
+            and math.abs(math.max(bankA, startGround) - math.max(bankB, endGround)) / spanLen <= 0.08 then
+            if bankA > startGround then startGround = bankA end
+            if bankB > endGround then endGround = bankB end
+            stats.bankRaised = (stats.bankRaised or 0) + 1
+        end
+    end
+
     -- The previous solver checked the HIGH point only, yet some decks were
     -- still embedded on their sloping quarters. Record actual requirements
     -- at each bridge station and solve for the lifted envelope at THAT t.
@@ -484,7 +528,7 @@ local function conformComponent(parts, groupKey)
     -- inside the span to avoid incorrectly requiring an elevated terminal.
     local terrainRequirements = {}
     local deckDepth = Config.HIGHWAY_DECK_THICKNESS_STUDS or 1.6
-    for _, rec in ipairs(records) do
+    for _, rec in ipairs(waterCrossing and {} or records) do
         for _, fractionAlong in ipairs({0.15, 0.35, 0.5, 0.65, 0.85}) do
             local point = rec.a:Lerp(rec.b, fractionAlong)
             local gy = terrainY(point.X, point.Z)
@@ -1118,7 +1162,19 @@ if #overpassDecks > 0 then
     end
     for _, part in ipairs(allRoads) do
         local decks = overpassByName[normalizedRoadName(attr(part, "ChesterStreet"))]
-        if decks and part:GetAttribute("CW_HighwayProfiled") ~= true then
+        -- only near the structure: a same-named street elsewhere in the city
+        -- (Chestnut in Upland, 7000 studs from Chestnut St over I-95) is not
+        -- part of this overpass
+        local nearStructure = false
+        if decks then
+            for _, deck in ipairs(decks) do
+                if math.abs(part.Position.X - deck.x) < 600 and math.abs(part.Position.Z - deck.z) < 600 then
+                    nearStructure = true
+                    break
+                end
+            end
+        end
+        if nearStructure and part:GetAttribute("CW_HighwayProfiled") ~= true then
             local a, b = endpoints(part)
             local half = part.Size.Y / 2
             local ya = math.max(a.Y, overpassSurface(decks, a) + half)
@@ -1198,6 +1254,88 @@ if #overpassDecks > 0 then
                 overpassMarks += 1
             end
         end
+    end
+    -- Streets that join a raised overpass street at its deck end (Bethel Rd
+    -- at the north end of the Engle St bridge: a 9.5-stud step, audit
+    -- 2026-11-06) are lifted to meet it and eased back down along their own
+    -- pieces at MAX_GRADE. Only raises; never touches freeway or rail.
+    do
+        local GRID = 8
+        local endGrid = {}
+        local raisedSet = {}
+        for _, parts in pairs(raisedByGroup) do
+            for _, road in ipairs(parts) do raisedSet[road] = true end
+        end
+        local function gk(x, z) return math.floor(x / GRID) .. ":" .. math.floor(z / GRID) end
+        for _, road in ipairs(allRoads) do
+            if not raisedSet[road] and road:GetAttribute("CW_HighwayProfiled") ~= true
+                and road:GetAttribute("CW_Rail") ~= true and road.Name ~= "Rail" then
+                local a, b = endpoints(road)
+                for i, p in ipairs({ a, b }) do
+                    local k = gk(p.X, p.Z)
+                    endGrid[k] = endGrid[k] or {}
+                    table.insert(endGrid[k], { road = road, index = i })
+                end
+            end
+        end
+        local function near(p, radius)
+            local out = {}
+            local gx, gz = math.floor(p.X / GRID), math.floor(p.Z / GRID)
+            for ix = gx - 1, gx + 1 do
+                for iz = gz - 1, gz + 1 do
+                    for _, e in ipairs(endGrid[ix .. ":" .. iz] or {}) do
+                        local a, b = endpoints(e.road)
+                        local q = e.index == 1 and a or b
+                        if hdist(p, q) <= radius then table.insert(out, e) end
+                    end
+                end
+            end
+            return out
+        end
+        local followed = 0
+        local queue = {}
+        for road in pairs(raisedSet) do
+            local a, b = endpoints(road)
+            for _, p in ipairs({ a, b }) do
+                for _, e in ipairs(near(p, 4)) do
+                    -- a street sharing the vertex but passing UNDER sits at
+                    -- least a clearance below: only small steps are joins
+                    local ea, eb = endpoints(e.road)
+                    local q = e.index == 1 and ea or eb
+                    if p.Y - q.Y < 12 then
+                        table.insert(queue, { road = e.road, index = e.index, y = p.Y })
+                    end
+                end
+            end
+        end
+        local guard = 0
+        while #queue > 0 and guard < 4000 do
+            guard += 1
+            local item = table.remove(queue, 1)
+            local a, b = endpoints(item.road)
+            local here = item.index == 1 and a or b
+            local there = item.index == 1 and b or a
+            if item.y > here.Y + 0.5 then
+                local need = item.y - MAX_GRADE * hdist(here, there)
+                local newHere = Vector3.new(here.X, item.y, here.Z)
+                local newThere = Vector3.new(there.X, math.max(there.Y, need), there.Z)
+                local na, nb = newHere, newThere
+                if item.index == 2 then na, nb = newThere, newHere end
+                if setEndpoints(item.road, na, nb) then
+                    item.road:SetAttribute("CW_ElevationOwner", "RoadTerrainConformer:OverpassFollower")
+                    followed += 1
+                    if newThere.Y > there.Y + 0.5 then
+                        -- keep easing down the next piece of that street
+                        for _, e in ipairs(near(there, 3)) do
+                            if e.road ~= item.road then
+                                table.insert(queue, { road = e.road, index = e.index, y = newThere.Y })
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        print(("[ChesterWorld RegistryOverpass] junctionFollowers=%d"):format(followed))
     end
     -- sidewalks beside a raised piece were left down in the highway cut
     -- (Edgmont Ave / Providence under the deck): lift them alongside it, or
@@ -1367,6 +1505,7 @@ Workspace:SetAttribute("CW_RoadConformedCount", conformed)
 Workspace:SetAttribute("CW_RoadConformComplete", true)
 
 print(("[ChesterWorld RoadTerrainConformer] highwayProfiledPartsLeftToHighwayProfile=%d"):format(highwayProfiledParts))
+print(("[ChesterWorld RoadTerrainConformer] waterCrossings=%d bankRaisedEnds=%d"):format(stats.waterCrossings or 0, stats.bankRaised or 0))
 print(("[ChesterWorld RoadTerrainConformer] final=%d groundPreserved=%d bridgeConformed=%d conformed=%d noTerrain=%d failed=%d bridgeGroups=%d sourceBridgeGroups=%d bridgeComponents=%d bridgeParts=%d tunnelParts=%d rampParts=%d rampGroups=%d marked=%d crossingChecks=%d clearanceWarnings=%d terrainClearanceWarnings=%d terrainEndpointEstimates=%d steepGroups=%d gradeLimitedGroups=%d gradeLimitedParts=%d actualSteepParts=%d baselineSteepGroups=%d smoothDecks=true")
     :format(#allRoads, #atGrade-stats.rampParts, stats.bridgeConformed,
     conformed, stats.bridgeNoTerrain, stats.failed, stats.groups,

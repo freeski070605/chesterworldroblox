@@ -40,10 +40,33 @@ local function build(model)
  local function make(name,size,x,y,z,color,mat)
   return part(folder,name,size,base*CFrame.new(x,y,z),color,mat)
  end
- make("Floor",Vector3.new(26,0.5,22),0,0,0,Color3.fromRGB(110,110,110),Enum.Material.Concrete)
- make("BackWall",Vector3.new(26,12,0.7),0,6,11,Color3.fromRGB(198,190,175))
- for _,x in ipairs({-13,13}) do make("SideWall",Vector3.new(0.7,12,22),x,6,0,Color3.fromRGB(198,190,175)) end
- make("Roof",Vector3.new(26,0.7,22),0,12,0,Color3.fromRGB(50,54,60))
+ -- brand colours from the station (GasStationBuilder: BrandFascia / BrandAccent);
+ -- the lit brand board over the front is the station's own Exit6StoreFascia
+ local brandName=model:GetAttribute("BrandName") or model.Name
+ local fascia=model:GetAttribute("BrandFascia") or Color3.fromRGB(50,54,60)
+ local accent=model:GetAttribute("BrandAccent") or Color3.fromRGB(200,60,40)
+ local WALL=Color3.fromRGB(232,228,220)
+ make("Floor",Vector3.new(26,0.5,22),0,0,0,Color3.fromRGB(196,198,200),Enum.Material.Marble)
+ make("BackWall",Vector3.new(26,12,0.7),0,6,11,WALL,Enum.Material.Brick)
+ for _,x in ipairs({-13,13}) do make("SideWall",Vector3.new(0.7,12,22),x,6,0,WALL,Enum.Material.Brick) end
+ -- brand stripe along the base of the walls and a coloured roof edge
+ make("BaseStripe",Vector3.new(26.4,1.2,0.3),0,1.1,11.4,accent)
+ for _,x in ipairs({-13.4,13.4}) do make("BaseStripe",Vector3.new(0.3,1.2,22.4),x,1.1,0,accent) end
+ make("Roof",Vector3.new(26.6,0.7,22.6),0,12,0,Color3.fromRGB(60,62,66))
+ make("RoofEdge",Vector3.new(26.8,1.2,0.4),0,12,11.3,fascia)
+ for _,x in ipairs({-13.4,13.4}) do make("RoofEdge",Vector3.new(0.4,1.2,22.8),x,12,0,fascia) end
+ -- glass shopfront with a door opening in the middle
+ for _,x in ipairs({-8,8}) do
+  local g=make("Shopfront",Vector3.new(10,8.6,0.3),x,4.6,-11,Color3.fromRGB(150,190,210),Enum.Material.Glass)
+  g.Transparency=0.35
+  g.Reflectance=0.15
+  make("Mullion",Vector3.new(0.4,8.6,0.5),x+(x<0 and 5 or -5),4.6,-11,fascia,Enum.Material.Metal)
+ end
+ make("Header",Vector3.new(26,1.4,0.6),0,11.1,-11,fascia)
+ make("AccentStripe",Vector3.new(26,0.6,0.7),0,10.1,-11,accent)
+ make("Transom",Vector3.new(26,0.9,0.5),0,9.35,-11,WALL,Enum.Material.Brick)
+ local mat=make("DoorMat",Vector3.new(5,0.1,3),0,0.3,-12.5,Color3.fromRGB(40,40,44),Enum.Material.Fabric)
+ mat.CanCollide=false
  make("Counter",Vector3.new(10,3.2,3),-5,1.8,5,Color3.fromRGB(76,55,40),Enum.Material.Wood)
  for _,x in ipairs({2,8}) do
   make("MerchandiseShelf",Vector3.new(3,5,9),x,2.75,-1,Color3.fromRGB(55,62,70),Enum.Material.Metal)
@@ -54,7 +77,7 @@ local function build(model)
  local cooler=make("DrinkCooler",Vector3.new(6,7,2),-8,3.5,-9,Color3.fromRGB(43,76,92),Enum.Material.Glass)
  local register=make("CashRegister",Vector3.new(2,1,1.5),-5,4,5,Color3.fromRGB(35,35,40))
  local lastJob={}
- prompt(register,"Work shift (+$35)","Gas Station",function(player)
+ prompt(register,"Work shift (+$35)",brandName,function(player)
   local stats=player:FindFirstChild("leaderstats")
   local cash=stats and stats:FindFirstChild("Chester Cash")
   local rep=stats and stats:FindFirstChild("Reputation")
@@ -68,7 +91,7 @@ local function build(model)
   cash.Value+=35;rep.Value+=1
   notify(player,"Shift complete! +$35, +1 REP")
  end)
- prompt(cooler,"Buy drink ($5)","Corner Store",function(player)
+ prompt(cooler,"Buy drink ($5)",brandName.." Market",function(player)
   local stats=player:FindFirstChild("leaderstats")
   local cash=stats and stats:FindFirstChild("Chester Cash")
   if not cash or player:GetAttribute("Exit6DataReady")~=true then return end

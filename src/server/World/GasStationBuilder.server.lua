@@ -233,7 +233,7 @@ local function solidExcludes(model)
 	return list
 end
 local stores = 0
-local function placeStoreAnchor(model, st)
+local function placeStoreAnchor(model, st, fascia, accent, textColor)
 	local c = st.canopies[1]
 	if not c then return end
 	local b = c.box
@@ -272,6 +272,16 @@ local function placeStoreAnchor(model, st)
 				anchor.Transparency = 1
 				anchor.CanCollide = false
 				anchor.CanQuery = false
+				-- the store wears the station's brand (Exit6Storefronts reads these):
+				-- a lit fascia board over the open front with the same artwork as
+				-- the canopy and pylon
+				model:SetAttribute("BrandName", st.brand)
+				model:SetAttribute("BrandFascia", fascia)
+				model:SetAttribute("BrandAccent", accent)
+				model:SetAttribute("BrandText", textColor)
+				local board = part(model, "Exit6StoreFascia", Vector3.new(27.4, 3.6, 0.8),
+					spot * CFrame.new(0, 0.3 + 12 + 1.45, -11.2), Enum.Material.SmoothPlastic, fascia)
+				artPanel(board, st, { Enum.NormalId.Front }, fascia, accent, textColor, 16)
 				CollectionService:AddTag(model, "Exit6GasStation")
 				stores += 1
 				return
@@ -377,7 +387,7 @@ for _, st in ipairs(Stations) do
 	if #model:GetChildren() > 0 then
 		model.Parent = root
 		built += 1
-		placeStoreAnchor(model, st)
+		placeStoreAnchor(model, st, fascia, accent, textColor)
 	end
 end
 print(("[ChesterWorld GasStations] built=%d canopyBoxesReplaced=%d exit6Stores=%d parts=%d"):format(built, removed, stores, count))

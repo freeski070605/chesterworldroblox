@@ -1541,6 +1541,144 @@ function HighwayProfile.Prepare(entries, opts)
 		end
 	end
 
+	-- 7b. Merge / diverge gores. A ramp's county centreline runs inside the
+	-- mainline's lanes for a long way before the node it shares with it, but
+	-- the ramp was only matched to the mainline AT that node: along the gore
+	-- the two pavements sat 1-6 studs apart and stepped through each other
+	-- (audit 2026-11-06: 32 wrong-level overlaps on the Barry / I-95 ramps).
+	-- Where a ramp station lies inside a parallel mainline's pavement at
+	-- nearly its height, it takes the mainline's height; the change fades out
+	-- along the ramp at <= GORE_EASE grade.
+	if not game:GetService("Workspace"):GetAttribute("CW_DisableGore") then
+		local GORE_DY, CELL = 7, 60
+		local function isRampName(name)
+			local n = " " .. normName(name) .. " "
+			return string.find(n, " to ", 1, true) ~= nil or string.find(n, " from exit ", 1, true) ~= nil
+		end
+		local function stationName(stroke, k)
+			local s = (k - 1) * stroke.ds
+			for _, part in ipairs(stroke.parts) do
+				if s <= part.s1 + 1e-6 then return part.seg.road.name end
+			end
+			return stroke.parts[#stroke.parts].seg.road.name
+		end
+		-- mainline stations on a grid
+		local grid = {}
+		for _, stroke in ipairs(strokes) do
+			if stroke.G and stroke.xs and not isRampName(stroke.parts[1].seg.road.name) then
+				for k = 1, #stroke.G do
+					local x, z = stroke.xs[k], stroke.zs[k]
+					local _, _, dx, dz = positionAt(stroke, (k - 1) * stroke.ds)
+					local key = math.floor(x / CELL) .. ":" .. math.floor(z / CELL)
+					grid[key] = grid[key] or {}
+					table.insert(grid[key], { x = x, z = z, y = stroke.G[k], dx = dx, dz = dz,
+						half = stroke.width / 2, stroke = stroke })
+				end
+			end
+		end
+		local goreStations, goreRamps, goreMax = 0, 0, 0
+		for _, stroke in ipairs(strokes) do
+			if stroke.G and stroke.xs then
+				local count = #stroke.G
+				local target = table.create(count, false)
+				local any = false
+				for k = 1, count do
+					if isRampName(stationName(stroke, k)) then
+						local x, z = stroke.xs[k], stroke.zs[k]
+						local _, _, rdx, rdz = positionAt(stroke, (k - 1) * stroke.ds)
+						local best, bestD
+						for ix = math.floor(x / CELL) - 1, math.floor(x / CELL) + 1 do
+							for iz = math.floor(z / CELL) - 1, math.floor(z / CELL) + 1 do
+								for _, m in ipairs(grid[ix .. ":" .. iz] or {}) do
+									if m.stroke ~= stroke then
+										local d = math.sqrt((m.x - x) ^ 2 + (m.z - z) ^ 2)
+										if d < m.half + stroke.width / 2 - 2 and math.abs(m.dx * rdx + m.dz * rdz) > 0.8
+											and math.abs(m.y - stroke.G[k]) < GORE_DY and (not bestD or d < bestD) then
+											best, bestD = m, d
+										end
+									end
+								end
+							end
+						end
+						if best then
+							target[k] = best.y
+							any = true
+						end
+					end
+				end
+				if any then
+					-- fixed stations: the gore targets, and every node of the
+					-- stroke at its current height (joints with other strokes
+					-- stay closed). Everything else keeps its own profile,
+					-- clamped into the grade cones of the fixed stations: the
+					-- result never exceeds the stroke's grade limit except
+					-- where two fixed stations conflict.
+					local G = stroke.G
+					local ds = stroke.ds
+					local g = (stroke.grade or 0.05) * ds
+					local fixed = table.create(count, false)
+					local value = table.create(count, 0)
+					-- nodes first: their cones bound what a gore target may ask
+					-- for (a ramp matches the mainline only as far as its grade
+					-- allows between its junctions)
+					local nodeLo, nodeHi = table.create(count, -math.huge), table.create(count, math.huge)
+					for _, part in ipairs(stroke.parts) do
+						for _, s0 in ipairs({ part.s0 or 0, part.s1 }) do
+							local k = math.clamp(math.floor(s0 / ds + 0.5) + 1, 1, count)
+							if not target[k] then
+								fixed[k], value[k] = true, G[k]
+								nodeLo[k], nodeHi[k] = G[k], G[k]
+							end
+						end
+					end
+					for k = 2, count do
+						nodeLo[k] = math.max(nodeLo[k], nodeLo[k - 1] - g)
+						nodeHi[k] = math.min(nodeHi[k], nodeHi[k - 1] + g)
+					end
+					for k = count - 1, 1, -1 do
+						nodeLo[k] = math.max(nodeLo[k], nodeLo[k + 1] - g)
+						nodeHi[k] = math.min(nodeHi[k], nodeHi[k + 1] + g)
+					end
+					for k = 1, count do
+						if target[k] and not fixed[k] then
+							local v = target[k]
+							if nodeLo[k] <= nodeHi[k] then v = math.clamp(v, nodeLo[k], nodeHi[k]) end
+							fixed[k], value[k] = true, v
+						end
+					end
+					local lo, hi = table.create(count, -math.huge), table.create(count, math.huge)
+					for k = 1, count do
+						if fixed[k] then lo[k], hi[k] = value[k], value[k] end
+					end
+					for k = 2, count do
+						lo[k] = math.max(lo[k], lo[k - 1] - g)
+						hi[k] = math.min(hi[k], hi[k - 1] + g)
+					end
+					for k = count - 1, 1, -1 do
+						lo[k] = math.max(lo[k], lo[k + 1] - g)
+						hi[k] = math.min(hi[k], hi[k + 1] + g)
+					end
+					for k = 1, count do
+						local new
+						if fixed[k] then
+							new = value[k]
+						elseif lo[k] > hi[k] then
+							new = (lo[k] + hi[k]) / 2
+							stats.goreConflicts = (stats.goreConflicts or 0) + 1
+						else
+							new = math.clamp(G[k], lo[k], hi[k])
+						end
+						goreMax = math.max(goreMax, math.abs(new - G[k]))
+						G[k] = new
+						if target[k] then goreStations += 1 end
+					end
+					goreRamps += 1
+				end
+			end
+		end
+		stats.goreStations, stats.goreRamps, stats.goreMaxShift = goreStations, goreRamps, goreMax
+	end
+
 	-- 8. Classification of stations into grade / fill / span.
 	for _, stroke in ipairs(strokes) do
 		if stroke.G then
@@ -1806,14 +1944,15 @@ end
 
 function HighwayProfile.Summary()
 	return string.format(
-		"corridorSegments=%d strokes=%d samples=%d unprofilable=%d nodes=%d mixedNodes=%d vertexSplits=%d freewayCrossNodeSplits=%d crossingsHighwayOver=%d registry=%d atGrade=%d dem=%d layer=%d unresolved=%d notchFilledStations=%d maxNotchFill=%.1f cutStationsKept=%d bridgeTagsDropped=%d spikeCutStations=%d maxSpikeCut=%.1f spans=%d spanStations=%d fillStations=%d gradeStations=%d cutStations=%d worstCut=%.1f gradeViolations=%d worstGradePct=%.1f clearanceShort=%d pins=%d pinConflicts=%d",
+		"corridorSegments=%d strokes=%d samples=%d unprofilable=%d nodes=%d mixedNodes=%d vertexSplits=%d freewayCrossNodeSplits=%d crossingsHighwayOver=%d registry=%d atGrade=%d dem=%d layer=%d unresolved=%d notchFilledStations=%d maxNotchFill=%.1f cutStationsKept=%d bridgeTagsDropped=%d spikeCutStations=%d maxSpikeCut=%.1f spans=%d spanStations=%d fillStations=%d gradeStations=%d cutStations=%d worstCut=%.1f gradeViolations=%d worstGradePct=%.1f clearanceShort=%d pins=%d pinConflicts=%d goreRamps=%d goreStations=%d goreMaxShift=%.1f goreConflicts=%d",
 		stats.corridorSegments, stats.strokes, stats.samples, stats.unprofilable,
 		stats.nodes, stats.mixedNodes, stats.vertexSplits, stats.freewayCrossNodeSplits, stats.crossingsOver,
 		stats.crossingsRegistry, stats.crossingsAtGrade, stats.crossingsDem, stats.crossingsLayer, stats.crossingsUnresolved, stats.notchFilledStations,
 		stats.maxNotchFill, stats.cutStationsKept, stats.bridgeTagsDropped, stats.spikeCutStations, stats.maxSpikeCut, stats.spans,
 		stats.spanStations, stats.fillStations, stats.gradeStations, stats.cutStations,
 		stats.worstCut, stats.gradeViolations, stats.worstGrade * 100,
-		stats.clearanceShort, stats.pins, stats.pinConflicts)
+		stats.clearanceShort, stats.pins, stats.pinConflicts,
+		stats.goreRamps or 0, stats.goreStations or 0, stats.goreMaxShift or 0, stats.goreConflicts or 0)
 end
 
 return HighwayProfile

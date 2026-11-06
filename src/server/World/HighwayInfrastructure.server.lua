@@ -529,6 +529,9 @@ end
 print(("[ChesterWorld HighwayCuts] pieces=%d walls=%d deepest=%.1f at (%.1f, %.1f) cappedAt%d=%d")
     :format(cut.pieces,cut.walls,cut.deepest,cut.deepX,cut.deepZ,CUT_MAX_DEPTH,cut.capped))
 
+local spanParams=OverlapParams.new()
+spanParams.FilterType=Enum.RaycastFilterType.Include
+spanParams.FilterDescendantsInstances=profiled
 -- Abutments at the two ends of every span structure, and pier bents inside
 -- long spans. Ends are the pieces with the lowest / highest stroke station.
 for id,entry in pairs(structures) do
@@ -553,6 +556,16 @@ for id,entry in pairs(structures) do
         local outward=Vector3.new(p.X-other.X,0,p.Z-other.Z)
         outward=outward.Magnitude>0.01 and outward.Unit or flat
         local c=Vector3.new(p.X,top-height/2,p.Z)+outward*1.5
+        -- the deck carries on as ANOTHER structure here (a ramp's span ending
+        -- where it merges into the I-95 / I-476 bridge): no wall in mid-span
+        for _,q in ipairs(Workspace:GetPartBoundsInBox(CFrame.new(p.X,p.Y,p.Z)+outward*4,
+            Vector3.new(6,piece.Size.Y+4,6),spanParams)) do
+            if q~=piece and q:GetAttribute("CW_HighwayStructure")=="span"
+                and tostring(q:GetAttribute("CW_StructureId") or "")~=id then
+                hw.abutmentsMidSpan=(hw.abutmentsMidSpan or 0)+1
+                return
+            end
+        end
         if onRail(CFrame.lookAt(c,c+flat),Vector3.new(piece.Size.X+2.0,height,3.0)) then
             hw.abutmentsOnRail=(hw.abutmentsOnRail or 0)+1
             return
@@ -703,8 +716,8 @@ Workspace:SetAttribute("CW_HighwaySpans",hw.spans)
 print(("[ChesterWorld HighwayStructures] profiledParts=%d spans=%d spanPieces=%d fillPieces=%d gradePieces=%d decks=%d fascia=%d barriers=%d abutments=%d piers=%d fills=%d overpassFences=%d holes=%d padCoveredGaps=%d steps=%d worstStep=%.2f")
     :format(#profiled,hw.spans,hw.spanPieces,hw.fillPieces,hw.gradePieces,hw.decks,
     hw.girders,hw.barriers,hw.abutments,hw.piers,hw.fills,hw.fences,holes,coveredGaps,steps,worstStep))
-print(("[ChesterWorld HighwayStructures] railBeds=%d abutmentsOnRailSkipped=%d fillsOverRailAsDeck=%d")
-    :format(#railBeds,hw.abutmentsOnRail or 0,hw.fillsOverRail or 0))
+print(("[ChesterWorld HighwayStructures] railBeds=%d abutmentsOnRailSkipped=%d fillsOverRailAsDeck=%d abutmentsMidSpanSkipped=%d")
+    :format(#railBeds,hw.abutmentsOnRail or 0,hw.fillsOverRail or 0,hw.abutmentsMidSpan or 0))
 for _,line in ipairs(holeList) do
     warn("[ChesterWorld HighwayHole] "..line)
 end
@@ -845,7 +858,7 @@ end
 -- etc.) may not poke through the deck (audit 2026-11-06: 33 buildings). A
 -- block with headroom under the deck is cut down to just below it; one
 -- without headroom (the deck runs through its lower storeys) is removed.
-local underDeckTrimmed,underDeckRemoved=0,0
+local underDeckTrimmed,underDeckRemoved,laneBuildingsRemoved=0,0,0
 do
     local MIN_HEADROOM=9
     local params=OverlapParams.new()
@@ -884,9 +897,36 @@ do
         end
         if i%60==0 then task.wait() end
     end
+    -- Grade / fill freeway pavement: a county footprint standing in the
+    -- travel lanes (I-95 by Widener, the Barry approach by Engle / Central;
+    -- audit 2026-11-06: 17 buildings) yields to the highway - the whole
+    -- building model goes, not just the part that touches.
+    for i,road in ipairs(profiled) do
+        if road:GetAttribute("CW_HighwayStructure")~="span" and road.Parent then
+            local top=road.Position.Y+road.Size.Y/2
+            probe.Size=Vector3.new(road.Size.X*0.85,18,road.Size.Z)
+            probe.CFrame=road.CFrame*CFrame.new(0,road.Size.Y/2+9.5,0)
+            for _,p in ipairs(Workspace:GetPartsInPart(probe,params)) do
+                if p.Parent and (p.Position.Y+p.Size.Y/2)>top+1 then
+                    local model=p
+                    for _,folder in ipairs(buildingFolders) do
+                        if p:IsDescendantOf(folder) then
+                            while model.Parent and model.Parent~=folder do model=model.Parent end
+                            break
+                        end
+                    end
+                    if model.Parent then
+                        model:Destroy()
+                        laneBuildingsRemoved+=1
+                    end
+                end
+            end
+            if i%80==0 then task.wait() end
+        end
+    end
     probe:Destroy()
 end
-print(("[ChesterWorld UnderDeckBuildings] trimmed=%d removed=%d"):format(underDeckTrimmed,underDeckRemoved))
+print(("[ChesterWorld UnderDeckBuildings] trimmed=%d removed=%d laneBuildingsRemoved=%d"):format(underDeckTrimmed,underDeckRemoved,laneBuildingsRemoved))
 
 -- City streets over I-95 / I-476 (Edgmont, Madison, Upland, Potter, Chestnut,
 -- Melrose, Highland, Engle ...) are road-tile bridges, not highway spans. Every

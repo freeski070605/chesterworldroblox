@@ -347,10 +347,12 @@ for index,road in ipairs(profiled) do
         end
         for key,value in pairs(attrs) do deck:SetAttribute(key,value) end
         barrierPair(road,hwFolder,attrs)
-        -- Local streets over I-95 carry tall protective fencing on the parapet
-        -- (KartaView frames 2017-2022 at Upland/Potter/Chestnut/Melrose:
-        -- E:\ChesterWorld\Data\HighwayReference\imagery).
-        if OVERPASS_FENCE_HEIGHT>0 and string.match(attrs.CW_StructureBasis,"^registry:.+_OVER_I95$") then
+        -- Local streets over I-95 / I-476 carry tall protective fencing on the
+        -- parapet (KartaView 2017-2022 + Google Street View 2024-2026 at every
+        -- *_OVER_I95 / BULLENS_OVER_I476 entry: Data\HighwayReference\imagery).
+        local basis=attrs.CW_StructureBasis
+        if OVERPASS_FENCE_HEIGHT>0 and (string.match(basis,"^registry:.+_OVER_I95$")
+            or string.match(basis,"^registry:.+_OVER_I476$")) then
             for _,side in ipairs({-1,1}) do
                 local fence=partAt(hwFolder,"HighwayOverpassFence",
                     Vector3.new(0.2,OVERPASS_FENCE_HEIGHT,road.Size.Z),

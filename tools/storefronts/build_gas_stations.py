@@ -55,6 +55,31 @@ PRICES = {
 DEFAULT_PRICES = {"Sunoco": (3.39, 3.99, 4.19), "Eagle Fuel": (3.19, 3.79, 4.09),
                   "Lukoil": (3.25, 3.55, 3.95), "US Gas": (3.15, 3.45, 3.99)}
 
+# The station's own shop (DVRPC 2025 aerial + Street View, tools/harness/
+# station_aerial.py, 2026-11-06). The canopy detector above also swallowed the
+# shop at Lukoil, US Gas and the Edgmont Sunoco. GasStationBuilder rebuilds
+# the shop in its real footprint as an enterable branded store (EXIT 6).
+#   footprint: (county id, rect index | "nearest") - the store is that building
+#   under:     kiosk under the canopy at canopy-local (u, v) fractions of the
+#              half length / width ("sw_end" = the south-west end), size (len_m, wid_m)
+#   behind:    kiosk this many metres behind the canopy (away from the street)
+# sign: the shop's own fascia text (None = the fuel brand artwork)
+STORES = {
+    "cw_687c501096": {"footprint": ("191030", 0), "sign": "A-PLUS"},        # Sunoco 700 W 9th
+    "cw_fefc0bb360": {"footprint": ("50221", 1), "sign": None},             # US Gas kiosk
+    "cw_28a6741d42": {"footprint": ("40026", 1), "sign": "A-PLUS"},         # Sunoco 2200 Edgmont
+    "cw_1ab25071e5": {"footprint": ("122402", "nearest"), "sign": "FOOD MART / DELI"},  # Sunoco 2nd St
+    "cw_5f192ec41c": {"under": ("sw_end", 0.0), "size": (9.0, 4.6), "sign": "MINI-MART"},  # Lukoil
+    "cw_442801b4e3": {"under": (0.0, 0.0), "size": (7.0, 4.0), "sign": None},  # Sunoco Township Line
+    "cw_98a00d067e": {"behind": 4.0, "size": (6.5, 5.0), "sign": None},     # Chester Gas kiosk
+    # cw_ab912b6f80 Eagle Fuel: no shop of its own (the "Ave Mart" beside it is
+    # another business) - no EXIT 6 store
+}
+KIOSK_H_M = 3.4
+# Pylon spot fixes from Street View: the 9th & Kerlin Sunoco's sign stands on
+# Concord Ave in front of the shop, not beside the canopies.
+SIGN_ON_ROAD_IN_FRONT_OF_STORE = {"cw_687c501096": "Concord"}
+
 # pylon placement: just inside the lot, behind the sidewalk of a public street
 SIGN_SETBACK = 5.0      # studs past the back of the sidewalk
 SIGN_SEARCH = 140.0     # studs from the canopy centre
@@ -123,6 +148,7 @@ def street_data():
                                                         (float(m["x2"]), float(m["z2"]))]), to_studs)
             if seg.length > 0.5:
                 roads.append((seg, float(m["w"]) * 3 / 2 + (0 if m["sw"] else 5.1)))
+                NAMED_ROADS.append((seg, float(m["w"]) * 3 / 2 + (0 if m["sw"] else 5.1), m["name"]))
     polys, keys = fit.footprints(with_keys=True)
     foot = [(affinity.affine_transform(p, to_studs), k[1]) for p, k in zip(polys, keys)]
     return roads, foot
@@ -145,6 +171,114 @@ def oriented(poly):
             round(-math.degrees(math.atan2(along[1], along[0])), 1)]
 
 
+def building_records():
+    """county id -> (a, h_m, rects[(x, z, L, W) source m], rc, wc) from BuildingTiles"""
+    import re
+    out = {}
+    for path in sorted((ROOT / "src" / "shared" / "WorldData" / "BuildingTiles").glob("*.lua")):
+        for m in re.finditer(r'\["(\d+)"\]=\{([^\n]*)\}', path.read_text(encoding="utf-8")):
+            body = m.group(2)
+            a = re.search(r'\ba=([-\d.]+)', body)
+            h = re.search(r'\bh=([-\d.]+)', body)
+            rc = re.search(r'\brc=(0x[0-9a-fA-F]+)', body)
+            wc = re.search(r'\bwc=(0x[0-9a-fA-F]+)', body)
+            rects = []
+            if "r={" in body:
+                rects = [tuple(map(float, r)) for r in
+                         re.findall(r'\{([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+)\}', body.split("r={", 1)[1])]
+            out[m.group(1)] = (float(a.group(1)) if a else 0.0, float(h.group(1)) if h else 4.0, rects,
+                               int(rc.group(1), 16) if rc else None, int(wc.group(1), 16) if wc else None)
+    return out
+
+
+def yaw_axes(yaw):
+    """Roblox CFrame.Angles(0, yaw): local +X and +Z as world (x, z)"""
+    t = math.radians(yaw)
+    return (math.cos(t), -math.sin(t)), (math.sin(t), math.cos(t))
+
+
+def store_box(cx, cz, length, width, yaw, front):
+    """Orient a box so its local -Z faces `front`: returns [cx, cz, face width,
+    depth, yaw] of the shop frame (Roblox yaw)."""
+    ex, ez = yaw_axes(yaw)
+    dx, dz = front[0] - cx, front[1] - cz
+    if abs(dx * ex[0] + dz * ex[1]) > abs(dx * ez[0] + dz * ez[1]):
+        sgn = 1 if dx * ex[0] + dz * ex[1] > 0 else -1
+        n, face, depth = (ex[0] * sgn, ex[1] * sgn), width, length
+    else:
+        sgn = 1 if dx * ez[0] + dz * ez[1] > 0 else -1
+        n, face, depth = (ez[0] * sgn, ez[1] * sgn), length, width
+    return [round(cx, 1), round(cz, 1), round(face, 1), round(depth, 1),
+            round(math.degrees(math.atan2(-n[0], -n[1])), 1)]
+
+
+def build_store(sid, canopies, sign, records):
+    spec = STORES.get(sid)
+    if not spec:
+        return None
+    S = 3.0
+    ccx = sum(c["box"][0] for c in canopies) / len(canopies)
+    ccz = sum(c["box"][1] for c in canopies) / len(canopies)
+    cx0, cz0, L, W, yaw = canopies[0]["box"]
+    ex, ez = yaw_axes(yaw)
+    street = (sign[0], sign[1]) if sign else (ccx, ccz)
+    if "footprint" in spec:
+        bid, which = spec["footprint"]
+        a, h, rects, rc, wc = records[bid]
+        studs = [((x - 6347.889) * S, -(z - 7201.973) * S, rl * S, rw * S) for x, z, rl, rw in rects]
+        if which == "nearest":
+            which = min(range(len(studs)), key=lambda i: math.hypot(studs[i][0] - ccx, studs[i][1] - ccz))
+        x, z, rl, rw = studs[which]
+        box = store_box(x, z, rl, rw, a, (ccx, ccz))
+        return {"box": box, "h": round(max(h * S, 10.0), 1), "model": bid, "rc": rc, "wc": wc, "sign": spec["sign"]}
+    ln, wd = spec["size"][0] * STUDS_PER_M, spec["size"][1] * STUDS_PER_M
+    if "under" in spec:
+        u, v = spec["under"]
+        if u == "sw_end":
+            ends = [(sgn, cx0 + ex[0] * sgn * L / 2, cz0 + ex[1] * sgn * L / 2) for sgn in (-1, 1)]
+            sgn = max(ends, key=lambda e: -e[1] + e[2])[0]
+            off = sgn * (L / 2 - ln / 2 - 1.5)
+        else:
+            off = u * L / 2
+        x, z = cx0 + ex[0] * off + ez[0] * v * W / 2, cz0 + ex[1] * off + ez[1] * v * W / 2
+        # a kiosk under the canopy lies along it, its long glass front facing
+        # the street across the canopy (Street View: Lukoil MINI-MART)
+        side = 1 if (street[0] - x) * ez[0] + (street[1] - z) * ez[1] > 0 else -1
+        target = (x + ez[0] * side * 100, z + ez[1] * side * 100)
+        box = store_box(x, z, wd, ln, yaw + 90, target)
+    else:
+        side = 1 if (ccx - street[0]) * ez[0] + (ccz - street[1]) * ez[1] > 0 else -1
+        d = W / 2 + spec["behind"] * STUDS_PER_M + wd / 2
+        x, z = cx0 + ez[0] * side * d, cz0 + ez[1] * side * d
+        box = store_box(x, z, ln, wd, yaw, (cx0, cz0))
+    return {"box": box, "h": round(KIOSK_H_M * 3.0, 1), "model": None, "rc": None, "wc": None, "sign": spec["sign"]}
+
+
+def sign_in_front_of_store(store, road_name, named_roads):
+    """Pylon on `road_name` at the point of its lot edge nearest the shop."""
+    from shapely.geometry import Point
+    here = Point(store["box"][0], store["box"][1])
+    best = None
+    for seg, half, name in named_roads:
+        if road_name.lower() not in name.lower():
+            continue
+        edge = seg.buffer(half + SIGN_SETBACK, cap_style=2).exterior
+        d = edge.distance(here)
+        if best is None or d < best[0]:
+            best = (d, edge, seg)
+    if not best:
+        return None
+    _, edge, seg = best
+    p = edge.interpolate(edge.project(here))
+    (x1, z1), (x2, z2) = seg.coords[0], seg.coords[-1]
+    bearing = math.degrees(math.atan2(x2 - x1, -(z2 - z1))) % 360
+    return [round(p.x, 1), round(p.y, 1), round(bearing, 1)]
+
+
+NAMED_ROADS = []
+RECORDS = {}
+
+
 def lua_str(v):
     return '"' + str(v).replace("\\", "\\\\").replace('"', '\\"') + '"'
 
@@ -159,6 +293,7 @@ def main():
     geoms_m = [transform(tm, shape(f["geometry"]).buffer(0)) for f in feats]
     stations = []
     roads, foot = street_data()
+    RECORDS.update(building_records())
     for b in man:
         if b["group"] != "gas_station" or not str(b.get("review_status", "")).startswith("visually"):
             continue
@@ -196,15 +331,22 @@ def main():
         placed = place_sign(canopies, roads, foot)
         if placed:
             sign = placed
+        store = build_store(b["id"], canopies, sign, RECORDS)
+        if store and b["id"] in SIGN_ON_ROAD_IN_FRONT_OF_STORE:
+            fixed = sign_in_front_of_store(store, SIGN_ON_ROAD_IN_FRONT_OF_STORE[b["id"]], NAMED_ROADS)
+            if fixed:
+                sign = fixed
         style = PRICE_STYLE.get(brand, ((20, 20, 24), (255, 52, 40), ("REGULAR", "PLUS", "DIESEL")))
         prices = PRICES.get(b["id"], DEFAULT_PRICES.get(brand, (3.29, 3.89, 4.19)))
         stations.append({"id": b["id"], "name": name, "brand": brand or name, "canopies": canopies,
                          "sign": sign, "colors": BRANDS.get(brand, DEFAULT_BRAND), "address": b.get("address", ""),
                          "panel": style[0], "led": style[1], "grades": style[2], "prices": prices,
-                         "placed": bool(placed)})
+                         "placed": bool(placed), "store": store})
     lines = ["-- Generated by tools/storefronts/build_gas_stations.py from the street-imagery-verified",
              "-- storefront inventory (Data/10_StorefrontPanoramas). Studs. box = {cx, cz, length, width, yaw}.",
              "-- replaces = county footprint id that is really the canopy (GasStationBuilder removes it).",
+             "-- store = the station's shop: box = {cx, cz, face width, depth, yaw} (local -Z = shop front),",
+             "-- h studs, model = county building it replaces, rc / wc = its roof / wall colour, sign = shop name.",
              "return {"]
     for st in stations:
         cans = ",".join("{box={%s},replaces=%s}" % (",".join(str(v) for v in c["box"]),
@@ -214,13 +356,21 @@ def main():
         price = "panel={%d,%d,%d},led={%d,%d,%d},grades={%s},prices={%s}" % (
             *st["panel"], *st["led"], ",".join(lua_str(gr) for gr in st["grades"]),
             ",".join("%.2f" % v for v in st["prices"]))
-        lines.append("\t{id=%s,name=%s,brand=%s,address=%s,colors={%s},sign=%s,%s,canopies={%s}}," % (
+        so = st["store"]
+        store = "nil"
+        if so:
+            store = "{box={%s},h=%s,model=%s,rc=%s,wc=%s,sign=%s}" % (
+                ",".join(str(v) for v in so["box"]), so["h"], lua_str(so["model"]) if so["model"] else "nil",
+                "0x%06x" % so["rc"] if so["rc"] is not None else "nil",
+                "0x%06x" % so["wc"] if so["wc"] is not None else "nil",
+                lua_str(so["sign"]) if so["sign"] else "nil")
+        lines.append("\t{id=%s,name=%s,brand=%s,address=%s,colors={%s},sign=%s,%s,canopies={%s},store=%s}," % (
             lua_str(st["id"]), lua_str(st["name"]), lua_str(st["brand"]), lua_str(st["address"]), col, sign,
-            price, cans))
+            price, cans, store))
     lines.append("}")
     OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
     for st in stations:
-        print(f"{st['name']:12} canopies={len(st['canopies'])} sign={st['sign']} placed={st['placed']}")
+        print(f"{st['name']:12} canopies={len(st['canopies'])} sign={st['sign']} store={st['store'] and st['store']['box']}")
     print("wrote", OUT)
 
 

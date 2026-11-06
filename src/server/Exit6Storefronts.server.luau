@@ -46,6 +46,20 @@ local function build(model)
  local fascia=model:GetAttribute("BrandFascia") or Color3.fromRGB(50,54,60)
  local accent=model:GetAttribute("BrandAccent") or Color3.fromRGB(200,60,40)
  local WALL=Color3.fromRGB(232,228,220)
+ -- a ChesterWorld station shop (GasStationBuilder: Exit6StoreShell = "building")
+ -- already has walls, glass front and fascia: only fit the interior, scaled
+ -- to the shop's floor
+ local inBuilding=model:GetAttribute("Exit6StoreShell")=="building"
+ if inBuilding then
+  brandName=model:GetAttribute("ShopName") or brandName
+  local w=model:GetAttribute("Exit6StoreWidth") or 26
+  local d=model:GetAttribute("Exit6StoreDepth") or 22
+  local fx,fz=math.min(1,(w-4)/26),math.min(1,(d-4)/22)
+  make=function(name,size,x,y,z,color,mat)
+   return part(folder,name,Vector3.new(size.X*math.max(fx,0.6),size.Y,size.Z*math.max(fz,0.6)),base*CFrame.new(x*fx,y,z*fz),color,mat)
+  end
+ end
+ if not inBuilding then
  make("Floor",Vector3.new(26,0.5,22),0,0,0,Color3.fromRGB(196,198,200),Enum.Material.Marble)
  make("BackWall",Vector3.new(26,12,0.7),0,6,11,WALL,Enum.Material.Brick)
  for _,x in ipairs({-13,13}) do make("SideWall",Vector3.new(0.7,12,22),x,6,0,WALL,Enum.Material.Brick) end
@@ -67,6 +81,7 @@ local function build(model)
  make("Transom",Vector3.new(26,0.9,0.5),0,9.35,-11,WALL,Enum.Material.Brick)
  local mat=make("DoorMat",Vector3.new(5,0.1,3),0,0.3,-12.5,Color3.fromRGB(40,40,44),Enum.Material.Fabric)
  mat.CanCollide=false
+ end
  make("Counter",Vector3.new(10,3.2,3),-5,1.8,5,Color3.fromRGB(76,55,40),Enum.Material.Wood)
  for _,x in ipairs({2,8}) do
   make("MerchandiseShelf",Vector3.new(3,5,9),x,2.75,-1,Color3.fromRGB(55,62,70),Enum.Material.Metal)

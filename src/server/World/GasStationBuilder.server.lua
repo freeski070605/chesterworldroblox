@@ -201,94 +201,122 @@ for _, tile in ipairs(world:GetChildren()) do
 	end
 end
 
--- EXIT 6 gameplay (Exit6Storefronts.server.luau) builds a 26 x 22 open-front
--- store kiosk at an "Exit6StoreAnchor" part inside a model tagged
--- "Exit6GasStation". Find a clear spot in the lot beside the canopy - no
--- building, road, sidewalk, rail or canopy - with the open front (-Z) facing
--- the pumps, preferring spots away from the street sign (stores stand behind
--- the forecourt).
+-- The station's own shop (GasStations.lua `store`, picked from the DVRPC 2025
+-- aerial and Street View by tools/storefronts/build_gas_stations.py): the
+-- county building standing there (or the kiosk the footprints miss) is
+-- rebuilt in place as an enterable shop - its own walls and roof colours,
+-- a glass shopfront with a door facing the pumps, the shop's fascia (its own
+-- name, e.g. A-PLUS / MINI-MART, or the fuel brand artwork) - and EXIT 6
+-- (Exit6Storefronts.server.luau) fits the counter, shelves, cooler and
+-- register inside it (Exit6StoreShell = "building").
 local CollectionService = game:GetService("CollectionService")
-local STORE_SIZE = Vector3.new(30, 12, 26)
-local groundFolders = {}
-for _, tile in ipairs(world:GetChildren()) do
-	for _, name in ipairs({ "Roads", "Sidewalks", "Intersection", "Intersections" }) do
-		local f = tile:FindFirstChild(name)
-		if f then table.insert(groundFolders, f) end
-	end
-end
-local groundOverlap = OverlapParams.new()
-groundOverlap.FilterType = Enum.RaycastFilterType.Include
-groundOverlap.FilterDescendantsInstances = groundFolders
-local solidOverlap = OverlapParams.new()
-solidOverlap.FilterType = Enum.RaycastFilterType.Exclude
-local function solidExcludes(model)
-	local list = { Workspace.Terrain }
-	for _, name in ipairs({ "ChesterTrees", "ChesterStreetFurniture" }) do
-		local f = Workspace:FindFirstChild(name)
-		if f then table.insert(list, f) end
-	end
-	for _, d in ipairs(model:GetChildren()) do
-		if d.Name == "Forecourt" then table.insert(list, d) end
-	end
-	return list
-end
 local stores = 0
-local function placeStoreAnchor(model, st, fascia, accent, textColor)
-	local c = st.canopies[1]
-	if not c then return end
-	local b = c.box
-	local L, W = math.max(b[3], 12 * H), math.max(b[4], 7 * H)
-	local centre = Vector3.new(b[1], 0, b[2])
-	local frame = CFrame.new(centre) * CFrame.Angles(0, math.rad(b[5]), 0)
-	local candidates = {}
-	for _, gap in ipairs({ 18, 30, 44 }) do
-		for _, side in ipairs({ -1, 1 }) do
-			table.insert(candidates, frame * Vector3.new(0, 0, side * (W / 2 + gap)))
-			table.insert(candidates, frame * Vector3.new(side * (L / 2 + gap), 0, 0))
-			for _, along in ipairs({ -0.3, 0.3 }) do
-				table.insert(candidates, frame * Vector3.new(along * L, 0, side * (W / 2 + gap)))
-			end
+local function hex(v)
+	return v and Color3.fromRGB(math.floor(v / 65536) % 256, math.floor(v / 256) % 256, v % 256) or nil
+end
+local function storeFrame(st)
+	local s = st.store
+	if not s then return nil end
+	local b = s.box
+	local y = groundY(b[1], b[2])
+	if not y then return nil end
+	return CFrame.new(b[1], y, b[2]) * CFrame.Angles(0, math.rad(b[5]), 0), b[3], b[4]
+end
+-- is world point p inside the shop footprint (plus margin)?
+local function insideStore(frame, width, depth, p, margin)
+	if not frame then return false end
+	local l = frame:PointToObjectSpace(Vector3.new(p.X, frame.Position.Y, p.Z))
+	return math.abs(l.X) < width / 2 + margin and math.abs(l.Z) < depth / 2 + margin
+end
+local function buildStore(model, st, fascia, accent, textColor, frame, width, depth)
+	local s = st.store
+	-- the county building in the footprint goes (only its parts inside the shop:
+	-- a strip of shops keeps its other units)
+	local county = s.model and buildingsById[s.model]
+	if county and county.Parent then
+		for _, p in ipairs(county:GetDescendants()) do
+			if p:IsA("BasePart") and insideStore(frame, width, depth, p.Position, 1) then p:Destroy() end
 		end
-	end
-	local sign = st.sign and Vector3.new(st.sign[1], 0, st.sign[2])
-	if sign then
-		table.sort(candidates, function(p, q)
-			return (Vector3.new(p.X, 0, p.Z) - sign).Magnitude > (Vector3.new(q.X, 0, q.Z) - sign).Magnitude
-		end)
-	end
-	solidOverlap.FilterDescendantsInstances = solidExcludes(model)
-	for _, p in ipairs(candidates) do
-		local y = groundY(p.X, p.Z)
-		if y then
-			local spot = CFrame.lookAt(Vector3.new(p.X, y, p.Z), Vector3.new(centre.X, y, centre.Z))
-			local paved = #Workspace:GetPartBoundsInBox(spot * CFrame.new(0, 0.5, 0),
-				Vector3.new(STORE_SIZE.X, 3, STORE_SIZE.Z), groundOverlap) > 0
-			local blocked = paved or #Workspace:GetPartBoundsInBox(spot * CFrame.new(0, 2 + STORE_SIZE.Y / 2, 0),
-				STORE_SIZE, solidOverlap) > 0
-			if not blocked then
-				-- the kiosk's open front is its -Z side: face the pumps
-				local anchor = part(model, "Exit6StoreAnchor", Vector3.new(2, 0.2, 2), spot * CFrame.new(0, 0.3, 0),
-					Enum.Material.SmoothPlastic, Color3.new(1, 1, 1))
-				anchor.Transparency = 1
-				anchor.CanCollide = false
-				anchor.CanQuery = false
-				-- the store wears the station's brand (Exit6Storefronts reads these):
-				-- a lit fascia board over the open front with the same artwork as
-				-- the canopy and pylon
-				model:SetAttribute("BrandName", st.brand)
-				model:SetAttribute("BrandFascia", fascia)
-				model:SetAttribute("BrandAccent", accent)
-				model:SetAttribute("BrandText", textColor)
-				local board = part(model, "Exit6StoreFascia", Vector3.new(27.4, 3.6, 0.8),
-					spot * CFrame.new(0, 0.3 + 12 + 1.45, -11.2), Enum.Material.SmoothPlastic, fascia)
-				artPanel(board, st, { Enum.NormalId.Front }, fascia, accent, textColor, 16)
-				CollectionService:AddTag(model, "Exit6GasStation")
-				stores += 1
-				return
-			end
+		local left = false
+		for _, p in ipairs(county:GetDescendants()) do
+			if p:IsA("BasePart") then left = true break end
 		end
+		if not left then county:Destroy() end
 	end
-	warn(("[ChesterWorld GasStations] no clear lot spot for the EXIT 6 store at %s (%s)"):format(st.name, st.address))
+	-- under a canopy the shop stops below the deck
+	local h = s.h
+	for _, c in ipairs(st.canopies) do
+		local b = c.box
+		local cf = CFrame.new(b[1], frame.Position.Y, b[2]) * CFrame.Angles(0, math.rad(b[5]), 0)
+		if insideStore(cf, b[3], b[4], frame.Position, 0) then h = math.min(h, CLEARANCE - 0.6) end
+	end
+	local wall = hex(s.wc) or Color3.fromRGB(232, 228, 220)
+	local roof = hex(s.rc) or Color3.fromRGB(70, 72, 76)
+	local shop = Instance.new("Model")
+	shop.Name = "Shop"
+	shop.Parent = model
+	local function make(name, size, x, y, z, color, material)
+		return part(shop, name, size, frame * CFrame.new(x, y, z), material or Enum.Material.SmoothPlastic, color)
+	end
+	local W2, D2 = width / 2, depth / 2
+	make("Floor", Vector3.new(width, 0.6, depth), 0, 0.3, 0, Color3.fromRGB(196, 198, 200), Enum.Material.Marble)
+	make("Foundation", Vector3.new(width + 0.4, 3, depth + 0.4), 0, -1.2, 0, Color3.fromRGB(150, 146, 140),
+		Enum.Material.Concrete)
+	make("BackWall", Vector3.new(width, h, 0.8), 0, h / 2, D2 - 0.4, wall, Enum.Material.Brick)
+	for _, side in ipairs({ -1, 1 }) do
+		make("SideWall", Vector3.new(0.8, h, depth), side * (W2 - 0.4), h / 2, 0, wall, Enum.Material.Brick)
+	end
+	make("Roof", Vector3.new(width + 0.6, 0.8, depth + 0.6), 0, h + 0.4, 0, roof, Enum.Material.Slate)
+	-- shopfront: glass either side of a centred door, brick piers, fascia over it
+	local fasciaH = math.clamp(h * 0.22, 2.4, 4.5)
+	local glassTop = h - fasciaH
+	local door = math.min(7, width * 0.3)
+	local pane = (width - door) / 2 - 1.2
+	for _, side in ipairs({ -1, 1 }) do
+		local g = make("Shopfront", Vector3.new(pane, glassTop - 1.2, 0.3), side * (door / 2 + pane / 2), 0.6 + (glassTop - 1.2) / 2,
+			-D2 + 0.4, Color3.fromRGB(150, 190, 210), Enum.Material.Glass)
+		g.Transparency = 0.35
+		g.Reflectance = 0.15
+		make("Pier", Vector3.new(1.2, glassTop, 0.9), side * (W2 - 0.6), glassTop / 2, -D2 + 0.4, wall, Enum.Material.Brick)
+		make("DoorFrame", Vector3.new(0.4, glassTop - 0.6, 0.6), side * door / 2, (glassTop - 0.6) / 2 + 0.6, -D2 + 0.4,
+			fascia, Enum.Material.Metal)
+	end
+	make("Sill", Vector3.new(width, 0.6, 0.9), 0, 0.6, -D2 + 0.4, wall, Enum.Material.Brick)
+	-- fascia: the shop's own name on the brand colour, or the fuel brand art
+	local board = make("ShopFascia", Vector3.new(width, fasciaH, 0.9), 0, glassTop + fasciaH / 2, -D2 + 0.3, fascia)
+	if s.sign then
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = Enum.NormalId.Front
+		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		gui.PixelsPerStud = 16
+		gui.LightInfluence = 0.25
+		gui.Parent = board
+		box(gui, UDim2.fromScale(0, 0.82), UDim2.fromScale(1, 0.18), accent)
+		text(gui, s.sign, UDim2.fromScale(0.05, 0.1), UDim2.fromScale(0.9, 0.68), textColor, Enum.Font.GothamBlack)
+	else
+		artPanel(board, st, { Enum.NormalId.Front }, fascia, accent, textColor, 16)
+	end
+	make("AccentStripe", Vector3.new(width, 0.5, 1.0), 0, glassTop - 0.1, -D2 + 0.3, accent)
+	local mat = make("DoorMat", Vector3.new(door - 1, 0.1, 3), 0, 0.65, -D2 - 1.2, Color3.fromRGB(40, 40, 44),
+		Enum.Material.Fabric)
+	mat.CanCollide = false
+	-- EXIT 6 fits the interior at the shop floor, facing the door (-Z)
+	local anchor = part(model, "Exit6StoreAnchor", Vector3.new(2, 0.2, 2), frame * CFrame.new(0, 0.7, 0),
+		Enum.Material.SmoothPlastic, Color3.new(1, 1, 1))
+	anchor.Transparency = 1
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	model:SetAttribute("BrandName", st.brand)
+	model:SetAttribute("ShopName", s.sign or st.brand)
+	model:SetAttribute("BrandFascia", fascia)
+	model:SetAttribute("BrandAccent", accent)
+	model:SetAttribute("BrandText", textColor)
+	model:SetAttribute("Exit6StoreShell", "building")
+	model:SetAttribute("Exit6StoreWidth", width)
+	model:SetAttribute("Exit6StoreDepth", depth)
+	model:SetAttribute("Exit6StoreHeight", h)
+	CollectionService:AddTag(model, "Exit6GasStation")
+	stores += 1
 end
 
 local built, removed = 0, 0
@@ -299,6 +327,7 @@ for _, st in ipairs(Stations) do
 	model:SetAttribute("StationId", st.id)
 	model:SetAttribute("Address", st.address)
 	model:SetAttribute("Source", "street-imagery verified storefront inventory 2026-11-05")
+	local shopFrame, shopWidth, shopDepth = storeFrame(st)
 	for _, c in ipairs(st.canopies) do
 		local b = c.box
 		local y = groundY(b[1], b[2])
@@ -340,6 +369,9 @@ for _, st in ipairs(Stations) do
 			for _, rz in ipairs(rows) do
 				for i = 1, n do
 					local x = -L / 2 + (i - 0.5) * L / n
+					if insideStore(shopFrame, shopWidth, shopDepth, frame * Vector3.new(x, 0, rz), 3) then
+						continue
+					end
 					part(model, "PumpIsland", Vector3.new(islandLen, 0.9, 1.4 * H), frame * CFrame.new(x, 0.95, rz),
 						Enum.Material.Concrete, Color3.fromRGB(200, 196, 186))
 					local disp = part(model, "Dispenser", Vector3.new(1.1 * H, 1.8 * V, 0.7 * H),
@@ -387,7 +419,7 @@ for _, st in ipairs(Stations) do
 	if #model:GetChildren() > 0 then
 		model.Parent = root
 		built += 1
-		placeStoreAnchor(model, st, fascia, accent, textColor)
+		if shopFrame then buildStore(model, st, fascia, accent, textColor, shopFrame, shopWidth, shopDepth) end
 	end
 end
 print(("[ChesterWorld GasStations] built=%d canopyBoxesReplaced=%d exit6Stores=%d parts=%d"):format(built, removed, stores, count))

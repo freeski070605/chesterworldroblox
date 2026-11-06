@@ -178,4 +178,10 @@ WorldConfig.SIGN_POLE_COLOR = Color3.fromRGB(92, 96, 91)
 WorldConfig.SIGN_BACKGROUND_COLOR = Color3.fromRGB(24, 94, 55)
 WorldConfig.SIGN_TEXT_COLOR = Color3.fromRGB(255, 255, 255)
 
+-- Tester flight / fast travel (src/client/DebugFlight.client.lua, keyboard +
+-- gamepad). Always on in Studio. In a live server: everyone while
+-- TESTER_FLIGHT_ALL is true (testing builds), otherwise only these user ids.
+WorldConfig.TESTER_FLIGHT_ALL = true
+WorldConfig.TESTER_USER_IDS = {}
+
 return WorldConfig

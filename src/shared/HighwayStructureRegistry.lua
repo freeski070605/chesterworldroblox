@@ -252,6 +252,14 @@ Registry.GROUNDED = {
 			.. "flat paved lot, no structure.",
 		status = "aerial_dvrpc2025",
 	},
+	{
+		id = "CONCORD_ALONG_I95",
+		sources = { "county:3120" },
+		description = "Concord Rd beside the south side of I-95 and the Barry Bridge to N I 95 ramp, from Lamokin "
+			.. "St west (crossing_aerial.py concord_ramp). Aerial 2025: a street at grade between the freeway "
+			.. "and the community gardens, no structure; the county bridge tag lifted it up to 48 studs.",
+		status = "aerial_dvrpc2025",
+	},
 }
 local groundedIndex = {}
 for _, entry in ipairs(Registry.GROUNDED) do

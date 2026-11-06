@@ -1338,6 +1338,9 @@ local function polygonMaxRadius(node)
 end
 
 local function buildStreetSign(signsFolder, node, labels)
+	-- replaced by real blade signs on poles (StreetFurniture.server.lua); the
+	-- old floating billboard labels read as boards hanging over the street
+	if WorldConfig.LEGACY_BILLBOARD_STREET_SIGNS ~= true then return end
 	if not node.isNamedIntersection or node.maxWidth < WorldConfig.STREET_SIGN_TRIGGER_WIDTH_STUDS or #labels < 2 then return end
 	local armA, armB = bestPerpendicularArmPair(node)
 	if not armA or not armB then return end

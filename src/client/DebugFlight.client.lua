@@ -1,38 +1,57 @@
+-- ChesterWorld tester flight / fast travel, keyboard + gamepad (console).
+-- Always on in Studio; in a live server for players the server marks CW_Tester
+-- (src/server/TesterAccess.server.lua, WorldConfig.TESTER_FLIGHT_ALL).
+--
+-- Keyboard: F fly  •  WASD move  •  Space/E up  •  Ctrl/Q down  •  Shift boost
+--           [ / ] speed level  •  X back to 9th & Kerlin  (H: HUD, HUDToggle)
+-- Gamepad:  Y fly  •  left stick move  •  RT up  •  LT down  •  RB boost
+--           LB precise  •  D-pad up/down speed level  •  D-pad left spawn
+--           D-pad right HUD.  On the ground RB / Shift sprints.
+--
+-- Flight drives the character with a LinearVelocity + AlignOrientation (no
+-- anchoring) so the movement replicates and the world streams in around the
+-- tester in live servers too.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
+local player = Players.LocalPlayer
+
 if not RunService:IsStudio() then
-	return
+	local deadline = os.clock() + 20
+	while player:GetAttribute("CW_Tester") == nil and os.clock() < deadline do
+		task.wait(0.25)
+	end
+	if player:GetAttribute("CW_Tester") ~= true then
+		return
+	end
 end
 
-local player = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
-
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GeoOrientation = require(Shared:WaitForChild("GeoOrientation"))
 
 local BASE_SPEED = 140
-local BOOST_SPEED = 520
 local VERTICAL_SPEED = 110
-local BOOST_VERTICAL_SPEED = 260
+local BOOST = 3.5
+local PRECISE = 0.25
+local TIERS = { 0.5, 1, 2, 4 }
+local tier = 2
+local WALK_SPEED = 16
+local SPRINT_SPEED = 64
+local DEADZONE = 0.15
 
 local flying = false
-local rootPart = nil
-local humanoid = nil
+local rootPart, humanoid
+local mover, aligner, attachment
 
-local pressed = {
-	W = false,
-	A = false,
-	S = false,
-	D = false,
-	Space = false,
-	Control = false,
-	Shift = false,
-}
+local keys = { W = false, A = false, S = false, D = false, Up = false, Down = false, Boost = false }
+local pad = { stick = Vector2.zero, rt = 0, lt = 0, rb = false, lb = false }
+local usingGamepad = UserInputService.GamepadEnabled
 
+-- HUD -----------------------------------------------------------------------
 local gui = Instance.new("ScreenGui")
 gui.Name = "ChesterInspectorHUD"
 gui.ResetOnSpawn = false
@@ -40,9 +59,8 @@ gui.IgnoreGuiInset = false
 gui.DisplayOrder = 20
 gui.Parent = player:WaitForChild("PlayerGui")
 
--- Shared HUD visibility. H button is owned by HUDToggle.client.lua.
 local function updateHUDVisibility()
-    gui.Enabled = player:GetAttribute("CW_HUDVisible") ~= false
+	gui.Enabled = player:GetAttribute("CW_HUDVisible") ~= false
 end
 player:GetAttributeChangedSignal("CW_HUDVisible"):Connect(updateHUDVisibility)
 updateHUDVisibility()
@@ -51,78 +69,50 @@ local panel = Instance.new("Frame")
 panel.Name = "Inspector"
 panel.AnchorPoint = Vector2.new(1, 1)
 panel.Position = UDim2.new(1, -18, 1, -18)
-panel.Size = UDim2.fromOffset(370, 132)
+panel.Size = UDim2.fromOffset(400, 152)
 panel.BackgroundColor3 = Color3.fromRGB(18, 20, 24)
 panel.BackgroundTransparency = 0.16
 panel.BorderSizePixel = 0
 panel.Parent = gui
-
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 10)
 corner.Parent = panel
 
-local title = Instance.new("TextLabel")
-title.BackgroundTransparency = 1
-title.Position = UDim2.fromOffset(14, 9)
-title.Size = UDim2.new(1, -28, 0, 20)
-title.Font = Enum.Font.GothamBold
-title.TextSize = 14
-title.TextXAlignment = Enum.TextXAlignment.Left
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.Text = "CHESTER WORLD INSPECTOR"
-title.Parent = panel
+local function label(y, h, font, size, color, text)
+	local t = Instance.new("TextLabel")
+	t.BackgroundTransparency = 1
+	t.Position = UDim2.fromOffset(14, y)
+	t.Size = UDim2.new(1, -28, 0, h)
+	t.Font = font
+	t.TextSize = size
+	t.TextWrapped = true
+	t.TextXAlignment = Enum.TextXAlignment.Left
+	t.TextColor3 = color
+	t.Text = text
+	t.Parent = panel
+	return t
+end
+label(9, 20, Enum.Font.GothamBold, 14, Color3.fromRGB(255, 255, 255), "CHESTER WORLD INSPECTOR")
+local status = label(31, 20, Enum.Font.GothamMedium, 13, Color3.fromRGB(205, 210, 220), "")
+local coords = label(54, 20, Enum.Font.Code, 13, Color3.fromRGB(230, 230, 230), "X 0   Y 0   Z 0")
+local compass = label(76, 20, Enum.Font.GothamBold, 13, Color3.fromRGB(255, 255, 255), "TRUE HEADING 000° N")
+local help = label(98, 46, Enum.Font.Gotham, 11, Color3.fromRGB(180, 185, 195), "")
 
-local status = Instance.new("TextLabel")
-status.BackgroundTransparency = 1
-status.Position = UDim2.fromOffset(14, 31)
-status.Size = UDim2.new(1, -28, 0, 20)
-status.Font = Enum.Font.GothamMedium
-status.TextSize = 13
-status.TextXAlignment = Enum.TextXAlignment.Left
-status.TextColor3 = Color3.fromRGB(205, 210, 220)
-status.Text = "F: Fly  •  X: 9th & Kerlin"
-status.Parent = panel
+local function refreshHelp()
+	if usingGamepad then
+		help.Text = "Y fly • L-stick move • RT up • LT down • RB boost • LB precise\n"
+			.. "D-pad ▲▼ speed • ◀ 9th & Kerlin • ▶ HUD   (ground: hold RB to sprint)"
+	else
+		help.Text = "F fly • WASD move • Space/E up • Ctrl/Q down • Shift boost\n"
+			.. "[ ] speed • X 9th & Kerlin • H HUD   (ground: hold Shift to sprint)"
+	end
+end
+refreshHelp()
 
-local coords = Instance.new("TextLabel")
-coords.BackgroundTransparency = 1
-coords.Position = UDim2.fromOffset(14, 54)
-coords.Size = UDim2.new(1, -28, 0, 20)
-coords.Font = Enum.Font.Code
-coords.TextSize = 13
-coords.TextXAlignment = Enum.TextXAlignment.Left
-coords.TextColor3 = Color3.fromRGB(230, 230, 230)
-coords.Text = "X 0   Y 0   Z 0"
-coords.Parent = panel
-
-local compass = Instance.new("TextLabel")
-compass.BackgroundTransparency = 1
-compass.Position = UDim2.fromOffset(14, 76)
-compass.Size = UDim2.new(1, -28, 0, 20)
-compass.Font = Enum.Font.GothamBold
-compass.TextSize = 13
-compass.TextXAlignment = Enum.TextXAlignment.Left
-compass.TextColor3 = Color3.fromRGB(255, 255, 255)
-compass.Text = "TRUE HEADING 000° N"
-compass.Parent = panel
-
-local axes = Instance.new("TextLabel")
-axes.BackgroundTransparency = 1
-axes.Position = UDim2.fromOffset(14, 98)
-axes.Size = UDim2.new(1, -28, 0, 24)
-axes.Font = Enum.Font.Gotham
-axes.TextSize = 11
-axes.TextWrapped = true
-axes.TextXAlignment = Enum.TextXAlignment.Left
-axes.TextColor3 = Color3.fromRGB(180, 185, 195)
-axes.Text = "TRUE N -Z  •  S +Z  •  E +X  •  W -X"
-axes.Parent = panel
-
+-- Character / flight -----------------------------------------------------------
 local function currentCharacter()
 	local character = player.Character
-	if not character then
-		return nil
-	end
-
+	if not character then return nil end
 	rootPart = character:FindFirstChild("HumanoidRootPart")
 	humanoid = character:FindFirstChildOfClass("Humanoid")
 	return character
@@ -130,11 +120,13 @@ end
 
 local function stopFlight()
 	flying = false
-
+	for _, inst in ipairs({ mover, aligner, attachment }) do
+		if inst then inst:Destroy() end
+	end
+	mover, aligner, attachment = nil, nil, nil
 	if rootPart and rootPart.Parent then
 		rootPart.Anchored = false
 	end
-
 	if humanoid and humanoid.Parent then
 		humanoid.AutoRotate = true
 		humanoid.PlatformStand = false
@@ -142,208 +134,172 @@ local function stopFlight()
 end
 
 local function startFlight()
-	if not currentCharacter() or not rootPart or not humanoid then
-		return
-	end
-
+	if not currentCharacter() or not rootPart or not humanoid then return end
 	flying = true
 	humanoid.AutoRotate = false
 	humanoid.PlatformStand = true
 	rootPart.AssemblyLinearVelocity = Vector3.zero
 	rootPart.AssemblyAngularVelocity = Vector3.zero
-	rootPart.Anchored = true
+	attachment = Instance.new("Attachment")
+	attachment.Name = "CW_FlightAttachment"
+	attachment.Parent = rootPart
+	mover = Instance.new("LinearVelocity")
+	mover.Name = "CW_FlightVelocity"
+	mover.Attachment0 = attachment
+	mover.RelativeTo = Enum.ActuatorRelativeTo.World
+	mover.MaxForce = math.huge
+	mover.VectorVelocity = Vector3.zero
+	mover.Parent = rootPart
+	aligner = Instance.new("AlignOrientation")
+	aligner.Name = "CW_FlightAlign"
+	aligner.Mode = Enum.OrientationAlignmentMode.OneAttachment
+	aligner.Attachment0 = attachment
+	aligner.MaxTorque = math.huge
+	aligner.Responsiveness = 40
+	aligner.CFrame = rootPart.CFrame.Rotation
+	aligner.Parent = rootPart
 end
 
 local function toggleFlight()
-	if flying then
-		stopFlight()
-	else
-		startFlight()
-	end
-end
-
-local terrainParams = RaycastParams.new()
-terrainParams.FilterType = Enum.RaycastFilterType.Include
-terrainParams.FilterDescendantsInstances = { Workspace.Terrain }
-terrainParams.IgnoreWater = false
-
-local function terrainY(x, z)
-	local result = Workspace:Raycast(
-		Vector3.new(x, 5000, z),
-		Vector3.new(0, -10000, 0),
-		terrainParams
-	)
-
-	return result and result.Position.Y or 50
+	if flying then stopFlight() else startFlight() end
 end
 
 local function teleportToSpawn()
-	if not currentCharacter() or not rootPart then
-		return
-	end
-
-	-- Use the actual reflected runtime spawn instead of the old StreetData index.
+	if not currentCharacter() or not rootPart then return end
 	local spawn = Workspace:FindFirstChild("ChesterCitySpawn")
-	if not spawn then
-		return
-	end
-
-	local destination = CFrame.new(
-		spawn.Position.X,
-		spawn.Position.Y + 18,
-		spawn.Position.Z
-	)
-
-	if flying then
-		rootPart.CFrame = destination
-	else
-		player.Character:PivotTo(destination)
-	end
+	if not spawn then return end
+	player.Character:PivotTo(CFrame.new(spawn.Position + Vector3.new(0, 18, 0)))
+	rootPart.AssemblyLinearVelocity = Vector3.zero
 end
 
-local function setKey(input, value)
-	local code = input.KeyCode
+local function setTier(delta)
+	tier = math.clamp(tier + delta, 1, #TIERS)
+end
 
-	if code == Enum.KeyCode.W then
-		pressed.W = value
-	elseif code == Enum.KeyCode.A then
-		pressed.A = value
-	elseif code == Enum.KeyCode.S then
-		pressed.S = value
-	elseif code == Enum.KeyCode.D then
-		pressed.D = value
-	elseif code == Enum.KeyCode.Space then
-		pressed.Space = value
-	elseif code == Enum.KeyCode.LeftControl or code == Enum.KeyCode.RightControl then
-		pressed.Control = value
-	elseif code == Enum.KeyCode.LeftShift or code == Enum.KeyCode.RightShift then
-		pressed.Shift = value
-	end
+local function toggleHUD()
+	player:SetAttribute("CW_HUDVisible", not (player:GetAttribute("CW_HUDVisible") ~= false))
+end
+
+-- Input ------------------------------------------------------------------------
+local KEYMAP = {
+	[Enum.KeyCode.W] = "W", [Enum.KeyCode.A] = "A", [Enum.KeyCode.S] = "S", [Enum.KeyCode.D] = "D",
+	[Enum.KeyCode.Space] = "Up", [Enum.KeyCode.E] = "Up",
+	[Enum.KeyCode.LeftControl] = "Down", [Enum.KeyCode.RightControl] = "Down", [Enum.KeyCode.Q] = "Down",
+	[Enum.KeyCode.LeftShift] = "Boost", [Enum.KeyCode.RightShift] = "Boost",
+}
+
+local function isGamepad(input)
+	return input.UserInputType.Name:sub(1, 7) == "Gamepad"
 end
 
 UserInputService.InputBegan:Connect(function(input, processed)
-	if processed then
+	if UserInputService:GetFocusedTextBox() then return end
+	local code = input.KeyCode
+	if isGamepad(input) then
+		if not usingGamepad then usingGamepad = true refreshHelp() end
+		if code == Enum.KeyCode.ButtonY then toggleFlight()
+		elseif code == Enum.KeyCode.DPadUp then setTier(1)
+		elseif code == Enum.KeyCode.DPadDown then setTier(-1)
+		elseif code == Enum.KeyCode.DPadLeft then teleportToSpawn()
+		elseif code == Enum.KeyCode.DPadRight then toggleHUD()
+		elseif code == Enum.KeyCode.ButtonR1 then pad.rb = true
+		elseif code == Enum.KeyCode.ButtonL1 then pad.lb = true
+		end
 		return
 	end
-
-	if input.KeyCode == Enum.KeyCode.F then
-		toggleFlight()
-		return
+	if processed then return end
+	if input.UserInputType == Enum.UserInputType.Keyboard and usingGamepad then
+		usingGamepad = false
+		refreshHelp()
 	end
-
-	if input.KeyCode == Enum.KeyCode.X then
-		teleportToSpawn()
-		return
-	end
-
-	setKey(input, true)
+	if code == Enum.KeyCode.F then toggleFlight() return end
+	if code == Enum.KeyCode.X then teleportToSpawn() return end
+	if code == Enum.KeyCode.RightBracket then setTier(1) return end
+	if code == Enum.KeyCode.LeftBracket then setTier(-1) return end
+	local key = KEYMAP[code]
+	if key then keys[key] = true end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
-	setKey(input, false)
+	local code = input.KeyCode
+	if code == Enum.KeyCode.ButtonR1 then pad.rb = false
+	elseif code == Enum.KeyCode.ButtonL1 then pad.lb = false
+	elseif code == Enum.KeyCode.ButtonR2 then pad.rt = 0
+	elseif code == Enum.KeyCode.ButtonL2 then pad.lt = 0
+	elseif code == Enum.KeyCode.Thumbstick1 then pad.stick = Vector2.zero
+	end
+	local key = KEYMAP[code]
+	if key then keys[key] = false end
 end)
+
+UserInputService.InputChanged:Connect(function(input)
+	local code = input.KeyCode
+	if code == Enum.KeyCode.Thumbstick1 then
+		local v = Vector2.new(input.Position.X, input.Position.Y)
+		pad.stick = v.Magnitude > DEADZONE and v or Vector2.zero
+	elseif code == Enum.KeyCode.ButtonR2 then
+		pad.rt = input.Position.Z
+	elseif code == Enum.KeyCode.ButtonL2 then
+		pad.lt = input.Position.Z
+	end
+end)
+
+UserInputService.GamepadConnected:Connect(function() usingGamepad = true refreshHelp() end)
 
 player.CharacterAdded:Connect(function()
 	stopFlight()
-	rootPart = nil
-	humanoid = nil
+	rootPart, humanoid = nil, nil
 	task.wait(0.5)
 	currentCharacter()
 end)
 
 local function flatDirection(vector)
 	local v = Vector3.new(vector.X, 0, vector.Z)
-
-	if v.Magnitude < 0.001 then
-		return GeoOrientation.NORTH
-	end
-
+	if v.Magnitude < 0.001 then return GeoOrientation.NORTH end
 	return v.Unit
 end
 
-RunService.RenderStepped:Connect(function(dt)
+-- Frame ------------------------------------------------------------------------
+RunService.RenderStepped:Connect(function()
 	camera = Workspace.CurrentCamera or camera
-
-	if not rootPart or not rootPart.Parent then
-		currentCharacter()
-	end
+	if not rootPart or not rootPart.Parent then currentCharacter() end
 
 	if rootPart then
 		local p = rootPart.Position
-		coords.Text = string.format(
-			"X %7.0f   Y %5.0f   Z %7.0f",
-			p.X,
-			p.Y,
-			p.Z
-		)
+		coords.Text = string.format("X %7.0f   Y %5.0f   Z %7.0f", p.X, p.Y, p.Z)
 	end
-
 	if camera then
-		local h =
-			GeoOrientation.headingDegrees(
-				flatDirection(camera.CFrame.LookVector)
-			)
-
-		compass.Text = string.format(
-			"TRUE HEADING %03d° %s",
-			math.floor(h + 0.5),
-			GeoOrientation.headingName(h)
-		)
+		local h = GeoOrientation.headingDegrees(flatDirection(camera.CFrame.LookVector))
+		compass.Text = string.format("TRUE HEADING %03d° %s", math.floor(h + 0.5), GeoOrientation.headingName(h))
 	end
 
-	if flying and rootPart and camera then
-		local forward =
-			flatDirection(camera.CFrame.LookVector)
+	local boost = keys.Boost or pad.rb
+	local precise = pad.lb
+	local scale = TIERS[tier] * (boost and BOOST or 1) * (precise and PRECISE or 1)
 
-		local right =
-			flatDirection(camera.CFrame.RightVector)
-
+	if flying and rootPart and camera and mover then
+		local forward = flatDirection(camera.CFrame.LookVector)
+		local right = flatDirection(camera.CFrame.RightVector)
 		local move = Vector3.zero
-
-		if pressed.W then move += forward end
-		if pressed.S then move -= forward end
-		if pressed.D then move += right end
-		if pressed.A then move -= right end
-
-		if move.Magnitude > 1 then
-			move = move.Unit
-		end
-
-		local horizontalSpeed =
-			pressed.Shift and BOOST_SPEED or BASE_SPEED
-
-		local verticalSpeed =
-			pressed.Shift and BOOST_VERTICAL_SPEED or VERTICAL_SPEED
-
-		local vertical = 0
-		if pressed.Space then vertical += 1 end
-		if pressed.Control then vertical -= 1 end
-
-		local displacement =
-			move * horizontalSpeed * dt
-			+ Vector3.new(
-				0,
-				vertical * verticalSpeed * dt,
-				0
-			)
-
-		rootPart.CFrame =
-			rootPart.CFrame + displacement
-
-		rootPart.AssemblyLinearVelocity =
-			Vector3.zero
-
-		rootPart.AssemblyAngularVelocity =
-			Vector3.zero
-
-		status.Text =
-			pressed.Shift
-			and "FLYING — BOOST  •  F: Land  •  X: 9th & Kerlin"
-			or "FLYING  •  Shift: Boost  •  F: Land  •  X: 9th & Kerlin"
+		if keys.W then move += forward end
+		if keys.S then move -= forward end
+		if keys.D then move += right end
+		if keys.A then move -= right end
+		-- analog stick: Y up = forward
+		move += forward * pad.stick.Y + right * pad.stick.X
+		if move.Magnitude > 1 then move = move.Unit end
+		local vertical = (keys.Up and 1 or 0) - (keys.Down and 1 or 0) + pad.rt - pad.lt
+		vertical = math.clamp(vertical, -1, 1)
+		mover.VectorVelocity = move * BASE_SPEED * scale + Vector3.new(0, vertical * VERTICAL_SPEED * scale, 0)
+		aligner.CFrame = CFrame.lookAt(Vector3.zero, forward)
+		status.Text = string.format("FLYING  •  speed %gx%s", TIERS[tier],
+			boost and "  •  BOOST" or (precise and "  •  PRECISE" or ""))
 	else
-		status.Text =
-			"F: Fly  •  X: 9th & Kerlin"
+		if humanoid and humanoid.Parent and not flying then
+			humanoid.WalkSpeed = boost and SPRINT_SPEED * TIERS[tier] or WALK_SPEED
+		end
+		status.Text = string.format("WALKING  •  speed level %gx%s", TIERS[tier], boost and "  •  SPRINT" or "")
 	end
 end)
 
-print("[ChesterWorld] True-geographic Studio inspector loaded.")
+print("[ChesterWorld] Tester flight loaded (keyboard + gamepad).")

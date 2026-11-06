@@ -1505,7 +1505,55 @@ Workspace:SetAttribute("CW_RoadConformedCount", conformed)
 Workspace:SetAttribute("CW_RoadConformComplete", true)
 
 print(("[ChesterWorld RoadTerrainConformer] highwayProfiledPartsLeftToHighwayProfile=%d"):format(highwayProfiledParts))
-print(("[ChesterWorld RoadTerrainConformer] waterCrossings=%d bankRaisedEnds=%d"):format(stats.waterCrossings or 0, stats.bankRaised or 0))
+-- V-dips between lifted pieces: where two RoadTerrainConformer-owned pieces
+-- of a street meet at a joint lower than both their far ends (Upland St,
+-- Bethel / Engle: 1-stud dips on 4-stud pieces, 15-25 % kinks), lift the
+-- joint onto the line between the far ends. Raise only, at most 2 studs, so
+-- no clearance can shrink.
+do
+    local joints = {}
+    local function jk(p) return math.floor(p.X * 2 + 0.5) .. ":" .. math.floor(p.Z * 2 + 0.5) end
+    for _, part in ipairs(allRoads) do
+        local owner = attr(part, "CW_ElevationOwner")
+        if string.sub(owner, 1, 20) == "RoadTerrainConformer" and part.Parent then
+            local a, b = endpoints(part)
+            for i, p in ipairs({ a, b }) do
+                local k = jk(p)
+                joints[k] = joints[k] or {}
+                table.insert(joints[k], { part = part, index = i })
+            end
+        end
+    end
+    local smoothed = 0
+    for _, list in pairs(joints) do
+        if #list == 2 then
+            local e1, e2 = list[1], list[2]
+            local a1, b1 = endpoints(e1.part)
+            local a2, b2 = endpoints(e2.part)
+            local here1, far1 = (e1.index == 1 and a1 or b1), (e1.index == 1 and b1 or a1)
+            local here2, far2 = (e2.index == 1 and a2 or b2), (e2.index == 1 and b2 or a2)
+            local here = math.max(here1.Y, here2.Y)
+            local d1, d2 = hdist(here1, far1), hdist(here2, far2)
+            if d1 > 0.1 and d2 > 0.1 and far1.Y > here + 0.2 and far2.Y > here + 0.2 then
+                local line = far1.Y + (far2.Y - far1.Y) * d1 / (d1 + d2)
+                local target = math.min(line, here + 2)
+                if target > here + 0.1 then
+                    for _, e in ipairs({ { e1, a1, b1 }, { e2, a2, b2 } }) do
+                        local entry, a, b = e[1], e[2], e[3]
+                        if entry.index == 1 then
+                            setEndpoints(entry.part, Vector3.new(a.X, target, a.Z), b)
+                        else
+                            setEndpoints(entry.part, a, Vector3.new(b.X, target, b.Z))
+                        end
+                    end
+                    smoothed += 1
+                end
+            end
+        end
+    end
+    print(("[ChesterWorld RoadTerrainConformer] vDipsSmoothed=%d"):format(smoothed))
+end
+print(("[ChesterWorld RoadTerrainConformer] waterCrossings=%d bankRaisedEnds=%d notchRims=%d"):format(stats.waterCrossings or 0, stats.bankRaised or 0, stats.notchRims or 0))
 print(("[ChesterWorld RoadTerrainConformer] final=%d groundPreserved=%d bridgeConformed=%d conformed=%d noTerrain=%d failed=%d bridgeGroups=%d sourceBridgeGroups=%d bridgeComponents=%d bridgeParts=%d tunnelParts=%d rampParts=%d rampGroups=%d marked=%d crossingChecks=%d clearanceWarnings=%d terrainClearanceWarnings=%d terrainEndpointEstimates=%d steepGroups=%d gradeLimitedGroups=%d gradeLimitedParts=%d actualSteepParts=%d baselineSteepGroups=%d smoothDecks=true")
     :format(#allRoads, #atGrade-stats.rampParts, stats.bridgeConformed,
     conformed, stats.bridgeNoTerrain, stats.failed, stats.groups,

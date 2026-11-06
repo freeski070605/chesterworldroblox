@@ -30,6 +30,51 @@ root.Name = "ChesterLocalBridges"
 root.Parent = Workspace
 local world = Workspace:WaitForChild("ChesterWorld")
 
+-- 0. NEC catenary under bridges. The rail (TileBuilderV2) is built before the
+-- freeway decks and street overpasses exist, so masts / arms could stand up
+-- through a deck (Barry over the NEC). Masts and arms touching a structure
+-- above the track are removed; wires are dropped to pass under it. Run last,
+-- once this script's own decks and stringers exist.
+local function fixCatenary()
+	local railFolders = {}
+	for _, tile in ipairs(world:GetChildren()) do
+		local rs = tile:FindFirstChild("RailStructures")
+		if rs then table.insert(railFolders, rs) end
+	end
+	local overlap = OverlapParams.new()
+	overlap.FilterType = Enum.RaycastFilterType.Exclude
+	overlap.FilterDescendantsInstances = railFolders
+	local removed, lowered, checked = 0, 0, 0
+	for _, rs in ipairs(railFolders) do
+		for _, p in ipairs(rs:GetChildren()) do
+			if p.Name == "CatenaryMast" or p.Name == "CatenaryArm" or p.Name == "CatenaryWire" then
+				checked += 1
+				if checked % 400 == 0 then task.wait() end
+				local lowest
+				for _, q in ipairs(Workspace:GetPartsInPart(p, overlap)) do
+					-- a structure overhead: its underside above the bottom of the
+					-- catenary part's lower half (not the ground / bed it stands on)
+					local bottom = q.Position.Y - q.Size.Y / 2
+					if q.Anchored and q.Transparency < 1 and q:GetAttribute("CW_Rail") ~= true and q.Name ~= "Rail"
+						and bottom > p.Position.Y - p.Size.Y / 2 + 4 then
+						lowest = math.min(lowest or math.huge, bottom)
+					end
+				end
+				if lowest then
+					if p.Name == "CatenaryWire" and lowest - 1.2 > p.Position.Y - 15 then
+						p.CFrame = p.CFrame + Vector3.new(0, lowest - 1.2 - p.Position.Y, 0)
+						lowered += 1
+					else
+						p:Destroy()
+						removed += 1
+					end
+				end
+			end
+		end
+	end
+	print(("[ChesterWorld RailCatenary] checked=%d removedUnderStructures=%d wiresLowered=%d"):format(checked, removed, lowered))
+end
+
 local LIFT_MIN = 3.5
 local PIER_SPACING = 80
 local CONCRETE = Color3.fromRGB(168, 166, 160)
@@ -59,6 +104,23 @@ roadParams.FilterDescendantsInstances = roadFolders
 local walkOverlap = OverlapParams.new()
 walkOverlap.FilterType = Enum.RaycastFilterType.Include
 walkOverlap.FilterDescendantsInstances = walkFolders
+
+-- rail beds: no abutment or pier on the tracks (Madison / Upland over the CSX)
+local railBeds = {}
+for _, f in ipairs(roadFolders) do
+	for _, p in ipairs(f:GetChildren()) do
+		if p:IsA("BasePart") and p:GetAttribute("CW_Rail") == true and p.Name ~= "Rail" then
+			table.insert(railBeds, p)
+		end
+	end
+end
+local railOverlap = OverlapParams.new()
+railOverlap.FilterType = Enum.RaycastFilterType.Include
+railOverlap.FilterDescendantsInstances = railBeds
+railOverlap.MaxParts = 1
+local function onRail(cframe, size)
+	return #railBeds > 0 and #Workspace:GetPartBoundsInBox(cframe, size + Vector3.new(0, 6, 0), railOverlap) > 0
+end
 
 local count = 0
 local function part(name, size, cframe, color, material)
@@ -107,6 +169,7 @@ for _, tile in ipairs(world:GetChildren()) do
 			if scanned % 500 == 0 then task.wait() end
 			if road:IsA("BasePart") and road.Name ~= "Rail" and road.Transparency < 1
 				and road:GetAttribute("CW_ElevationOwner") ~= "HighwayProfile"
+				and road:GetAttribute("CW_Rail") ~= true   -- rail builds its own structure (RailProfile)
 				and road:GetAttribute("CW_Tunnel") ~= true then
 				local g = groundUnder(road.Position)
 				local bottom = road.Position.Y - road.Size.Y / 2
@@ -189,9 +252,15 @@ local function bent(point, dir, road, topY, wide)
 	local look = CFrame.lookAt(Vector3.zero, Vector3.new(dir.X, 0, dir.Z)).Rotation
 	local right = Vector3.new(-dir.Z, 0, dir.X)
 	if wide then
+		if onRail(CFrame.new(point.X, (topY + bottom) / 2, point.Z) * look, Vector3.new(road.Size.X + 3, h, 3.5)) then
+			return false
+		end
 		part("LocalBridgeAbutment", Vector3.new(road.Size.X + 3, h, 3.5),
 			CFrame.new(point.X, (topY + bottom) / 2, point.Z) * look, CONCRETE)
 	else
+		if onRail(CFrame.new(point.X, (topY + bottom) / 2, point.Z) * look, Vector3.new(road.Size.X, h, 3.2)) then
+			return false
+		end
 		for side = -1, 1, 2 do
 			local c = point + right * side * math.max(road.Size.X / 2 - 2.5, 1.5)
 			part("LocalBridgePier", Vector3.new(2.6, h, 2.6), CFrame.new(c.X, (topY + bottom) / 2, c.Z) * look, CONCRETE)
@@ -267,4 +336,5 @@ end
 
 print(("[ChesterWorld LocalBridges] elevatedPieces=%d decks=%d stringers=%d parapets=%d abutments=%d piers=%d parts=%d")
 	:format(#pieces, decks, stringers, parapets, abutments, piers, count))
+fixCatenary()
 Workspace:SetAttribute("CW_LocalBridgesDressed", true)

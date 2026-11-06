@@ -6,6 +6,7 @@ local WorldConfig = require(Shared:WaitForChild("WorldConfig"))
 local Registry = require(Shared:WaitForChild("HighwayStructureRegistry"))
 
 local HighwayProfile = require(script.Parent:WaitForChild("HighwayProfile"))
+local RailProfile = require(script.Parent:WaitForChild("RailProfile"))
 
 local TileBuilderV2 = {}
 
@@ -747,11 +748,27 @@ function TileBuilderV2.Prepare(tileModules)
 		end,
 		yield = function() task.wait() end,
 	})
+	-- Railway vertical profile (embankments and girder bridges over streets)
+	local railStart = os.clock()
+	RailProfile.Prepare(entries, {
+		sourceToStuds = sourceToStuds,
+		terrainY = terrainY,
+		isRail = function(name) return RAIL_LINES[name] == true end,
+		yield = function() task.wait() end,
+	})
+	do
+		local rs = RailProfile.Stats()
+		print(("[ChesterWorld RailProfile] strokes=%d segments=%d streetBridges=%d spanStations=%d fillStations=%d maxFill=%.1f seconds=%.1f")
+			:format(rs.strokes, rs.segments, rs.streetBridges, rs.spanStations, rs.fillStations, rs.maxFill, os.clock() - railStart))
+	end
 	if HighwayProfile.Enabled() then
 		print(("[ChesterWorld HighwayProfile] %s seconds=%.1f"):format(HighwayProfile.Summary(), os.clock() - profileStart))
 		local profileStats = HighwayProfile.Stats()
 		for _, line in ipairs(profileStats.pinConflictList) do
 			warn("[ChesterWorld HighwayProfilePinConflict] " .. line)
+		end
+		for _, line in ipairs(profileStats.designMissList or {}) do
+			warn("[ChesterWorld HighwayProfileDesignMiss] " .. line)
 		end
 		for _, line in ipairs(profileStats.unresolvedList) do
 			warn("[ChesterWorld HighwayProfileUnresolved] " .. line)
@@ -1233,7 +1250,180 @@ local RAIL_HALF_GAUGE_STUDS = 0.72 * S
 local BALLAST_COLOR = Color3.fromRGB(112, 104, 96)
 local RAIL_COLOR = Color3.fromRGB(92, 70, 58)
 
+-- Tracks per line (DVRPC 2025 aerial): the NEC is four tracks through Chester,
+-- the CSX two, the Conrail / Linwood branches one. Track centres 4 m real.
+local RAIL_TRACKS = {
+	["Amtrak Ne Corridor"] = 4, ["Csx Phila Subdivision"] = 2,
+	["Cr Chester Secondary"] = 1, ["Linwood Industrial Track"] = 1,
+}
+local TRACK_SPACING_STUDS = 4.0 * 1.302 * S   -- real metres -> Mercator studs
+local EMBANKMENT_COLOR = Color3.fromRGB(122, 112, 100)
+local GIRDER_COLOR = Color3.fromRGB(62, 64, 66)
+local CATENARY_COLOR = Color3.fromRGB(96, 98, 94)
+local PIER_EVERY = 72
+
+-- Profiled track (RailProfile): ballast, rails, and the structure under the
+-- line: stone embankment walls where it stands on fill, steel girder spans
+-- with stone abutments and piers where it bridges a street or a dip, and
+-- NEC catenary masts. One straight piece every ~30 studs along the profile.
+local function buildProfiledRail(roadsFolder, name, a2D, b2D, road, info)
+	local tracks = RAIL_TRACKS[name] or 1
+	local bed = RAIL_BED_STUDS + (tracks - 1) * TRACK_SPACING_STUDS
+	local attrs = roadAttributes(road, bed)
+	attrs.CW_Rail = true
+	attrs.CW_RailProfiled = true
+	attrs.CW_Bridge = false
+	attrs.CW_GradeLevel = 0
+	attrs.CW_GradeSeparated = false
+	local tile = roadsFolder.Parent
+	local structures = tile:FindFirstChild("RailStructures")
+	if not structures then
+		structures = Instance.new("Folder")
+		structures.Name = "RailStructures"
+		structures.Parent = tile
+	end
+	local ax, az = sourceToStuds(road.x1, road.z1)
+	local bx, bz = sourceToStuds(road.x2, road.z2)
+	local full = math.sqrt((bx - ax) ^ 2 + (bz - az) ^ 2)
+	if full < 0.5 then return end
+	local function fractionOf(p)
+		return math.clamp(((p.X - ax) * (bx - ax) + (p.Z - az) * (bz - az)) / (full * full), 0, 1)
+	end
+	local f0, f1 = fractionOf(a2D), fractionOf(b2D)
+	local function pointAt(f, yOffset)
+		local y = RailProfile.HeightAt(info, f)
+		return Vector3.new(ax + (bx - ax) * f, y + yOffset, az + (bz - az) * f), y
+	end
+	local dir = Vector3.new(bx - ax, 0, bz - az).Unit
+	local perp = Vector3.new(-dir.Z, 0, dir.X)
+	local length = full * math.abs(f1 - f0)
+	local n = math.max(1, math.ceil(length / 30))
+	local offset = WorldConfig.ROAD_SURFACE_OFFSET_STUDS - 0.08
+	local thickness = WorldConfig.ROAD_THICKNESS_STUDS
+	local function stripPart(parent, partName, a, b, width, height, material, color)
+		local p = makeStripPart(parent, partName, a, b, width, height, material, color)
+		if p then p.Color = color end
+		return p
+	end
+	local prevKind
+	for k = 0, n - 1 do
+		local fa = f0 + (f1 - f0) * k / n
+		local fb = f0 + (f1 - f0) * (k + 1) / n
+		local pa, ya = pointAt(fa, offset)
+		local pb, yb = pointAt(fb, offset)
+		local bedPart = stripPart(roadsFolder, name, pa, pb, bed, thickness, Enum.Material.Pebble, BALLAST_COLOR)
+		if bedPart then
+			for key, value in pairs(attrs) do bedPart:SetAttribute(key, value) end
+		end
+		-- two rails per track
+		for t = 1, tracks do
+			local centre = (t - (tracks + 1) / 2) * TRACK_SPACING_STUDS
+			for side = -1, 1, 2 do
+				local o = perp * (centre + side * RAIL_HALF_GAUGE_STUDS)
+				local rail = stripPart(roadsFolder, "Rail", pa + o + Vector3.new(0, 0.53, 0), pb + o + Vector3.new(0, 0.53, 0),
+					0.3, 0.5, Enum.Material.Metal, RAIL_COLOR)
+				if rail then rail:SetAttribute("CW_Rail", true) end
+			end
+		end
+		-- structure under this piece
+		local fm = (fa + fb) / 2
+		local kind = RailProfile.KindAt(info, fm)
+		local ga, gb = RailProfile.GroundAt(info, fa), RailProfile.GroundAt(info, fb)
+		local ground = math.min(ga or ya, gb or yb)
+		local bottomA, bottomB = pa.Y - thickness / 2, pb.Y - thickness / 2
+		local mid = (pa + pb) / 2
+		local segLen = (Vector3.new(pb.X - pa.X, 0, pb.Z - pa.Z)).Magnitude
+		local look = CFrame.lookAt(Vector3.zero, dir).Rotation
+		if kind == "fill" then
+			local top = (bottomA + bottomB) / 2
+			local h = top - (ground - 1)
+			if h > 0.5 then
+				local wall = Instance.new("Part")
+				wall.Name = "RailEmbankment"
+				wall.Anchored = true
+				wall.Material = Enum.Material.Cobblestone
+				wall.Color = EMBANKMENT_COLOR
+				wall.Size = Vector3.new(bed + 3, h, segLen + 0.3)
+				wall.CFrame = CFrame.new(mid.X, top - h / 2, mid.Z) * look
+				wall.Parent = structures
+			end
+		elseif kind == "span" then
+			-- deck plate and two through-girders along the outer edges
+			local deck = stripPart(structures, "RailDeck", pa - Vector3.new(0, thickness / 2 + 0.5, 0),
+				pb - Vector3.new(0, thickness / 2 + 0.5, 0), bed + 1.5, 1.0, Enum.Material.Metal, GIRDER_COLOR)
+			for side = -1, 1, 2 do
+				local o = perp * side * (bed / 2 + 0.6)
+				stripPart(structures, "RailGirder", pa + o + Vector3.new(0, -0.6, 0), pb + o + Vector3.new(0, -0.6, 0),
+					0.8, 4.2, Enum.Material.Metal, GIRDER_COLOR)
+			end
+			-- piers inside long spans, never in a street opening
+			local st = RailProfile.StationAt(info, fm)
+			if math.floor(RailProfile.StationAt(info, fa) / PIER_EVERY) ~= math.floor(RailProfile.StationAt(info, fb) / PIER_EVERY)
+				and not RailProfile.OverStreet(info, st) and RailProfile.ClearOfStreets(mid.X, mid.Z, bed / 2 + 1) then
+				local top = (bottomA + bottomB) / 2 - 1.0
+				local h = top - (ground - 2)
+				if h > 3 then
+					local pier = Instance.new("Part")
+					pier.Name = "RailPier"
+					pier.Anchored = true
+					pier.Material = Enum.Material.Cobblestone
+					pier.Color = EMBANKMENT_COLOR
+					pier.Size = Vector3.new(bed + 2, h, 4)
+					pier.CFrame = CFrame.new(mid.X, top - h / 2, mid.Z) * look
+					pier.Parent = structures
+				end
+			end
+		end
+		-- stone abutment where a span meets fill / grade
+		if prevKind and (prevKind == "span") ~= (kind == "span") then
+			local top = bottomA - 0.6
+			local h = top - (ga or ya) + 2
+			if h > 2 and RailProfile.ClearOfStreets(pa.X, pa.Z, bed / 2 + 2.5) then
+				local abut = Instance.new("Part")
+				abut.Name = "RailAbutment"
+				abut.Anchored = true
+				abut.Material = Enum.Material.Cobblestone
+				abut.Color = EMBANKMENT_COLOR
+				abut.Size = Vector3.new(bed + 5, h, 3)
+				abut.CFrame = CFrame.new(pa.X, top - h / 2, pa.Z) * look
+				abut.Parent = structures
+			end
+		end
+		prevKind = kind
+		-- NEC catenary: a mast beside the tracks with a cross arm and wire
+		if name == "Amtrak Ne Corridor" then
+			local stA, stB = RailProfile.StationAt(info, fa), RailProfile.StationAt(info, fb)
+			if math.floor(stA / 60) ~= math.floor(stB / 60) then
+				local base = pa + perp * (bed / 2 + 1.5)
+				local mast = Instance.new("Part")
+				mast.Name = "CatenaryMast"
+				mast.Anchored = true
+				mast.CanCollide = false
+				mast.Material = Enum.Material.Metal
+				mast.Color = CATENARY_COLOR
+				mast.Size = Vector3.new(0.8, 22, 0.8)
+				mast.CFrame = CFrame.new(base + Vector3.new(0, 11, 0))
+				mast.Parent = structures
+				local armEnd = pa - perp * (bed / 2) + Vector3.new(0, 20, 0)
+				local armStart = base + Vector3.new(0, 20, 0)
+				local arm = stripPart(structures, "CatenaryArm", armStart, armEnd, 0.5, 0.5, Enum.Material.Metal, CATENARY_COLOR)
+				if arm then arm.CanCollide = false end
+			end
+			for t = 1, tracks do
+				local o = perp * ((t - (tracks + 1) / 2) * TRACK_SPACING_STUDS) + Vector3.new(0, 17, 0)
+				local wire = stripPart(structures, "CatenaryWire", pa + o, pb + o, 0.12, 0.12, Enum.Material.Metal, Color3.fromRGB(40, 40, 40))
+				if wire then wire.CanCollide = false end
+			end
+		end
+	end
+end
+
 local function buildRailTrack(roadsFolder, name, a2D, b2D, road)
+	local info = RailProfile.Info(road)
+	if info and info.stroke.G then
+		buildProfiledRail(roadsFolder, name, a2D, b2D, road, info)
+		return
+	end
 	local attrs = roadAttributes(road, RAIL_BED_STUDS)
 	attrs.CW_Rail = true
 	buildAdaptiveCenterStrip(roadsFolder, name, a2D.X, a2D.Z, b2D.X, b2D.Z,

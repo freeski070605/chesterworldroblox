@@ -240,6 +240,24 @@ Registry.DESIGN_PROFILES = {
 		},
 		status = "design:aerial_dvrpc2025",
 	},
+	{
+		id = "BARRY_WB_OVER_AMTRAK",
+		description = "The other Barry carriageway (county 21220 / 21327 chain: the US 13 to US 322 ramp "
+			.. "merging at -733,5692, then the 25 m bridge record to -658,5810) crosses the NEC on the same "
+			.. "structure (crossing_aerial.py barry_amtrak). It lies ~45 studs off BARRY_OVER_AMTRAK's line, "
+			.. "outside its reach, and sagged to track level (40 over rail at 39). The US 322 to PA 291 "
+			.. "ramp leaves it at -658,5810 at deck level; solved first at grade, it pinned the "
+			.. "carriageway 27 studs low (HighwayProfileDesignMiss).",
+		names = { "commodore john barry", "us 13 to us 322", "us 322 to pa 291" },
+		lateral = 20,
+		points = {
+			{ -876, 5511, 48.6 },
+			{ -733, 5692, 59.5 },
+			{ -658, 5810, 55.5 },
+			{ -536, 6007, 48.0 },
+		},
+		status = "design:aerial_dvrpc2025",
+	},
 }
 
 -- Bridge-tagged source records that are at grade on the ground (no

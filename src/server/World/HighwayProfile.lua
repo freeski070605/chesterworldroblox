@@ -1224,6 +1224,9 @@ function HighwayProfile.Prepare(entries, opts)
 								-- may not pull the viaduct under it
 								maxReq[k] = math.max(math.min(maxReq[k], bestY + 0.5), minReq[k] + 0.5)
 								stats.designStations = (stats.designStations or 0) + 1
+								stroke.designHits = stroke.designHits or {}
+								stroke.designHits[design.id] = stroke.designHits[design.id] or {}
+								table.insert(stroke.designHits[design.id], { k = k, y = bestY })
 							end
 						end
 					end
@@ -1447,6 +1450,21 @@ function HighwayProfile.Prepare(entries, opts)
 				G = corrected
 			end
 			stroke.G = G
+			-- design lines the final profile misses by more than 2 studs (a pin
+			-- from an earlier-solved stroke pulled it away)
+			for id, hits in pairs(stroke.designHits or {}) do
+				local worst, worstHit = 0, nil
+				for _, h in ipairs(hits) do
+					local d = h.y - G[h.k]
+					if math.abs(d) > math.abs(worst) then worst, worstHit = d, h end
+				end
+				if math.abs(worst) > 2 then
+					stats.designMissList = stats.designMissList or {}
+					table.insert(stats.designMissList, string.format("%s %s %s stations=%d worst=%.1f at (%.0f, %.0f) pins=%d",
+						id, stroke.id, tostring(stroke.parts[1].seg.road.name), #hits, worst,
+						xs[worstHit.k], zs[worstHit.k], #pins))
+				end
+			end
 			stroke.t, stroke.tl, stroke.c, stroke.f = t, tl, c, f
 			stroke.xs, stroke.zs = xs, zs
 			stroke.minReq = minReq

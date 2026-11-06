@@ -168,8 +168,33 @@ buildingParams.FilterType=Enum.RaycastFilterType.Include
 buildingParams.FilterDescendantsInstances=buildingFolders
 buildingParams.MaxParts=1
 
+-- Profiled rail beds (RailProfile; built by TileBuilderV2 before this runs):
+-- no abutment wall, fill block or pier may stand on the tracks. The Barry
+-- carriageways over the NEC put a 77-stud abutment across all four tracks.
+local railBeds={}
+for _,tile in ipairs(world:GetChildren()) do
+    local roads=tile:FindFirstChild("Roads")
+    if roads then
+        for _,p in ipairs(roads:GetChildren()) do
+            if p:IsA("BasePart") and p:GetAttribute("CW_Rail")==true and p.Name~="Rail" then
+                table.insert(railBeds,p)
+            end
+        end
+    end
+end
+local railParams=OverlapParams.new()
+railParams.FilterType=Enum.RaycastFilterType.Include
+railParams.FilterDescendantsInstances=railBeds
+railParams.MaxParts=1
+local function onRail(frame,size)
+    if #railBeds==0 then return false end
+    -- footprint extended down to reach a bed under a tall wall / fill
+    return #Workspace:GetPartBoundsInBox(frame,size+Vector3.new(0,8,0),railParams)>0
+end
+
 local function canPier(point,height)
     if height<9 then return false end
+    if onRail(CFrame.new(point.X,point.Y-height/2,point.Z),Vector3.new(4,height,4)) then return false end
     local x,z=point.X,point.Z
     local key=math.floor(x/SUPPORT_SPACING)..":"..math.floor(z/SUPPORT_SPACING)
     if supportLocations[key] then return false end
@@ -394,17 +419,27 @@ for index,road in ipairs(profiled) do
             if height>0.6 then
                 local slopeDrop=math.abs(road.CFrame.LookVector.Y)*road.Size.Z/2
                 height+=slopeDrop
-                local block=partAt(hwFolder,"HighwayFill",
-                    Vector3.new(road.Size.X+1.0,height,road.Size.Z),
-                    road.CFrame*CFrame.new(0,-road.Size.Y/2-height/2-0.01,0),
-                    STRUCT_COLOR,true)
-                block.Material=height>6 and Enum.Material.Concrete or Enum.Material.Ground
-                if height<=6 then block.Color=Color3.fromRGB(96,104,74) end
-                for key,value in pairs(attrs) do block:SetAttribute(key,value) end
-                block:SetAttribute("CW_FillHeightStuds",height)
-                hw.fills+=1
-                if height>BARRIER_MIN_FILL then
+                local fillSize=Vector3.new(road.Size.X+1.0,height,road.Size.Z)
+                local fillFrame=road.CFrame*CFrame.new(0,-road.Size.Y/2-height/2-0.01,0)
+                if onRail(fillFrame,fillSize) then
+                    -- the track runs under here: an open deck, not fill
+                    local deck=partAt(hwFolder,"HighwayDeck",
+                        Vector3.new(road.Size.X+1.0,DECK_THICKNESS,road.Size.Z),
+                        road.CFrame*CFrame.new(0,-road.Size.Y/2-DECK_THICKNESS/2-0.01,0),
+                        STRUCT_COLOR,true)
+                    for key,value in pairs(attrs) do deck:SetAttribute(key,value) end
+                    hw.fillsOverRail=(hw.fillsOverRail or 0)+1
                     barrierPair(road,hwFolder,attrs)
+                else
+                    local block=partAt(hwFolder,"HighwayFill",fillSize,fillFrame,STRUCT_COLOR,true)
+                    block.Material=height>6 and Enum.Material.Concrete or Enum.Material.Ground
+                    if height<=6 then block.Color=Color3.fromRGB(96,104,74) end
+                    for key,value in pairs(attrs) do block:SetAttribute(key,value) end
+                    block:SetAttribute("CW_FillHeightStuds",height)
+                    hw.fills+=1
+                    if height>BARRIER_MIN_FILL then
+                        barrierPair(road,hwFolder,attrs)
+                    end
                 end
             end
         end
@@ -518,6 +553,10 @@ for id,entry in pairs(structures) do
         local outward=Vector3.new(p.X-other.X,0,p.Z-other.Z)
         outward=outward.Magnitude>0.01 and outward.Unit or flat
         local c=Vector3.new(p.X,top-height/2,p.Z)+outward*1.5
+        if onRail(CFrame.lookAt(c,c+flat),Vector3.new(piece.Size.X+2.0,height,3.0)) then
+            hw.abutmentsOnRail=(hw.abutmentsOnRail or 0)+1
+            return
+        end
         local wall=partAt(hwFolder,"HighwayAbutment",
             Vector3.new(piece.Size.X+2.0,height,3.0),
             CFrame.lookAt(c,c+flat),STRUCT_COLOR,true)
@@ -664,6 +703,8 @@ Workspace:SetAttribute("CW_HighwaySpans",hw.spans)
 print(("[ChesterWorld HighwayStructures] profiledParts=%d spans=%d spanPieces=%d fillPieces=%d gradePieces=%d decks=%d fascia=%d barriers=%d abutments=%d piers=%d fills=%d overpassFences=%d holes=%d padCoveredGaps=%d steps=%d worstStep=%.2f")
     :format(#profiled,hw.spans,hw.spanPieces,hw.fillPieces,hw.gradePieces,hw.decks,
     hw.girders,hw.barriers,hw.abutments,hw.piers,hw.fills,hw.fences,holes,coveredGaps,steps,worstStep))
+print(("[ChesterWorld HighwayStructures] railBeds=%d abutmentsOnRailSkipped=%d fillsOverRailAsDeck=%d")
+    :format(#railBeds,hw.abutmentsOnRail or 0,hw.fillsOverRail or 0))
 for _,line in ipairs(holeList) do
     warn("[ChesterWorld HighwayHole] "..line)
 end

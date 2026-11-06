@@ -254,6 +254,14 @@ SHAVE_MAX_FRACTION = 0.4   # ... and never by more than this share of the block
 DEEP_MIN_M = 3.0           # deeper cuts must leave a block at least this deep
 DEEP_MIN_FRACTION = 0.35   # ... and this share of its original depth
 RAIL_BED_M = 4.2
+# Built rail width (TileBuilderV2 buildProfiledRail): bed + track centres
+# 4 m real (5.208 m Mercator) apart, plus the abutment / embankment margin.
+RAIL_TRACKS = {"Amtrak Ne Corridor": 4, "Csx Phila Subdivision": 2}
+RAIL_MARGIN_M = 5.0 / 3
+
+
+def rail_footprint_m(name):
+    return RAIL_BED_M + (RAIL_TRACKS.get(name, 1) - 1) * 4.0 * 1.302 + RAIL_MARGIN_M
 
 
 def carriageways():
@@ -263,11 +271,18 @@ def carriageways():
     for path in sorted(TILES.glob("tile_*.lua")):
         for line in path.read_text(encoding="utf-8").split("\n"):
             m = ROAD_RE.match(line)
-            if not m or m["bridge"] != "false" or m["tunnel"] != "false" or m["layer"] != "0":
+            if not m:
+                continue
+            rail = m["name"] in RAIL_NAMES
+            # rail stands on its profiled embankment / spans down to the ground
+            # whatever the county bridge tag says
+            if not rail and (m["bridge"] != "false" or m["tunnel"] != "false" or m["layer"] != "0"):
+                continue
+            if rail and m["tunnel"] != "false":
                 continue
             if m["cls"] == "footway" or m["name"] in VIADUCT_NAMES:
                 continue
-            w = RAIL_BED_M if m["name"] in RAIL_NAMES else float(m["w"])
+            w = rail_footprint_m(m["name"]) if rail else float(m["w"])
             seg = LineString([(float(m["x1"]), float(m["z1"])), (float(m["x2"]), float(m["z2"]))])
             if seg.length > 0.05:
                 polys.append(seg.buffer(w / 2 + CLEAR_M, cap_style=2))

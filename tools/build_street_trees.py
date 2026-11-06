@@ -80,7 +80,7 @@ def main():
             if not m:
                 continue
             seg = LineString([(float(m["x1"]), float(m["z1"])), (float(m["x2"]), float(m["z2"]))])
-            w = float(m["w"]) / 2
+            w = (fit.rail_footprint_m(m["name"]) if m["name"] in fit.RAIL_NAMES else float(m["w"])) / 2
             if m["cls"] in CORRIDOR or m["name"] in fit.RAIL_NAMES or m["bridge"] == "true":
                 w += CORRIDOR_CLEAR_M
             else:

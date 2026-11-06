@@ -10,7 +10,10 @@ local function key(player) return "player_" .. player.UserId end
 local function save(player)
  local data = sessions[player]
  if not data then return end
- local snapshot = {cash = data.cash, reputation = data.reputation}
+ local stats = player:FindFirstChild("leaderstats")
+ local cash = stats and stats:FindFirstChild("Chester Cash")
+ local rep = stats and stats:FindFirstChild("Reputation")
+ local snapshot = {cash = cash and cash.Value or data.cash, reputation = rep and rep.Value or data.reputation}
  local ok, err = pcall(function()
   store:UpdateAsync(key(player), function(old)
    old = type(old) == "table" and old or {}

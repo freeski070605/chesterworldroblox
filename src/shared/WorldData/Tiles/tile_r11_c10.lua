@@ -43,7 +43,6 @@ return {
         {name="Macdade",x1=10660.905,z1=11311.248,x2=10530.188,z2=11208.39,width_m=14,road_class="primary",bridge=false,tunnel=false,layer=0,grade_group="county:23580:g0",source="county"},
         {name="Road",x1=10556.999,z1=11263.822,x2=10538.798,z2=11287.38,width_m=4.16,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:728698511:g0",source="osm"},
         {name="Road",x1=10538.798,z1=11287.38,x2=10531.729,z2=11288.178,width_m=4.16,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:728698511:g0",source="osm"},
-        {name="Road",x1=10531.729,z1=11288.178,x2=10498.3,z2=11275.195,width_m=4.16,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:728698511:g0",source="osm"},
         {name="Road",x1=10498.3,z1=11275.195,x2=10475.224,z2=11257.236,width_m=4.16,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:728698511:g0",source="osm"},
         {name="Road",x1=10475.224,z1=11257.236,x2=10479.799,z2=11251.579,width_m=4.16,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:728698511:g0",source="osm"},
         {name="Road",x1=10479.799,z1=11251.579,x2=10490.864,z2=11236.216,width_m=4.16,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:728698511:g0",source="osm"},

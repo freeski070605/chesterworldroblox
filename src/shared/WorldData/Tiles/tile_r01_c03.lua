@@ -1,12 +1,11 @@
 return {
     tile_id = "tile_r01_c03",
     roads = {
-        {name="Road",x1=3000,z1=1567.359,x2=3021.226,z2=1531.234,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580092126:g0",source="osm"},
         {name="Road",x1=3021.226,z1=1531.234,x2=3043.167,z2=1546.291,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580092126:g0",source="osm"},
         {name="Road",x1=3043.167,z1=1546.291,x2=3061.98,z2=1558.407,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580092126:g0",source="osm"},
         {name="Road",x1=3061.98,z1=1558.407,x2=3000,z2=1646.994,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580092126:g0",source="osm"},
         {name="Road",x1=3000,z1=1617.742,x2=3043.167,z2=1546.291,width_m=5,road_class="service",bridge=false,tunnel=false,layer=0,grade_group="osm:580092125:g0",source="osm"},
-        {name="Private",x1=3000,z1=1669.271,x2=3031.077,z2=1687.782,width_m=7,road_class="local",bridge=false,tunnel=false,layer=0,grade_group="county:7861:g0",source="county"},
+        {name="Private",x1=3000,z1=1669.271,x2=3031.077,z2=1687.782,width_m=6.336,road_class="local",bridge=false,tunnel=false,layer=0,grade_group="county:7861:g0",source="county"},
         {name="Private",x1=3031.077,z1=1687.782,x2=3088.956,z2=1590.411,width_m=7,road_class="local",bridge=false,tunnel=false,layer=0,grade_group="county:7861:g0",source="county"},
         {name="Private",x1=3088.956,z1=1590.411,x2=3204.97,z2=1660.007,width_m=7,road_class="local",bridge=false,tunnel=false,layer=0,grade_group="county:7861:g0",source="county"},
         {name="Private",x1=3204.97,z1=1660.007,x2=3212.017,z2=1672.774,width_m=7,road_class="local",bridge=false,tunnel=false,layer=0,grade_group="county:7861:g0",source="county"},

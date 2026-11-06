@@ -82,7 +82,7 @@ return {
         {name="Toll",x1=10556.674,z1=8680.614,x2=10551.503,z2=8686.447,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:6346:g0",source="county"},
         {name="Toll",x1=10551.503,z1=8686.447,x2=10545.891,z2=8691.855,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:6346:g0",source="county"},
         {name="Toll",x1=10545.891,z1=8691.855,x2=10520.546,z2=8732.375,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:6346:g0",source="county"},
-        {name="Toll",x1=10520.546,z1=8732.375,x2=10498.696,z2=8766.662,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:6346:g0",source="county"},
+        {name="Toll",x1=10520.546,z1=8732.375,x2=10498.696,z2=8766.662,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,sidewalk=false,grade_group="county:6346:g0",source="county"},
         {name="11th",x1=10332.687,z1=8657.999,x2=10440.257,z2=8728.884,width_m=7.5,road_class="residential",bridge=false,tunnel=false,layer=0,grade_group="county:24180:g0",source="county"},
         {name="Saville",x1=10332.687,z1=8657.999,x2=10290.907,z2=8749.403,width_m=10,road_class="tertiary",bridge=false,tunnel=false,layer=0,grade_group="county:11865:g0",source="county"},
         {name="Saville",x1=10290.907,z1=8749.403,x2=10278.764,z2=8768.315,width_m=10,road_class="tertiary",bridge=false,tunnel=false,layer=0,grade_group="county:11865:g0",source="county"},

@@ -1,3 +1,4 @@
+-- DEVELOPMENT TOOL - superseded for production by HighwayProfile.lua.
 -- ChesterWorld | Kerlin / I-95 | OPT-IN, STUDIO-ONLY DRIVE TEST.
 -- Uses the two measured I-95 tie-ins from the successful grade-profile preview.
 -- This is an EXPERIMENTAL PHYSICAL ROAD PROFILE, NOT AN ENGINEERING DESIGN.
@@ -249,6 +250,15 @@ local function preflightLegacy(parts,route)
 end
 
 function Test.Run(options)
+    -- Production ownership: since 2026-11-04 HighwayProfile (TileBuilderV2)
+    -- builds the I-95 / Kerlin crossing on every world build. Stacking this
+    -- temporary geometry on top of it would create duplicate collision.
+    if workspace:GetAttribute("CW_HighwayProfiledPieces") and workspace:GetAttribute("CW_HighwayProfiledPieces") > 0
+        and not (type(options) == "table" and options.force == true) then
+        warn("[Kerlin dev tool] HighwayProfile already owns this crossing; pass {force=true} to run anyway.")
+        return nil
+    end
+
     options=options or {}
     local world=ready()
     if not world then return false end

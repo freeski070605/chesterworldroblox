@@ -1,3 +1,4 @@
+-- DEVELOPMENT TOOL - superseded for production by HighwayProfile.lua.
 -- ChesterWorld | Kerlin/I-95 | Studio-only finish preview on existing test bridge.
 -- This module adds *noncolliding* visual surfaces, stripes, and edge parapets
 -- onto KerlinDrivableTest_TEMP. It never edits terrain, GIS, source roads,
@@ -111,7 +112,16 @@ local function sortedRoadPieces(routeFolder)
     return result
 end
 
-function M.Run()
+function M.Run(options)
+    -- Production ownership: since 2026-11-04 HighwayProfile (TileBuilderV2)
+    -- builds the I-95 / Kerlin crossing on every world build. Stacking this
+    -- temporary geometry on top of it would create duplicate collision.
+    if workspace:GetAttribute("CW_HighwayProfiledPieces") and workspace:GetAttribute("CW_HighwayProfiledPieces") > 0
+        and not (type(options) == "table" and options.force == true) then
+        warn("[Kerlin dev tool] HighwayProfile already owns this crossing; pass {force=true} to run anyway.")
+        return nil
+    end
+
     local world = getWorld()
     if not world then return false end
     if Workspace:GetAttribute("CW_HighwayFinishComplete") ~= true then

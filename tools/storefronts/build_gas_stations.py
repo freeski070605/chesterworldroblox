@@ -1,0 +1,123 @@
+"""Build src/shared/WorldData/GasStations.lua from the verified storefront inventory.
+
+For each gas station whose street-imagery review is confirmed/plausible
+(Data/10_StorefrontPanoramas manifest), finds the county footprints that are
+really the fuel canopy (within 10 m of the fuel point, <= 7.5 m tall, near-
+rectangular - checked against the DVRPC 2025 aerial), and writes their oriented
+boxes plus the ids to replace. Stations with no canopy footprint get a
+synthetic 24 x 10 m canopy parallel to the street. GasStationBuilder.server.lua
+removes the box buildings and builds an open canopy, pump islands and a brand
+sign.
+
+    py -3 tools/storefronts/build_gas_stations.py
+"""
+import json
+import math
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import storefront_sweep as s  # noqa: E402
+
+ROOT = Path(__file__).resolve().parents[2]
+OUT = ROOT / "src" / "shared" / "WorldData" / "GasStations.lua"
+MANIFEST = s.OUT_DEFAULT / "chesterworld_storefront_reference_manifest.json"
+LAT0 = 39.85
+STUDS_PER_M = 3.0 / math.cos(math.radians(LAT0))  # horizontal: Web-Mercator metres x3
+
+# brand: fascia, accent, sign text colour (from the Google Street View review 2026-11-05)
+BRANDS = {
+    "Sunoco": ((0, 61, 165), (255, 204, 0), (255, 255, 255)),
+    "US Gas": ((196, 30, 42), (240, 240, 240), (255, 255, 255)),
+    "Eagle Fuel": ((28, 48, 118), (206, 38, 44), (255, 255, 255)),
+    "Lukoil": ((214, 24, 32), (245, 245, 245), (255, 255, 255)),
+    "BP": ((236, 236, 236), (200, 30, 36), (24, 24, 24)),
+}
+DEFAULT_BRAND = ((236, 236, 236), (200, 30, 36), (24, 24, 24))
+
+
+def to_studs_geom(g):
+    from shapely.ops import transform
+    return transform(lambda xs, ys, zs=None: tuple(zip(*[s.studs(x, y) for x, y in zip(xs, ys)])), g)
+
+
+def oriented(poly):
+    rect = poly.minimum_rotated_rectangle
+    pts = list(rect.exterior.coords)[:4]
+    e1 = (pts[1][0] - pts[0][0], pts[1][1] - pts[0][1])
+    e2 = (pts[2][0] - pts[1][0], pts[2][1] - pts[1][1])
+    l1, l2 = math.hypot(*e1), math.hypot(*e2)
+    along = e1 if l1 >= l2 else e2
+    c = rect.centroid
+    return [round(c.x, 1), round(c.y, 1), round(max(l1, l2), 1), round(min(l1, l2), 1),
+            round(-math.degrees(math.atan2(along[1], along[0])), 1)]
+
+
+def lua_str(v):
+    return '"' + str(v).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def main():
+    from shapely.geometry import shape, Point
+    from shapely.ops import transform
+    import pyproj
+    tm = pyproj.Transformer.from_crs(4326, 32618, always_xy=True).transform
+    man = json.loads(MANIFEST.read_text(encoding="utf-8"))["businesses"]
+    feats = s.load(s.BUILDINGS)["features"]
+    geoms_m = [transform(tm, shape(f["geometry"]).buffer(0)) for f in feats]
+    stations = []
+    for b in man:
+        if b["group"] != "gas_station" or not str(b.get("review_status", "")).startswith("visually"):
+            continue
+        pt = Point(tm(b["lon"], b["lat"]))
+        canopies = []
+        for i, g in enumerate(geoms_m):
+            if g.distance(pt) > 10:
+                continue
+            p = feats[i]["properties"]
+            h = p.get("height_m") or 0
+            fill = g.area / max(g.minimum_rotated_rectangle.area, 1e-6)
+            if h <= 7.5 and fill >= 0.7 and 30 <= g.area <= 700:
+                gl = shape(feats[i]["geometry"]).buffer(0)
+                if gl.geom_type == "MultiPolygon":
+                    gl = max(gl.geoms, key=lambda q: q.area)
+                canopies.append({"box": oriented(to_studs_geom(gl)), "replaces": str(p["OBJECTID"])})
+        front = (b.get("frontage") or {}).get("front_bearing")
+        sx, sz = s.studs(b["lon"], b["lat"])
+        if not canopies:
+            # synthetic canopy parallel to the street (long axis perpendicular to the frontage bearing)
+            fb = math.radians(front or 0)
+            ax, az = math.cos(fb), math.sin(fb)  # studs frame: x east, z south
+            canopies.append({"box": [sx, sz, round(24 * STUDS_PER_M, 1), round(10 * STUDS_PER_M, 1),
+                                     round(-math.degrees(math.atan2(az, ax)), 1)], "replaces": None, "synthetic": True})
+        # brand sign near the street: from the canopy centre towards the frontage road
+        cx = sum(c["box"][0] for c in canopies) / len(canopies)
+        cz = sum(c["box"][1] for c in canopies) / len(canopies)
+        sign = None
+        if front is not None:
+            d = max(6.0, ((b.get("frontage") or {}).get("road_distance_m") or 12) - 3.5) * STUDS_PER_M
+            fb = math.radians(front)
+            sign = [round(sx + math.sin(fb) * d, 1), round(sz - math.cos(fb) * d, 1), round(front, 1)]
+        brand = next((k for k in BRANDS if k.lower() in b["name"].lower()), None)
+        stations.append({"id": b["id"], "name": b["name"], "brand": brand or b["name"], "canopies": canopies,
+                         "sign": sign, "colors": BRANDS.get(brand, DEFAULT_BRAND), "address": b.get("address", "")})
+    lines = ["-- Generated by tools/storefronts/build_gas_stations.py from the street-imagery-verified",
+             "-- storefront inventory (Data/10_StorefrontPanoramas). Studs. box = {cx, cz, length, width, yaw}.",
+             "-- replaces = county footprint id that is really the canopy (GasStationBuilder removes it).",
+             "return {"]
+    for st in stations:
+        cans = ",".join("{box={%s},replaces=%s}" % (",".join(str(v) for v in c["box"]),
+                                                   lua_str(c["replaces"]) if c["replaces"] else "nil") for c in st["canopies"])
+        col = ",".join("{%d,%d,%d}" % c for c in st["colors"])
+        sign = "{%s}" % ",".join(str(v) for v in st["sign"]) if st["sign"] else "nil"
+        lines.append("\t{id=%s,name=%s,brand=%s,address=%s,colors={%s},sign=%s,canopies={%s}}," % (
+            lua_str(st["id"]), lua_str(st["name"]), lua_str(st["brand"]), lua_str(st["address"]), col, sign, cans))
+    lines.append("}")
+    OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    for st in stations:
+        print(f"{st['name']:12} canopies={len(st['canopies'])} replaces={[c['replaces'] for c in st['canopies']]}")
+    print("wrote", OUT)
+
+
+if __name__ == "__main__":
+    main()

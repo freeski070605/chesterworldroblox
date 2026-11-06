@@ -6,4 +6,5 @@ return {
  SprintSpeed = 24,
  InteractionDistance = 12,
  DataStoreName = "Exit6PlayerData_v1",
+ AutosaveSeconds = 120,
 }

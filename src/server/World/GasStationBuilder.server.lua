@@ -201,6 +201,86 @@ for _, tile in ipairs(world:GetChildren()) do
 	end
 end
 
+-- EXIT 6 gameplay (Exit6Storefronts.server.luau) builds a 26 x 22 open-front
+-- store kiosk at an "Exit6StoreAnchor" part inside a model tagged
+-- "Exit6GasStation". Find a clear spot in the lot beside the canopy - no
+-- building, road, sidewalk, rail or canopy - with the open front (-Z) facing
+-- the pumps, preferring spots away from the street sign (stores stand behind
+-- the forecourt).
+local CollectionService = game:GetService("CollectionService")
+local STORE_SIZE = Vector3.new(30, 12, 26)
+local groundFolders = {}
+for _, tile in ipairs(world:GetChildren()) do
+	for _, name in ipairs({ "Roads", "Sidewalks", "Intersection", "Intersections" }) do
+		local f = tile:FindFirstChild(name)
+		if f then table.insert(groundFolders, f) end
+	end
+end
+local groundOverlap = OverlapParams.new()
+groundOverlap.FilterType = Enum.RaycastFilterType.Include
+groundOverlap.FilterDescendantsInstances = groundFolders
+local solidOverlap = OverlapParams.new()
+solidOverlap.FilterType = Enum.RaycastFilterType.Exclude
+local function solidExcludes(model)
+	local list = { Workspace.Terrain }
+	for _, name in ipairs({ "ChesterTrees", "ChesterStreetFurniture" }) do
+		local f = Workspace:FindFirstChild(name)
+		if f then table.insert(list, f) end
+	end
+	for _, d in ipairs(model:GetChildren()) do
+		if d.Name == "Forecourt" then table.insert(list, d) end
+	end
+	return list
+end
+local stores = 0
+local function placeStoreAnchor(model, st)
+	local c = st.canopies[1]
+	if not c then return end
+	local b = c.box
+	local L, W = math.max(b[3], 12 * H), math.max(b[4], 7 * H)
+	local centre = Vector3.new(b[1], 0, b[2])
+	local frame = CFrame.new(centre) * CFrame.Angles(0, math.rad(b[5]), 0)
+	local candidates = {}
+	for _, gap in ipairs({ 18, 30, 44 }) do
+		for _, side in ipairs({ -1, 1 }) do
+			table.insert(candidates, frame * Vector3.new(0, 0, side * (W / 2 + gap)))
+			table.insert(candidates, frame * Vector3.new(side * (L / 2 + gap), 0, 0))
+			for _, along in ipairs({ -0.3, 0.3 }) do
+				table.insert(candidates, frame * Vector3.new(along * L, 0, side * (W / 2 + gap)))
+			end
+		end
+	end
+	local sign = st.sign and Vector3.new(st.sign[1], 0, st.sign[2])
+	if sign then
+		table.sort(candidates, function(p, q)
+			return (Vector3.new(p.X, 0, p.Z) - sign).Magnitude > (Vector3.new(q.X, 0, q.Z) - sign).Magnitude
+		end)
+	end
+	solidOverlap.FilterDescendantsInstances = solidExcludes(model)
+	for _, p in ipairs(candidates) do
+		local y = groundY(p.X, p.Z)
+		if y then
+			local spot = CFrame.lookAt(Vector3.new(p.X, y, p.Z), Vector3.new(centre.X, y, centre.Z))
+			local paved = #Workspace:GetPartBoundsInBox(spot * CFrame.new(0, 0.5, 0),
+				Vector3.new(STORE_SIZE.X, 3, STORE_SIZE.Z), groundOverlap) > 0
+			local blocked = paved or #Workspace:GetPartBoundsInBox(spot * CFrame.new(0, 2 + STORE_SIZE.Y / 2, 0),
+				STORE_SIZE, solidOverlap) > 0
+			if not blocked then
+				-- the kiosk's open front is its -Z side: face the pumps
+				local anchor = part(model, "Exit6StoreAnchor", Vector3.new(2, 0.2, 2), spot * CFrame.new(0, 0.3, 0),
+					Enum.Material.SmoothPlastic, Color3.new(1, 1, 1))
+				anchor.Transparency = 1
+				anchor.CanCollide = false
+				anchor.CanQuery = false
+				CollectionService:AddTag(model, "Exit6GasStation")
+				stores += 1
+				return
+			end
+		end
+	end
+	warn(("[ChesterWorld GasStations] no clear lot spot for the EXIT 6 store at %s (%s)"):format(st.name, st.address))
+end
+
 local built, removed = 0, 0
 for _, st in ipairs(Stations) do
 	local fascia, accent, textColor = rgb(st.colors[1]), rgb(st.colors[2]), rgb(st.colors[3])
@@ -297,6 +377,8 @@ for _, st in ipairs(Stations) do
 	if #model:GetChildren() > 0 then
 		model.Parent = root
 		built += 1
+		placeStoreAnchor(model, st)
 	end
 end
-print(("[ChesterWorld GasStations] built=%d canopyBoxesReplaced=%d parts=%d"):format(built, removed, count))
+print(("[ChesterWorld GasStations] built=%d canopyBoxesReplaced=%d exit6Stores=%d parts=%d"):format(built, removed, stores, count))
+Workspace:SetAttribute("CW_GasStationsComplete", true)

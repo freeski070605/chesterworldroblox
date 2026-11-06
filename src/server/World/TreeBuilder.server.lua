@@ -30,6 +30,18 @@ local LEAVES = {
 }
 local BARK = Color3.fromRGB(86, 70, 58)
 
+-- no tree on a gas station forecourt or inside its EXIT 6 store: wait for
+-- GasStationBuilder (same start signal) and test each trunk against it
+do
+	local deadline = os.clock() + 60
+	while Workspace:GetAttribute("CW_GasStationsComplete") ~= true and os.clock() < deadline do task.wait(0.5) end
+end
+local stationParams = OverlapParams.new()
+stationParams.FilterType = Enum.RaycastFilterType.Include
+stationParams.FilterDescendantsInstances = { Workspace:FindFirstChild("ChesterGasStations") }
+stationParams.MaxParts = 1
+local onStation = 0
+
 local built, skipped = 0, 0
 local chunk
 for i, t in ipairs(Trees) do
@@ -39,7 +51,10 @@ for i, t in ipairs(Trees) do
 	end
 	local x, z = (t[1] - CX) * S, -(t[2] - CZ) * S
 	local hit = Workspace:Raycast(Vector3.new(x, 3000, z), Vector3.new(0, -6000, 0), params)
-	if hit and hit.Material ~= Enum.Material.Water then
+	local blocked = hit and stationParams.FilterDescendantsInstances[1] ~= nil
+		and #Workspace:GetPartBoundsInBox(CFrame.new(x, hit.Position.Y + 6, z), Vector3.new(4, 12, 4), stationParams) > 0
+	if blocked then onStation += 1 end
+	if hit and not blocked and hit.Material ~= Enum.Material.Water then
 		local y = hit.Position.Y
 		local crown = t[3] * H * S
 		local height = t[4] * S
@@ -74,4 +89,4 @@ for i, t in ipairs(Trees) do
 	end
 end
 if chunk then chunk.Parent = root end
-print(("[ChesterWorld Trees] built=%d skipped=%d (water/no terrain)"):format(built, skipped))
+print(("[ChesterWorld Trees] built=%d skipped=%d (water/no terrain/gas stations: %d)"):format(built, skipped, onStation))

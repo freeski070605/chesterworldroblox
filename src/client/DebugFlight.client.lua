@@ -41,6 +41,7 @@ local TIERS = { 0.5, 1, 2, 4 }
 local tier = 2
 local WALK_SPEED = 16
 local SPRINT_SPEED = 64
+local testerSprinting = false
 local DEADZONE = 0.15
 
 local flying = false
@@ -295,8 +296,16 @@ RunService.RenderStepped:Connect(function()
 		status.Text = string.format("FLYING  •  speed %gx%s", TIERS[tier],
 			boost and "  •  BOOST" or (precise and "  •  PRECISE" or ""))
 	else
+		-- only own the walk speed while the tester sprint is held; otherwise the
+		-- game's own movement (EXIT 6 sprint, Exit6Gameplay.client) sets it
 		if humanoid and humanoid.Parent and not flying then
-			humanoid.WalkSpeed = boost and SPRINT_SPEED * TIERS[tier] or WALK_SPEED
+			if boost then
+				humanoid.WalkSpeed = SPRINT_SPEED * TIERS[tier]
+				testerSprinting = true
+			elseif testerSprinting then
+				humanoid.WalkSpeed = WALK_SPEED
+				testerSprinting = false
+			end
 		end
 		status.Text = string.format("WALKING  •  speed level %gx%s", TIERS[tier], boost and "  •  SPRINT" or "")
 	end

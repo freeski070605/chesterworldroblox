@@ -4,6 +4,11 @@
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local stations = {}
+-- the id bump makes the same message twice still show the client toast
+local function notify(player, text)
+ player:SetAttribute("Exit6Notice", text)
+ player:SetAttribute("Exit6NoticeId", (player:GetAttribute("Exit6NoticeId") or 0) + 1)
+end
 local function part(parent,name,size,cf,color,material)
  local p=Instance.new("Part")
  p.Name=name;p.Size=size;p.CFrame=cf;p.Anchored=true;p.Color=color
@@ -56,24 +61,23 @@ local function build(model)
   if not (cash and rep) or player:GetAttribute("Exit6DataReady")~=true then return end
   local now=os.clock()
   if lastJob[player.UserId] and now-lastJob[player.UserId]<120 then
-   player:SetAttribute("Exit6Notice","Next shift available in "..math.ceil(120-(now-lastJob[player.UserId])).."s")
+   notify(player,"Next shift available in "..math.ceil(120-(now-lastJob[player.UserId])).."s")
    return
   end
   lastJob[player.UserId]=now
   cash.Value+=35;rep.Value+=1
-  player:SetAttribute("Exit6Notice","Shift complete! +$35, +1 REP")
+  notify(player,"Shift complete! +$35, +1 REP")
  end)
  prompt(cooler,"Buy drink ($5)","Corner Store",function(player)
   local stats=player:FindFirstChild("leaderstats")
   local cash=stats and stats:FindFirstChild("Chester Cash")
   if not cash or player:GetAttribute("Exit6DataReady")~=true then return end
-  if cash.Value<5 then player:SetAttribute("Exit6Notice","Not enough Chester Cash");return end
+  if cash.Value<5 then notify(player,"Not enough Chester Cash");return end
   cash.Value-=5
-  player:SetAttribute("Exit6Notice","Purchased a drink (-$5)")
+  notify(player,"Purchased a drink (-$5)")
  end)
  model.Destroying:Connect(function() stations[model]=nil end)
  print("[EXIT6] Storefront installed at",model:GetFullName())
 end
 for _,m in ipairs(CollectionService:GetTagged("Exit6GasStation")) do build(m) end
 CollectionService:GetInstanceAddedSignal("Exit6GasStation"):Connect(build)
-Players.PlayerRemoving:Connect(function(p) end)

@@ -967,11 +967,140 @@ for _, crossing in ipairs(HighwayProfile.LocalOverpasses()) do
     table.insert(overpassByName[key], deck)
     table.insert(overpassDecks, deck)
 end
+-- The streets over I-95 also bridge the CSX, which runs at grade beside the
+-- freeway (tools/fit_roads_to_buildings.py grounds it). Hold rail clearance
+-- where an overpass street's pieces cross a rail bed near its structure.
+local RAIL_CLEARANCE = 20     -- ~7 m (23 ft) over top of rail
+do
+    local railBeds = {}
+    for _, part in ipairs(allRoads) do
+        if part:GetAttribute("CW_Rail") == true and part.Name ~= "Rail" then
+            table.insert(railBeds, part)
+        end
+    end
+    local function cross2D(a, b, c, d)
+        local r = Vector2.new(b.X - a.X, b.Z - a.Z)
+        local s = Vector2.new(d.X - c.X, d.Z - c.Z)
+        local den = r.X * s.Y - r.Y * s.X
+        if math.abs(den) < 1e-6 then return nil end
+        local q = Vector2.new(c.X - a.X, c.Z - a.Z)
+        local t = (q.X * s.Y - q.Y * s.X) / den
+        local u = (q.X * r.Y - q.Y * r.X) / den
+        if t >= 0 and t <= 1 and u >= 0 and u <= 1 then return t, u end
+        return nil
+    end
+    local railDecks = 0
+    for key, decks in pairs(overpassByName) do
+        task.wait()
+        local base = decks[1]
+        for _, part in ipairs(allRoads) do
+            if normalizedRoadName(attr(part, "ChesterStreet")) == key
+                and part:GetAttribute("CW_HighwayProfiled") ~= true
+                and math.abs(part.Position.X - base.x) < 400 and math.abs(part.Position.Z - base.z) < 400 then
+                local a, b = endpoints(part)
+                for _, rail in ipairs(railBeds) do
+                    if math.abs(rail.Position.X - part.Position.X) < 200
+                        and math.abs(rail.Position.Z - part.Position.Z) < 200 then
+                        local c, d = endpoints(rail)
+                        local t, u = cross2D(a, b, c, d)
+                        if t then
+                            local top = lerp(c.Y, d.Y, u) + rail.Size.Y / 2
+                            local p = a:Lerp(b, t)
+                            table.insert(decks, { x = p.X, z = p.Z,
+                                surface = top + RAIL_CLEARANCE + (Config.HIGHWAY_DECK_THICKNESS_STUDS or 1.6) })
+                            railDecks += 1
+                        end
+                    end
+                end
+            end
+        end
+    end
+    print(("[ChesterWorld RegistryOverpass] railCrossings=%d"):format(railDecks))
+end
+-- Approach anchors: where the overpass street meets a differently-named
+-- ground street (Edgmont Ave / Edgmont at Providence) the county pieces of
+-- the overpass street sat several studs below the junction, so the approach
+-- dipped before climbing onto the deck. The junction's ground surface is held
+-- as a zero-length plateau the approach eases away from at MAX_GRADE.
+local ANCHOR_REACH = 60       -- ground street end this close (across a junction pad) joins the approach
+local ANCHOR_ZONE = 260       -- only near the structure itself
+do
+    -- ground street ends near any structure, bucketed on a grid
+    local CELL = ANCHOR_REACH
+    local grid = {}
+    local function cellKey(x, z) return math.floor(x / CELL) .. ":" .. math.floor(z / CELL) end
+    for i, part in ipairs(allRoads) do
+        if part:GetAttribute("CW_HighwayProfiled") ~= true
+            and part:GetAttribute("CW_Rail") ~= true then
+            local nearStructure = false
+            for _, deck in ipairs(overpassDecks) do
+                if math.abs(part.Position.X - deck.x) < ANCHOR_ZONE + 200
+                    and math.abs(part.Position.Z - deck.z) < ANCHOR_ZONE + 200 then
+                    nearStructure = true
+                    break
+                end
+            end
+            if nearStructure then
+                -- (same-key streets count: "Edgmont" and "Edgmont Ave" share one)
+                local a, b = endpoints(part)
+                local key = normalizedRoadName(attr(part, "ChesterStreet"))
+                for _, p in ipairs({ a, b }) do
+                    local k = cellKey(p.X, p.Z)
+                    grid[k] = grid[k] or {}
+                    table.insert(grid[k], { p = p, top = p.Y + part.Size.Y / 2, part = part, key = key })
+                end
+            end
+        end
+        if i % 4000 == 0 then task.wait() end
+    end
+    local anchors = 0
+    for key, decks in pairs(overpassByName) do
+        local extra = {}
+        for _, part in ipairs(allRoads) do
+            if normalizedRoadName(attr(part, "ChesterStreet")) == key
+                and part:GetAttribute("CW_HighwayProfiled") ~= true then
+                local a, b = endpoints(part)
+                for _, p in ipairs({ a, b }) do
+                    local nearDeck = false
+                    for _, deck in ipairs(decks) do
+                        if hdist(p, Vector3.new(deck.x, 0, deck.z)) < ANCHOR_ZONE then nearDeck = true break end
+                    end
+                    if nearDeck then
+                        local own = p.Y + part.Size.Y / 2 + 0.5
+                        local best = nil
+                        local cx, cz = math.floor(p.X / CELL), math.floor(p.Z / CELL)
+                        for ix = cx - 1, cx + 1 do
+                            for iz = cz - 1, cz + 1 do
+                                for _, g in ipairs(grid[ix .. ":" .. iz] or {}) do
+                                    -- (another overpass street's ends are not ground)
+                                    if g.part ~= part and (g.key == key or not overpassByName[g.key])
+                                        and g.top > own and (not best or g.top > best)
+                                        and hdist(p, g.p) < ANCHOR_REACH then
+                                        best = g.top
+                                    end
+                                end
+                            end
+                        end
+                        if best then
+                            table.insert(extra, { x = p.X, z = p.Z, surface = best, plateau = 0 })
+                        end
+                    end
+                end
+            end
+        end
+        for _, anchor in ipairs(extra) do
+            table.insert(decks, anchor)
+            anchors += 1
+        end
+        task.wait()
+    end
+    print(("[ChesterWorld RegistryOverpass] approachAnchors=%d"):format(anchors))
+end
 local function overpassSurface(decks, point)
     local best = -math.huge
     for _, deck in ipairs(decks) do
         local distance = hdist(point, Vector3.new(deck.x, 0, deck.z))
-        best = math.max(best, deck.surface - math.max(0, distance - OVERPASS_PLATEAU) * MAX_GRADE)
+        best = math.max(best, deck.surface - math.max(0, distance - (deck.plateau or OVERPASS_PLATEAU)) * MAX_GRADE)
     end
     return best
 end
@@ -1070,6 +1199,57 @@ if #overpassDecks > 0 then
             end
         end
     end
+    -- sidewalks beside a raised piece were left down in the highway cut
+    -- (Edgmont Ave / Providence under the deck): lift them alongside it, or
+    -- drop the ones that would hang off the deck's open side
+    local raisedByKey = {}
+    for _, parts in pairs(raisedByGroup) do
+        for _, road in ipairs(parts) do
+            local key = normalizedRoadName(attr(road, "ChesterStreet"))
+            raisedByKey[key] = raisedByKey[key] or {}
+            table.insert(raisedByKey[key], road)
+        end
+    end
+    local walksLifted, walksDropped = 0, 0
+    local road_half_reach = 30   -- widest street half-width + sidewalk, studs
+    for _, walk in ipairs(collectParts("Sidewalks")) do
+        local parts = raisedByKey[normalizedRoadName(attr(walk, "ChesterStreet"))]
+        if parts then
+            local function roadY(point)
+                local best, bestDistance = nil, math.huge
+                for _, road in ipairs(parts) do
+                    local x, y = endpoints(road)
+                    local d = Vector3.new(y.X - x.X, 0, y.Z - x.Z)
+                    local d2 = d:Dot(d)
+                    if d2 > 0.01 then
+                        local t = math.clamp(Vector3.new(point.X - x.X, 0, point.Z - x.Z):Dot(d) / d2, 0, 1)
+                        local nearest = x:Lerp(y, t)
+                        local distance = hdist(nearest, point)
+                        if distance < bestDistance then
+                            bestDistance, best = distance, nearest.Y
+                        end
+                    end
+                end
+                return bestDistance < road_half_reach and best or nil
+            end
+            local a, b = endpoints(walk)
+            local ya, yb = roadY(a), roadY(b)
+            local mid = roadY(walk.Position)
+            if mid and mid > walk.Position.Y + 1.5 then
+                if ya and yb then
+                    if setEndpoints(walk, Vector3.new(a.X, math.max(a.Y, ya + 0.4), a.Z),
+                        Vector3.new(b.X, math.max(b.Y, yb + 0.4), b.Z)) then
+                        walk:SetAttribute("CW_ElevationOwner", "RoadTerrainConformer:RegistryOverpassWalk")
+                        walksLifted += 1
+                    end
+                else
+                    walk:Destroy()
+                    walksDropped += 1
+                end
+            end
+        end
+    end
+    print(("[ChesterWorld RegistryOverpass] sidewalksLifted=%d sidewalksDropped=%d"):format(walksLifted, walksDropped))
 end
 print(("[ChesterWorld RegistryOverpass] crossings=%d parts=%d marks=%d maxLift=%.1f %s")
     :format(#overpassDecks, overpassParts, overpassMarks, overpassLiftMax, overpassLiftAt))

@@ -50,7 +50,30 @@ def streets():
     return segs, half, main
 
 
+# Hand-detailed landmarks (Street View audit 2026-11-06): building id -> treatment
+LANDMARKS = {
+    "193959": "granite",   # 5-7 W 5th St: rusticated grey granite, round-arched windows
+}
+STORE_COLOURS = Path(__file__).resolve().parent / "storefronts" / "store_colours.csv"
+
+
+def store_colours():
+    """Sign / shopfront colours read off the Google Street View front captures
+    of the verified corner stores (tools/storefronts/store_colours.csv)."""
+    import csv
+    out = {}
+    if STORE_COLOURS.exists():
+        with STORE_COLOURS.open(encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                tag = ",sc=0x%s,st=0x%s" % (row["sign_bg"], row["sign_text"])
+                if row["ground"]:
+                    tag += ",gc=0x%s" % row["ground"]
+                out[row["objectid"]] = tag
+    return out
+
+
 def main():
+    colours = store_colours()
     segs, half, main_road = streets()
     tree = STRtree(segs)
     stats = Counter()
@@ -64,6 +87,11 @@ def main():
                 continue
             head, style, a, extra, rects_txt = m.group(1), m.group(3), float(m.group(4)), m.group(5), m.group(6)
             extra = re.sub(r",pb=[-\d.]+,pd=[\d.]+", "", extra).replace(",gs=1", "")
+            extra = re.sub(r",sc=0x\w+,st=0x\w+(,gc=0x\w+)?", "", extra)
+            extra = re.sub(r',lm="\w+",lb=[\d.]+', "", extra)
+            if m.group(2) in colours:
+                extra += colours[m.group(2)]
+                stats["store_colours"] += 1
             if style in STYLES or style in SHOP_STYLES:
                 stats[style] += 1  # noqa
                 rects = [tuple(map(float, r)) for r in fit.RECT_RE.findall(rects_txt)]
@@ -85,7 +113,11 @@ def main():
                         gap = d - half[i]
                         if best is None or d < best[0]:
                             best = (d, gap, n, main_road[i])
-                if best and style in SHOP_STYLES:
+                if best and m.group(2) in LANDMARKS:
+                    bearing = math.degrees(math.atan2(best[2][0], best[2][1])) % 360
+                    extra += ',lm="%s",lb=%.0f' % (LANDMARKS[m.group(2)], bearing)
+                    stats["landmarks"] += 1
+                elif best and style in SHOP_STYLES:
                     # main-street commercial block built to the sidewalk: shopfront ground floor
                     if best[3] and best[1] < SHOP_MAX_GAP_M:
                         extra += ",gs=1"

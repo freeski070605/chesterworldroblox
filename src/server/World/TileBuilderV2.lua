@@ -140,7 +140,18 @@ local function roadClass(road)
 	return string.lower(tostring(road.road_class or ""))
 end
 
+-- County centrelines that are railways, not streets (any class tag).
+local RAIL_LINES = {
+	["Cr Chester Secondary"] = true,
+	["Amtrak Ne Corridor"] = true,
+	["Linwood Industrial Track"] = true,
+	["Csx Phila Subdivision"] = true,
+}
+
 local function shouldBuildSidewalk(road)
+	if RAIL_LINES[tostring(road.name or "")] then
+		return false
+	end
 	if truthy(road.bridge) or truthy(road.tunnel) then
 		return false
 	end
@@ -760,8 +771,12 @@ function TileBuilderV2.Prepare(tileModules)
 	end
 	for index, entry in ipairs(entries) do
 		local road = entry.road
-		addEndpoint(globalIntersectionNodes, entry.tileId, road.x1, road.z1, road.x2, road.z2, road, 1)
-		addEndpoint(globalIntersectionNodes, entry.tileId, road.x2, road.z2, road.x1, road.z1, road, 2)
+		-- level crossings are not street junctions: no asphalt pad or zebra
+		-- crosswalks across the tracks (audit 2026-11-06)
+		if not RAIL_LINES[tostring(road.name or "")] then
+			addEndpoint(globalIntersectionNodes, entry.tileId, road.x1, road.z1, road.x2, road.z2, road, 1)
+			addEndpoint(globalIntersectionNodes, entry.tileId, road.x2, road.z2, road.x1, road.z1, road, 2)
+		end
 		if index % 250 == 0 then task.wait() end
 	end
 	finalizeNodes(globalIntersectionNodes)
@@ -1153,11 +1168,6 @@ local function buildProfiledHighway(roadsFolder, markingsFolder, road, info)
 	end
 end
 
-local RAIL_LINES = {
-	["Cr Chester Secondary"] = true,
-	["Amtrak Ne Corridor"] = true,
-	["Linwood Industrial Track"] = true,
-}
 local RAIL_BED_STUDS = 4.2 * S
 local RAIL_HALF_GAUGE_STUDS = 0.72 * S
 local BALLAST_COLOR = Color3.fromRGB(112, 104, 96)
@@ -1168,7 +1178,12 @@ local function buildRailTrack(roadsFolder, name, a2D, b2D, road)
 	attrs.CW_Rail = true
 	buildAdaptiveCenterStrip(roadsFolder, name, a2D.X, a2D.Z, b2D.X, b2D.Z,
 		RAIL_BED_STUDS, WorldConfig.ROAD_THICKNESS_STUDS, Enum.Material.Pebble, BALLAST_COLOR,
-		WorldConfig.ROAD_SURFACE_OFFSET_STUDS, gradeOffsetForRoad(road), 0, attrs)
+		WorldConfig.ROAD_SURFACE_OFFSET_STUDS - 0.08, gradeOffsetForRoad(road), 0, attrs)
+	if truthy(road.bridge) or truthy(road.tunnel) then
+		-- the bed may be lifted onto a bridge later; loose rail strips would
+		-- stay behind at ground level
+		return
+	end
 	local dx, dz = b2D.X - a2D.X, b2D.Z - a2D.Z
 	local len = math.sqrt(dx * dx + dz * dz)
 	if len < 0.5 then return end
@@ -1705,6 +1720,9 @@ end
 -- Sign band over the shopfront of a street-imagery verified corner store /
 -- deli / market: on the face of its largest block that looks toward the
 -- frontage bearing (sb, compass degrees) recorded by the storefront sweep.
+local function hexColor(value)
+	return Color3.fromRGB(math.floor(value / 65536) % 256, math.floor(value / 256) % 256, value % 256)
+end
 local SIGN_COLORS = {
 	{ Color3.fromRGB(176, 32, 36), Color3.fromRGB(255, 255, 255) },
 	{ Color3.fromRGB(24, 74, 140), Color3.fromRGB(255, 255, 255) },
@@ -1762,6 +1780,64 @@ local function buildPorch(model, shapeData, rect, yaw)
 	end
 end
 
+-- Hand-detailed landmark front (tools/add_porches.py LANDMARKS: lm, lb =
+-- bearing of the street front). 5-7 W 5th St: rusticated granite with tall
+-- round-arched windows on every floor and projecting stone sill courses.
+local LANDMARK_STYLES = {
+	granite = {
+		material = Enum.Material.Granite,
+		wall = Color3.fromRGB(150, 147, 140),
+		trim = Color3.fromRGB(122, 119, 113),
+		glass = Color3.fromRGB(38, 44, 52),
+	},
+}
+local function buildArchedFront(model, rect, yaw, bearing)
+	local frame = CFrame.new(rect.x, 0, rect.z) * yaw
+	local n = faceToward(frame, bearing)
+	local depth = (n.X ~= 0) and rect.along or rect.across
+	local span = (n.X ~= 0) and rect.across or rect.along
+	if span < 8 then return end
+	local out = frame:VectorToWorldSpace(n)
+	local centre = Vector3.new(rect.x, 0, rect.z) + out * (depth / 2)
+	local face = CFrame.lookAt(centre, centre + out)   -- local X runs along the face
+	local style = LANDMARK_STYLES.granite
+	local storey = rect.storey
+	local floors = math.max(1, math.floor((rect.wallTop - rect.streetLevel) / storey + 0.2))
+	local bays = math.max(1, math.floor(span / 10))
+	local pitch = span / bays
+	local w = math.min(4.2, pitch * 0.5)
+	for f = 0, floors - 1 do
+		local sill = rect.streetLevel + f * storey + (f == 0 and 2.5 or 1.6)
+		local h = math.min(storey * 0.68, rect.wallTop - sill - 1.5)
+		if h > w then
+			local course = newPart(model, "StoneCourse", Vector3.new(span + 0.4, 0.7, 0.8),
+				CFrame.new(centre.X, sill - 0.35, centre.Z) * face.Rotation, style.material, style.trim)
+			course.CanCollide = false
+			for b = 0, bays - 1 do
+				local u = -span / 2 + pitch * (b + 0.5)
+				local straight = h - w / 2
+				local glass = newPart(model, "ArchWindow", Vector3.new(w, straight, 0.3),
+					face * CFrame.new(u, 0, -0.1) + Vector3.new(0, sill + straight / 2, 0),
+					Enum.Material.Glass, style.glass)
+				glass.CanCollide = false
+				glass.Reflectance = 0.15
+				local arch = newPart(model, "ArchWindow", Vector3.new(0.3, w, w),
+					(face * CFrame.new(u, 0, -0.1) + Vector3.new(0, sill + straight, 0)) * CFrame.Angles(0, math.pi / 2, 0),
+					Enum.Material.Glass, style.glass)
+				arch.Shape = Enum.PartType.Cylinder
+				arch.CanCollide = false
+				arch.Reflectance = 0.15
+				-- voussoir ring around the arch
+				local ring = newPart(model, "ArchStone", Vector3.new(0.25, w + 1.2, w + 1.2),
+					(face * CFrame.new(u, 0, 0.02) + Vector3.new(0, sill + straight, 0)) * CFrame.Angles(0, math.pi / 2, 0),
+					style.material, style.trim)
+				ring.Shape = Enum.PartType.Cylinder
+				ring.CanCollide = false
+			end
+		end
+	end
+end
+
 local function buildStoreSign(model, shapeData, rect, yaw)
 	local frame = CFrame.new(rect.x, rect.bandY, rect.z) * yaw
 	local best = faceToward(frame, shapeData.sb)
@@ -1771,6 +1847,10 @@ local function buildStoreSign(model, shapeData, rect, yaw)
 	local centre = frame * CFrame.new(best * (depth / 2 + 0.35))
 	local look = CFrame.lookAt(centre.Position, centre.Position + frame:VectorToWorldSpace(best))
 	local colors = SIGN_COLORS[(tonumber(model:GetAttribute("ChesterBuildingId")) or 0) % #SIGN_COLORS + 1]
+	if shapeData.sc and shapeData.st then
+		-- read off the store's Street View front (tools/storefronts/store_colours.csv)
+		colors = { hexColor(shapeData.sc), hexColor(shapeData.st) }
+	end
 	local board = newPart(model, "StoreSign", Vector3.new(width, 2.6, 0.5), look, Enum.Material.SmoothPlastic, colors[1])
 	board.CanCollide = false
 	local gui = Instance.new("SurfaceGui")
@@ -1810,6 +1890,10 @@ local function buildFootprintBuilding(parent, building, shapeData)
 		elseif shapeData.wm == "s" then
 			material = Enum.Material.SmoothPlastic
 		end
+	end
+	local landmark = shapeData.lm and LANDMARK_STYLES[shapeData.lm]
+	if landmark then
+		wall, material = landmark.wall, landmark.material
 	end
 	local heightStuds = math.max(shapeData.h * S, 6)
 	local yaw = CFrame.Angles(0, math.rad(shapeData.a), 0)
@@ -1855,6 +1939,9 @@ local function buildFootprintBuilding(parent, building, shapeData)
 				-- main-street block built to the sidewalk (tools/add_porches.py)
 				groundKind = "storefront"
 			end
+			if landmark then
+				groundKind = nil   -- the arched front replaces the generic textures
+			end
 			local streetLevel = centreGround - 0.4
 			local groundTop = streetLevel + (groundKind == "storefront" and math.max(storey, 12) or storey)
 			if groundKind and wallTop - groundTop >= 4 and math.min(along, across) >= 10 then
@@ -1862,6 +1949,11 @@ local function buildFootprintBuilding(parent, building, shapeData)
 				-- tall from street level; the floors above keep the windows
 				local ground = newPart(model, "GroundStorey", Vector3.new(along, groundTop - streetLevel, across),
 					CFrame.new(x, (groundTop + streetLevel) / 2, z) * yaw, material, wall)
+				if shapeData.gc then
+					-- painted shopfront storey seen in the store's Street View capture
+					ground.Color = hexColor(shapeData.gc)
+					ground.Material = Enum.Material.SmoothPlastic
+				end
 				ground:SetAttribute("GroundY", centreGround)
 				applyGroundStorey(ground, groundKind)
 				local upper = newPart(model, "Walls", Vector3.new(along, wallTop - groundTop, across),
@@ -1875,7 +1967,14 @@ local function buildFootprintBuilding(parent, building, shapeData)
 				local block = newPart(model, "Walls", Vector3.new(along, wallTop - base, across),
 					CFrame.new(x, (wallTop + base) / 2, z) * yaw, material, wall)
 				block:SetAttribute("GroundY", centreGround)
-				applyFacade(block, shapeData.style, storey)
+				if shapeData.gc then
+					-- one-storey store: the painted shopfront is the whole wall
+					block.Color = hexColor(shapeData.gc)
+					block.Material = Enum.Material.SmoothPlastic
+				end
+				if not landmark then
+					applyFacade(block, shapeData.style, storey)
+				end
 			end
 			if style.roof == "cornice" then
 				newPart(model, "Cornice", Vector3.new(along + 0.8, 0.9, across + 0.8),
@@ -1891,7 +1990,8 @@ local function buildFootprintBuilding(parent, building, shapeData)
 			local area = along * across
 			local info = { x = x, z = z, along = along, across = across, area = area,
 				bandY = math.min(streetLevel + math.max(storey, 12) - 1.4, wallTop - 1.6),
-				streetLevel = streetLevel, porchTop = math.min(streetLevel + storey, wallTop - 1) }
+				streetLevel = streetLevel, porchTop = math.min(streetLevel + storey, wallTop - 1),
+				wallTop = wallTop, storey = storey }
 			table.insert(builtRects, info)
 			if not signRect or area > signRect.area then
 				signRect = info
@@ -1917,6 +2017,11 @@ local function buildFootprintBuilding(parent, building, shapeData)
 	end
 	if built > 0 and shapeData.pb and shapeData.pd and signRect then
 		buildPorch(model, shapeData, signRect, yaw)
+	end
+	if built > 0 and shapeData.lm and shapeData.lb then
+		for _, r in ipairs(builtRects) do
+			buildArchedFront(model, r, yaw, shapeData.lb)
+		end
 	end
 	if built > 0 then
 		model.Parent = parent

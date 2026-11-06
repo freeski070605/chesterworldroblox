@@ -202,14 +202,59 @@ def normalise_footpaths(line, stats):
         m["indent"], m["name"], m["x1"], m["z1"], m["x2"], m["z2"], fmt(FOOTWAY_WIDTH_M), m["tunnel"], m["rest"])
 
 
+RAIL_CORRIDOR_M = 45.0     # rail this close to (and parallel with) a freeway runs beside it
+RAIL_PARALLEL_DEG = 12.0
+
+
+def ground_rail_beside_freeways(check, stats):
+    """The county tags ~1 km of the CSX Phila Subdivision beside I-95 as a
+    bridge (layer 1), which lifted it up to 30 m over the freeway cut and
+    through the Edgmont / Madison / Upland / Potter / Chestnut / Melrose
+    overpasses. Street View (registry *_OVER_I95): the streets bridge over
+    I-95 *and* the CSX, which runs at grade beside the freeway."""
+    freeways = []
+    for path in sorted(TILES.glob("tile_*.lua")):
+        for line in path.read_text(encoding="utf-8").split("\n"):
+            m = ROAD_RE.match(line)
+            if m and m["name"] not in RAIL_NAMES and m["cls"] in ("motorway", "motorway_link"):
+                freeways.append(LineString([(float(m["x1"]), float(m["z1"])), (float(m["x2"]), float(m["z2"]))]))
+    tree = STRtree(freeways)
+
+    def bearing(s):
+        (x1, z1), (x2, z2) = s.coords[0], s.coords[-1]
+        return math.degrees(math.atan2(z2 - z1, x2 - x1))
+
+    for path in sorted(TILES.glob("tile_*.lua")):
+        lines = path.read_text(encoding="utf-8").split("\n")
+        out = []
+        for line in lines:
+            m = ROAD_RE.match(line)
+            if m and m["name"] in RAIL_NAMES and m["bridge"] == "true":
+                seg = LineString([(float(m["x1"]), float(m["z1"])), (float(m["x2"]), float(m["z2"]))])
+                for i in tree.query(seg.buffer(RAIL_CORRIDOR_M)):
+                    f = freeways[i]
+                    if f.length > 1 and f.distance(seg.centroid) < RAIL_CORRIDOR_M \
+                            and abs((bearing(seg) - bearing(f) + 90) % 180 - 90) < RAIL_PARALLEL_DEG:
+                        line = line.replace(",bridge=true,", ",bridge=false,", 1).replace(
+                            ",layer=%s" % m["layer"], ",layer=0", 1)
+                        stats["rail_grounded_beside_freeway"] += 1
+                        break
+            out.append(line)
+        if out != lines and not check:
+            path.write_text("\n".join(out), encoding="utf-8")
+
+
 SHAVE_MAX_M = 3.0          # a face may move back at most this far
 SHAVE_MAX_FRACTION = 0.4   # ... and never by more than this share of the block
+DEEP_MIN_M = 3.0           # deeper cuts must leave a block at least this deep
+DEEP_MIN_FRACTION = 0.35   # ... and this share of its original depth
 RAIL_BED_M = 4.2
 
 
 def carriageways():
     """Every ground-level carriageway / rail bed as a flat-capped polygon."""
     polys = []
+    nodes = {}   # junction pads: where 3+ street ends of 2+ names meet
     for path in sorted(TILES.glob("tile_*.lua")):
         for line in path.read_text(encoding="utf-8").split("\n"):
             m = ROAD_RE.match(line)
@@ -221,6 +266,15 @@ def carriageways():
             seg = LineString([(float(m["x1"]), float(m["z1"])), (float(m["x2"]), float(m["z2"]))])
             if seg.length > 0.05:
                 polys.append(seg.buffer(w / 2 + CLEAR_M, cap_style=2))
+                if m["name"] not in RAIL_NAMES:
+                    for x, z in seg.coords:
+                        node = nodes.setdefault((round(x * 2), round(z * 2)), [x, z, 0, set(), 0.0])
+                        node[2] += 1
+                        node[3].add(m["name"])
+                        node[4] = max(node[4], w)
+    for x, z, degree, names, width in nodes.values():
+        if degree >= 3 and len(names) >= 2:
+            polys.append(Point(x, z).buffer(width / 2 + CLEAR_M))
     return polys
 
 
@@ -262,8 +316,15 @@ def shave_buildings(check, stats):
                     inset, axis, sign = min(options)
                     size = L if axis == "u" else W
                     if inset > SHAVE_MAX_M or inset > SHAVE_MAX_FRACTION * size:
-                        stats["blocks_left_overlapping"] += 1
-                        break
+                        # the road is real (Street View verified); the county
+                        # footprint sits on it. Cut deep when a usable block
+                        # remains, otherwise the block yields to the road.
+                        if size - inset < max(DEEP_MIN_M, DEEP_MIN_FRACTION * size):
+                            stats["blocks_dropped_on_roads"] += 1
+                            L = W = 0
+                            changed = line_changed = True
+                            break
+                        stats["blocks_cut_deep"] += 1
                     shift = -sign * inset / 2
                     if axis == "u":
                         L -= inset
@@ -273,7 +334,12 @@ def shave_buildings(check, stats):
                         cx, cz = cx - sa * shift, cz + ca * shift
                     stats["faces_shaved"] += 1
                     changed = line_changed = True
-                new.append((cx, cz, L, W))
+                if L > 0 and W > 0:
+                    new.append((cx, cz, L, W))
+            if line_changed and not new:
+                stats["buildings_removed_on_roads"] += 1
+                changed = True
+                continue
             if line_changed:
                 line = m.group(1) + ",".join("{%.2f,%.2f,%.2f,%.2f}" % tuple(r) for r in new) + m.group(5)
             out.append(line)
@@ -283,6 +349,7 @@ def shave_buildings(check, stats):
 
 def main(check=False):
     stats = Counter()
+    ground_rail_beside_freeways(check, stats)
     yield_buildings_to_main_roads(check, stats)
     polys = footprints()
     tree = STRtree(polys)

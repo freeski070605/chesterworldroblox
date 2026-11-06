@@ -46,6 +46,17 @@ SITES = {
     "lm_cityhall": (6776, 2008, 200),
     "lm_oldmain": (8194, -4316, 180),
     "lm_bridge_main": (3025, 10575, 2600),
+    # Commodore Barry / US 322 approach, I-95 interchange to the river
+    "barry_1": (-2450, 2500, 500),
+    "barry_2": (-1900, 3600, 500),
+    "barry_3": (-1200, 4700, 500),
+    "barry_4": (-450, 5800, 500),
+    "barry_5": (300, 6900, 500),
+    "barry_6": (1100, 8050, 500),
+    "barry_7": (2000, 9300, 600),
+    "barry_amtrak": (-700, 5700, 140),
+    "barry_flower": (-1400, 4650, 160),
+    "barry_i95": (-2000, 2600, 450),
 }
 ONLY = set(sys.argv[2:])
 URL = "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/DVRPC2025/MapServer/export"

@@ -300,7 +300,10 @@ function HighwayProfile.Prepare(entries, opts)
 			table.insert(segs, item)
 			corridorKeys[item.k1] = (corridorKeys[item.k1] or 0) + 1
 			corridorKeys[item.k2] = (corridorKeys[item.k2] or 0) + 1
-		else
+		elseif not excluded(item.nameKey) then
+			-- (a rail line or footpath sharing a vertex with a freeway is a
+			-- grade separation, never an at-grade junction to pin to: the
+			-- Conrail track under the Barry approach pinned it to the ground)
 			otherArmsAtKey[item.k1] = (otherArmsAtKey[item.k1] or 0) + 1
 			otherArmsAtKey[item.k2] = (otherArmsAtKey[item.k2] or 0) + 1
 		end
@@ -1181,6 +1184,51 @@ function HighwayProfile.Prepare(entries, opts)
 					end
 				end
 			end
+			-- d2. design grade lines (Registry.DESIGN_PROFILES): long viaducts
+			-- the DEM and the county tags cannot describe are held at their
+			-- designed height (minimum and maximum) where this stroke runs
+			-- along them.
+			local designMask = table.create(count, false)
+			do
+				local partAt = 1
+				for k = 1, count do
+					local s = (k - 1) * ds
+					while partAt < #stroke.parts and stroke.parts[partAt].s1 < s do
+						partAt += 1
+					end
+					local roadName = normName(stroke.parts[partAt].seg.road.name)
+					for _, design in ipairs(Registry.DESIGN_PROFILES or {}) do
+						local named = false
+						for _, n in ipairs(design.names) do
+							if n == roadName then named = true break end
+						end
+						if named then
+							local best, bestY = math.huge, nil
+							local pts = design.points
+							for p = 1, #pts - 1 do
+								local ax, az, ay = pts[p][1], pts[p][2], pts[p][3]
+								local bx, bz, by = pts[p + 1][1], pts[p + 1][2], pts[p + 1][3]
+								local vx, vz = bx - ax, bz - az
+								local u = math.clamp(((xs[k] - ax) * vx + (zs[k] - az) * vz) / (vx * vx + vz * vz), 0, 1)
+								local px, pz = ax + vx * u, az + vz * u
+								local d = math.sqrt((xs[k] - px) ^ 2 + (zs[k] - pz) ^ 2)
+								if d < best then
+									best, bestY = d, ay + (by - ay) * u
+								end
+							end
+							if bestY and best <= design.lateral then
+								designMask[k] = true
+								minReq[k] = math.max(minReq[k], bestY)
+								-- the design is authoritative: a crossing cap (the
+								-- Conrail track judged to pass over from the DEM)
+								-- may not pull the viaduct under it
+								maxReq[k] = math.max(math.min(maxReq[k], bestY + 0.5), minReq[k] + 0.5)
+								stats.designStations = (stats.designStations or 0) + 1
+							end
+						end
+					end
+				end
+			end
 			for k = 1, count do
 				f[k] = math.max(f[k], minReq[k])
 			end
@@ -1270,7 +1318,11 @@ function HighwayProfile.Prepare(entries, opts)
 						addPin(s, node.height)
 					elseif node.mixed then
 						local k = math.clamp(math.floor(s / ds + 0.5) + 1, 1, count)
-						addPin(s, terrainY(node.x, node.z) or t[k])
+						-- a county street ending on a designed viaduct passes
+						-- under it: no at-grade pin there
+						if not designMask[k] then
+							addPin(s, terrainY(node.x, node.z) or t[k])
+						end
 					end
 				end
 			end

@@ -76,6 +76,119 @@ local function label(p, text, faces, color)
 	end
 end
 
+-- Brand artwork (from the Street View captures, tools/storefronts) drawn on
+-- a SurfaceGui: canopy fascias and the pylon's brand panel.
+local function text(parent, value, pos, size, color, font, align)
+	local t = Instance.new("TextLabel")
+	t.BackgroundTransparency = 1
+	t.Position = pos
+	t.Size = size
+	t.Text = value
+	t.TextColor3 = color
+	t.Font = font or Enum.Font.GothamBlack
+	t.TextScaled = true
+	t.TextXAlignment = align or Enum.TextXAlignment.Center
+	t.Parent = parent
+	return t
+end
+local function box(parent, pos, size, color, rotation)
+	local f = Instance.new("Frame")
+	f.BorderSizePixel = 0
+	f.Position = pos
+	f.Size = size
+	f.BackgroundColor3 = color
+	f.Rotation = rotation or 0
+	f.Parent = parent
+	return f
+end
+local function brandArt(gui, st, fascia, accent, textColor, logoAspect)
+	local full = box(gui, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), fascia)
+	local bg = full
+	if logoAspect then
+		-- long canopy fascia: the logo sits in a centred panel, the rest of the
+		-- band keeps the brand colour
+		bg = box(full, UDim2.fromScale(0.5, 0), UDim2.fromScale(1, 1), fascia)
+		bg.AnchorPoint = Vector2.new(0.5, 0)
+		local ratio = Instance.new("UIAspectRatioConstraint")
+		ratio.AspectRatio = logoAspect
+		ratio.Parent = bg
+	end
+	local b = st.brand
+	if b == "Sunoco" then
+		text(bg, "SUNOCO", UDim2.fromScale(0.06, 0.18), UDim2.fromScale(0.62, 0.64), textColor, Enum.Font.GothamBlack)
+		-- the yellow chevron
+		box(bg, UDim2.fromScale(0.74, 0.27), UDim2.fromScale(0.16, 0.14), accent, 35)
+		box(bg, UDim2.fromScale(0.74, 0.59), UDim2.fromScale(0.16, 0.14), accent, -35)
+	elseif b == "Chester Gas" then
+		text(bg, "Chester", UDim2.fromScale(0.05, 0.12), UDim2.fromScale(0.42, 0.5), accent, Enum.Font.Fondamento)
+		text(bg, "GAS", UDim2.fromScale(0.45, 0.1), UDim2.fromScale(0.5, 0.8), textColor, Enum.Font.GothamBlack)
+	elseif b == "US Gas" then
+		box(bg, UDim2.fromScale(0, 0.78), UDim2.fromScale(1, 0.22), accent == Color3.fromRGB(240, 240, 240) and fascia or accent)
+		bg.BackgroundColor3 = Color3.fromRGB(242, 242, 240)
+		full.BackgroundColor3 = bg.BackgroundColor3
+		local oval = box(bg, UDim2.fromScale(0.25, 0.1), UDim2.fromScale(0.5, 0.62), fascia)
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0.5, 0)
+		corner.Parent = oval
+		text(oval, "US GAS", UDim2.fromScale(0.08, 0.12), UDim2.fromScale(0.84, 0.76), Color3.fromRGB(255, 255, 255))
+	elseif b == "Lukoil" then
+		bg.BackgroundColor3 = Color3.fromRGB(245, 245, 245)
+		full.BackgroundColor3 = bg.BackgroundColor3
+		box(bg, UDim2.fromScale(0, 0.82), UDim2.fromScale(1, 0.18), fascia)
+		text(bg, "LUKOIL", UDim2.fromScale(0.08, 0.1), UDim2.fromScale(0.84, 0.66), fascia)
+	elseif b == "Eagle Fuel" then
+		box(bg, UDim2.fromScale(0.7, 0), UDim2.fromScale(0.3, 1), accent)
+		text(bg, "EAGLE FUEL", UDim2.fromScale(0.04, 0.18), UDim2.fromScale(0.62, 0.64), textColor, Enum.Font.GothamBlack)
+		text(bg, "▲", UDim2.fromScale(0.72, 0.1), UDim2.fromScale(0.26, 0.8), Color3.fromRGB(255, 255, 255))
+	else
+		box(bg, UDim2.fromScale(0, 0.8), UDim2.fromScale(1, 0.2), accent)
+		text(bg, string.upper(b), UDim2.fromScale(0.05, 0.1), UDim2.fromScale(0.9, 0.65), textColor)
+	end
+end
+local function artPanel(p, st, faces, fascia, accent, textColor, ppStud)
+	for _, face in ipairs(faces) do
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = face
+		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		gui.PixelsPerStud = ppStud or 24
+		gui.LightInfluence = 0.25
+		gui.Parent = p
+		local long = math.max(p.Size.X, p.Size.Z) / p.Size.Y > 6
+		brandArt(gui, st, fascia, accent, textColor, long and 4.5 or nil)
+	end
+end
+-- LED price panel: one row per grade, label left, digits right
+local function pricePanel(p, st, faces)
+	local panelColor = st.panel and rgb(st.panel) or Color3.fromRGB(20, 20, 24)
+	local led = st.led and rgb(st.led) or Color3.fromRGB(255, 52, 40)
+	local labelColor = (panelColor.R + panelColor.G + panelColor.B) > 2.2 and Color3.fromRGB(30, 30, 30)
+		or Color3.fromRGB(245, 245, 240)
+	for _, face in ipairs(faces) do
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = face
+		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		gui.PixelsPerStud = 24
+		gui.LightInfluence = 0
+		gui.Brightness = 1.4
+		gui.Parent = p
+		local bg = box(gui, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), panelColor)
+		local grades = st.grades or { "REGULAR", "PLUS", "DIESEL" }
+		local prices = st.prices or { 3.29, 3.89, 4.19 }
+		local rows = #grades
+		for i, g in ipairs(grades) do
+			local y = (i - 1) / rows
+			text(bg, g, UDim2.fromScale(0.05, y + 0.08 / rows), UDim2.fromScale(0.4, 0.62 / rows), labelColor,
+				Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+			local cell = box(bg, UDim2.fromScale(0.47, y + 0.1 / rows), UDim2.fromScale(0.5, 0.8 / rows),
+				Color3.fromRGB(10, 10, 10))
+			local whole = string.format("%.2f", prices[i] or 0)
+			text(cell, whole, UDim2.fromScale(0.04, 0.05), UDim2.fromScale(0.78, 0.9), led, Enum.Font.Arcade,
+				Enum.TextXAlignment.Right)
+			text(cell, "9", UDim2.fromScale(0.82, 0.05), UDim2.fromScale(0.14, 0.5), led, Enum.Font.Arcade)
+		end
+	end
+end
+
 -- county building models by id
 local buildingsById = {}
 for _, tile in ipairs(world:GetChildren()) do
@@ -124,7 +237,7 @@ for _, st in ipairs(Stations) do
 					frame * CFrame.new(0, CLEARANCE + FASCIA / 2, side * (W / 2 + 0.3)), Enum.Material.SmoothPlastic, fascia)
 				part(model, "FasciaStripe", Vector3.new(L + 0.7, FASCIA * 0.22, 0.7),
 					frame * CFrame.new(0, CLEARANCE + FASCIA * 0.2, side * (W / 2 + 0.3)), Enum.Material.SmoothPlastic, accent)
-				label(long, st.brand, { side == 1 and Enum.NormalId.Back or Enum.NormalId.Front }, textColor)
+				artPanel(long, st, { side == 1 and Enum.NormalId.Back or Enum.NormalId.Front }, fascia, accent, textColor, 12)
 				part(model, "Fascia", Vector3.new(0.6, FASCIA, W + 0.6),
 					frame * CFrame.new(side * (L / 2 + 0.3), CLEARANCE + FASCIA / 2, 0), Enum.Material.SmoothPlastic, fascia)
 			end
@@ -153,7 +266,10 @@ for _, st in ipairs(Stations) do
 			end
 		end
 	end
-	-- brand sign at the street
+	-- Pylon price sign at the lot corner behind the sidewalk (placed by
+	-- tools/storefronts/build_gas_stations.py; board faces along the street so
+	-- both sides read to traffic): concrete-clad post, LED price panel, brand
+	-- panel on top - as on the Street View captures.
 	if st.sign then
 		local x, z, bearing = st.sign[1], st.sign[2], st.sign[3]
 		local y = groundY(x, z)
@@ -161,13 +277,21 @@ for _, st in ipairs(Stations) do
 			local rad = math.rad(bearing)
 			local facing = Vector3.new(math.sin(rad), 0, -math.cos(rad))
 			local base = CFrame.lookAt(Vector3.new(x, y, z), Vector3.new(x, y, z) + facing)
-			part(model, "SignPole", Vector3.new(0.6 * H, 6 * V, 0.6 * H), base * CFrame.new(0, 3 * V, 0), Enum.Material.Metal,
-				Color3.fromRGB(120, 122, 126))
-			local board = part(model, "SignBoard", Vector3.new(3 * H, 2.2 * V, 0.6), base * CFrame.new(0, 6 * V + 1.1 * V, 0),
+			local W = 2.7 * H                         -- ~2.7 m wide boards
+			local postH, priceH, brandH = 3.2 * V, 2.4 * V, 1.9 * V
+			part(model, "SignBase", Vector3.new(W * 0.7, 1.2, 2.4 * H * 0.7), base * CFrame.new(0, 0.6, 0),
+				Enum.Material.Concrete, CONCRETE)
+			part(model, "SignPost", Vector3.new(0.9 * H, postH, 0.9 * H), base * CFrame.new(0, postH / 2, 0),
 				Enum.Material.SmoothPlastic, fascia)
-			part(model, "SignStripe", Vector3.new(3 * H + 0.1, 0.35 * V, 0.7), base * CFrame.new(0, 6 * V + 0.2 * V, 0),
-				Enum.Material.SmoothPlastic, accent)
-			label(board, st.brand, { Enum.NormalId.Front, Enum.NormalId.Back }, textColor)
+			local priceBoard = part(model, "PriceBoard", Vector3.new(W, priceH, 1.2), base * CFrame.new(0, postH + priceH / 2, 0),
+				Enum.Material.SmoothPlastic, st.panel and rgb(st.panel) or fascia)
+			pricePanel(priceBoard, st, { Enum.NormalId.Front, Enum.NormalId.Back })
+			local brandBoard = part(model, "BrandBoard", Vector3.new(W, brandH, 1.4),
+				base * CFrame.new(0, postH + priceH + brandH / 2 + 0.2, 0), Enum.Material.SmoothPlastic, fascia)
+			artPanel(brandBoard, st, { Enum.NormalId.Front, Enum.NormalId.Back }, fascia, accent, textColor, 24)
+			part(model, "SignCap", Vector3.new(W + 0.4, 0.5, 1.6), base * CFrame.new(0, postH + priceH + brandH + 0.45, 0),
+				Enum.Material.Metal, Color3.fromRGB(150, 152, 156))
+			model:SetAttribute("PriceRegular", st.prices and st.prices[1])
 		end
 	end
 	if #model:GetChildren() > 0 then

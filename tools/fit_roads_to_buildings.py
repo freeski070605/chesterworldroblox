@@ -44,6 +44,11 @@ MINOR_CLASSES = {"service", "parking_aisle", "driveway", "alley"}
 LOCAL_CLASSES = {"residential", "local", "unclassified", "living_street"}
 MAIN_CLASSES = {"tertiary", "secondary", "primary"}
 RAIL_NAMES = {"Cr Chester Secondary", "Amtrak Ne Corridor", "Linwood Industrial Track", "Csx Phila Subdivision"}
+# the Commodore Barry approach and its ramps are an elevated viaduct (whatever
+# the county layer tag says); buildings beneath it are trimmed to the deck
+# underside in game (HighwayInfrastructure UnderDeckBuildings), not yielded
+VIADUCT_NAMES = {"Commodore John Barry", "Pa 291 to Wb US 322", "US 322 to PA 291",
+                 "US 13 to US 322", "US 322 to US 13"}
 
 CLEAR_M = 0.3            # gap kept between road edge and wall
 MIN_WIDTH_M = 2.6        # minor road narrower than this is dropped
@@ -120,7 +125,7 @@ def yield_buildings_to_main_roads(check, stats):
 
 
 def kind(m):
-    if m["bridge"] != "false" or m["tunnel"] != "false" or m["layer"] != "0" or m["name"] in RAIL_NAMES:
+    if m["bridge"] != "false" or m["tunnel"] != "false" or m["layer"] != "0" or m["name"] in RAIL_NAMES             or m["name"] in VIADUCT_NAMES:
         return None
     if m["cls"] in MINOR_CLASSES or (m["name"] == "Private" and m["cls"] in LOCAL_CLASSES):
         return "minor"
@@ -260,7 +265,7 @@ def carriageways():
             m = ROAD_RE.match(line)
             if not m or m["bridge"] != "false" or m["tunnel"] != "false" or m["layer"] != "0":
                 continue
-            if m["cls"] == "footway":
+            if m["cls"] == "footway" or m["name"] in VIADUCT_NAMES:
                 continue
             w = RAIL_BED_M if m["name"] in RAIL_NAMES else float(m["w"])
             seg = LineString([(float(m["x1"]), float(m["z1"])), (float(m["x2"]), float(m["z2"]))])

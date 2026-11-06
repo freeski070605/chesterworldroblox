@@ -204,6 +204,44 @@ Registry.NAMED = {
 		{ status = "aerial_dvrpc2025", references = { DVRPC2025 } }),
 }
 
+-- Design grade lines for long viaducts the bare-earth DEM and the county
+-- tags cannot describe. HighwayProfile holds every station of a stroke named
+-- in `names` that lies within `lateral` studs of the polyline at the
+-- polyline's height (grade line G, studs). Ramps that merge into it are
+-- pinned to it by the normal node matching.
+Registry.DESIGN_PROFILES = {
+	{
+		id = "BARRY_PA_APPROACH",
+		description = "Commodore Barry Bridge approach viaduct from 2nd St (PA 291) to the Delaware shore. "
+			.. "DVRPC 2025 aerial (crossing_aerial.py barry_5..barry_7): one continuous elevated deck over "
+			.. "2nd, Front, the Conrail track, Delaware Ave, Seaport Dr and Chester Riverfront. Starts at the "
+			.. "solved deck height over 2nd St and climbs at 4.5 % real grade (0.0346 stud/stud: horizontal "
+			.. "studs are Mercator, 3.906 per metre) to the truss; LandmarkBuilder continues from the end.",
+		names = { "commodore john barry" },
+		lateral = 70,
+		points = {
+			{ 16, 6815, 35 },
+			{ 553, 7487, 65 },
+			{ 1070, 8161, 94 },
+		},
+		status = "design:aerial_dvrpc2025",
+	},
+	{
+		id = "BARRY_OVER_AMTRAK",
+		description = "US 322 / Barry approach over the Amtrak NEC embankment (crossing_aerial.py barry_amtrak): "
+			.. "the whole roadway - mainline (21327/21241) and the 2nd St on-ramp lanes (21242) - crosses the "
+			.. "tracks on one deck, then eases down to the 4th St viaduct (21209/21210). The county records "
+			.. "beside the mainline are residential-classed and met the deck 27 studs low.",
+		names = { "commodore john barry", "pa 291 to wb us 322" },
+		lateral = 45,
+		points = {
+			{ -695, 5667, 59.7 },
+			{ -499, 5983, 48.0 },
+		},
+		status = "design:aerial_dvrpc2025",
+	},
+}
+
 -- Bridge-tagged source records that are at grade on the ground (no
 -- structure). RoadTerrainConformer keeps them on the terrain.
 Registry.GROUNDED = {

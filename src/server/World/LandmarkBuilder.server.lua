@@ -522,8 +522,16 @@ do
 end
 
 ------------------------------------------------------------------------------
--- Commodore Barry Bridge: deck across the Delaware with the cantilever
--- through-truss over the main span; deck truss + piers elsewhere.
+-- Commodore Barry Bridge. Modelled on the Google Street View captures from the
+-- deck (tools/storefronts/google_barry.py, 2026-04/08) and the DVRPC 2025
+-- aerial (crossing_aerial.py barry_7): a pale silver-grey cantilever through
+-- truss - two ~251 m anchor spans and the 501 m main span on two river piers,
+-- the top chord peaking over the main piers and dropping to a shallow
+-- suspended span mid-channel - every panel point with a transverse strut,
+-- a lower sway strut and X bracing over the roadway; concrete deck with
+-- rust-red edge barriers under a railing, a movable median barrier and light
+-- poles; steel girder approach spans on twin-column concrete bents.
+-- Horizontal studs are Mercator (3.906 per real metre), vertical 3 per metre.
 do
 	local lm = Landmarks.barry_bridge
 	if lm then
@@ -537,80 +545,272 @@ do
 		local startP, endP = e1, e2
 		if e2.Z < e1.Z then startP, endP = e2, e1 end
 		local dir = (endP - startP).Unit
-		local length = (endP - startP).Magnitude
-		-- deck starts at the existing approach road's height
+		-- The deck continues the approach viaduct (HighwayProfile design line
+		-- BARRY_PA_APPROACH): start at the far ends of the approach's two
+		-- carriageways, at their height, so the roadway runs straight on.
 		local startY = 40
-		local nearest
-		for _, r in ipairs(Workspace:GetPartBoundsInRadius(Vector3.new(startP.X, 60, startP.Z), 260, roadParams)) do
-			local name = tostring(r:GetAttribute("ChesterStreet"))
-			if string.find(name, "Barry", 1, true) then
-				local d = (Vector3.new(r.Position.X - startP.X, 0, r.Position.Z - startP.Z)).Magnitude
-				if not nearest or d < nearest then nearest, startY = d, r.Position.Y + r.Size.Y / 2 end
-			end
-		end
-		local TOP, GRADE = 180, 0.045
-		local function deckY(s)
-			return math.min(startY + GRADE * s, TOP, startY + GRADE * (length - s))
-		end
-		local mid = length / 2
-		local trussFrom, trussTo = mid - 1500, mid + 1500
-		local function trussHeight(s)
-			-- tall over the two main piers (mid -/+ 750), lower at mid span and ends
-			local d = math.abs(math.abs(s - mid) - 750)
-			return math.max(40, 110 - d * 0.075)
-		end
-		local deckWidth = math.min(b[4], 90)
-		local panel = 50
-		local right = Vector3.new(-dir.Z, 0, dir.X)
-		local steel = rgb(104, 114, 122)
-		local prevTop = {}
-		local s = 0
-		while s < length do
-			local s1 = math.min(s + panel, length)
-			local a = startP + dir * s + Vector3.new(0, deckY(s), 0)
-			local c = startP + dir * s1 + Vector3.new(0, deckY(s1), 0)
-			part(model, "Deck", Vector3.new(deckWidth, 3, (c - a).Magnitude + 0.5), CFrame.lookAt((a + c) / 2, c), Enum.Material.Concrete, rgb(150, 150, 146))
-			part(model, "Roadway", Vector3.new(deckWidth - 6, 0.3, (c - a).Magnitude + 0.5), CFrame.lookAt((a + c) / 2 + Vector3.new(0, 1.6, 0), c + Vector3.new(0, 1.6, 0)), Enum.Material.Asphalt, rgb(62, 62, 64))
-			part(model, "CentreLine", Vector3.new(1, 0.1, (c - a).Magnitude), CFrame.lookAt((a + c) / 2 + Vector3.new(0, 1.8, 0), c + Vector3.new(0, 1.8, 0)), nil, rgb(240, 200, 40))
-			local inTruss = s >= trussFrom and s1 <= trussTo
-			for side = -1, 1, 2 do
-				local off = right * side * (deckWidth / 2)
-				if inTruss then
-					local h0, h1 = trussHeight(s), trussHeight(s1)
-					local bottom0, bottom1 = a + off, c + off
-					local top0, top1 = bottom0 + Vector3.new(0, h0, 0), bottom1 + Vector3.new(0, h1, 0)
-					beam(model, "Vertical", bottom0, top0, 2.2, Enum.Material.Metal, steel)
-					beam(model, "TopChord", top0, top1, 2.6, Enum.Material.Metal, steel)
-					beam(model, "BottomChord", bottom0, bottom1, 2.6, Enum.Material.Metal, steel)
-					beam(model, "Diagonal", (math.floor(s / panel) % 2 == 0) and bottom0 or top0, (math.floor(s / panel) % 2 == 0) and top1 or bottom1, 1.8, Enum.Material.Metal, steel)
-					prevTop[side] = top0
-				else
-					part(model, "Parapet", Vector3.new(1.2, 3.5, (c - a).Magnitude + 0.5), CFrame.lookAt((a + c) / 2 + off + Vector3.new(0, 3, 0), c + off + Vector3.new(0, 3, 0)), Enum.Material.Concrete, rgb(170, 170, 166))
-					part(model, "Girder", Vector3.new(2, 10, (c - a).Magnitude + 0.5), CFrame.lookAt((a + c) / 2 + off - Vector3.new(0, 6, 0), c + off - Vector3.new(0, 6, 0)), Enum.Material.Metal, steel)
+		do
+			local tips = {}
+			for _, r in ipairs(Workspace:GetPartBoundsInRadius(Vector3.new(startP.X, 60, startP.Z), 320, roadParams)) do
+				if r:GetAttribute("ChesterStreet") == "Commodore John Barry" then
+					local half = r.CFrame.LookVector * r.Size.Z / 2
+					for _, p in ipairs({ r.Position - half, r.Position + half }) do
+						table.insert(tips, { p = p, along = (p - startP):Dot(dir), top = p.Y + r.Size.Y / 2 })
+					end
 				end
 			end
-			if inTruss and math.floor(s / panel) % 2 == 0 then
-				local h = trussHeight(s)
-				beam(model, "TopBracing", a - right * deckWidth / 2 + Vector3.new(0, h, 0), a + right * deckWidth / 2 + Vector3.new(0, h, 0), 1.6, Enum.Material.Metal, steel)
+			table.sort(tips, function(a, c) return a.along > c.along end)
+			if #tips > 0 then
+				local first = tips[1]
+				local second
+				for _, t in ipairs(tips) do
+					if (Vector3.new(t.p.X - first.p.X, 0, t.p.Z - first.p.Z)).Magnitude > 15 then
+						second = t
+						break
+					end
+				end
+				local a = second and (first.p + second.p) / 2 or first.p
+				startP = Vector3.new(a.X, 0, a.Z)
+				startY = second and math.max(first.top, second.top) or first.top
+				dir = (endP - startP).Unit
 			end
-			-- piers: every 300 studs outside the main span, two big main piers
-			local isMain = math.abs(s - (mid - 750)) < panel / 2 or math.abs(s - (mid + 750)) < panel / 2
-			if isMain or (not inTruss and math.floor(s / panel) % 6 == 0) then
-				local ground = groundY(a.X, a.Z) or -40
-				local pierTop = a.Y - 3
-				local pierBottom = math.min(ground, -40)
-				local w = isMain and 34 or 14
-				part(model, "Pier", Vector3.new(deckWidth + 8, pierTop - pierBottom, w), CFrame.lookAt(Vector3.new(a.X, (pierTop + pierBottom) / 2, a.Z), Vector3.new(c.X, (pierTop + pierBottom) / 2, c.Z)),
-					Enum.Material.Concrete, rgb(160, 158, 150))
+		end
+		local length = (endP - startP).Magnitude
+		local right = Vector3.new(-dir.Z, 0, dir.X)
+
+		-- layout along the deck (studs from the end of the Chester approach)
+		local M = 3.906                       -- horizontal studs per metre
+		local TRUSS0 = 470                    -- PA end of the truss (Street View: portal ~450-500)
+		local PIER1 = TRUSS0 + 251 * M        -- PA main pier (rock-armoured pier mid-river on the aerial)
+		local PIER2 = PIER1 + 501 * M         -- NJ main pier
+		local TRUSS1 = PIER2 + 251 * M        -- NJ end of the truss
+		local MID = (PIER1 + PIER2) / 2
+		local SUSP = 90 * M                   -- half the suspended span
+		-- deck: 4.5 % real grade (0.0346 stud/stud) both ways, 900-stud vertical
+		-- curve over the channel (~55 m above the water at mid-span)
+		local GRADE, CURVE = 0.0346, 900
+		local PEAK = startY + GRADE * MID
+		local function deckY(s)
+			local d = math.abs(s - MID)
+			if d < CURVE then
+				return PEAK - GRADE * (CURVE * CURVE + d * d) / (2 * CURVE)
 			end
+			return PEAK - GRADE * d
+		end
+		-- truss height above the bottom chord
+		local KNOTS = {
+			{ TRUSS0, 48 }, { PIER1, 128 }, { MID - SUSP, 52 }, { MID, 62 },
+			{ MID + SUSP, 52 }, { PIER2, 128 }, { TRUSS1, 48 },
+		}
+		local function trussH(s)
+			for k = 1, #KNOTS - 1 do
+				local a, c = KNOTS[k], KNOTS[k + 1]
+				if s <= c[1] then
+					return a[2] + (c[2] - a[2]) * math.clamp((s - a[1]) / (c[1] - a[1]), 0, 1)
+				end
+			end
+			return KNOTS[#KNOTS][2]
+		end
+
+		local deckWidth = math.clamp(b[4], 70, 84)
+		local hw = deckWidth / 2 + 2.5         -- truss planes just outside the deck
+		local STEEL = rgb(196, 202, 204)
+		local CONC = rgb(168, 166, 160)
+		local BARRIER = rgb(146, 82, 62)       -- rust-red edge barriers
+		local MEDIAN = rgb(212, 196, 150)
+		local function at(s, off, y)
+			return startP + dir * s + right * off + Vector3.new(0, y, 0)
+		end
+		local function slab(name, s0, s1, off, y0, y1, w, h, material, color)
+			local a, c = at(s0, off, y0), at(s1, off, y1)
+			return part(model, name, Vector3.new(w, h, (c - a).Magnitude + 0.4),
+				CFrame.lookAt((a + c) / 2, c), material, color)
+		end
+
+		-- deck, barriers, railing, median, lane lines, lights
+		local DECK_STEP = 40
+		local s = 0
+		local seg = 0
+		while s < length do
+			local s1 = math.min(s + DECK_STEP, length)
+			local y0, y1 = deckY(s), deckY(s1)
+			slab("Deck", s, s1, 0, y0 - 1.8, y1 - 1.8, deckWidth + 6, 3, Enum.Material.Concrete, CONC)
+			local road = slab("Roadway", s, s1, 0, y0 - 0.15, y1 - 0.15, deckWidth - 4, 0.3, Enum.Material.Concrete,
+				rgb(150, 148, 142))
+			road:SetAttribute("ChesterStreet", "Commodore Barry Bridge")
+			for side = -1, 1, 2 do
+				slab("EdgeBarrier", s, s1, side * (deckWidth / 2 - 1), y0 + 1.6, y1 + 1.6, 2, 3.4,
+					Enum.Material.Concrete, BARRIER)
+				slab("Railing", s, s1, side * (deckWidth / 2 - 1), y0 + 4.2, y1 + 4.2, 0.4, 0.4, Enum.Material.Metal, STEEL)
+			end
+			slab("MedianBarrier", s, s1, deckWidth / 10, y0 + 1.2, y1 + 1.2, 1.4, 2.6, Enum.Material.Concrete, MEDIAN)
+			-- dashed lane lines (5 lanes)
+			for lane = 1, 4 do
+				local off = -deckWidth / 2 + 2 + lane * (deckWidth - 4) / 5
+				if lane ~= 3 then
+					slab("LaneDash", s, s + math.min(14, s1 - s), off, y0 + 0.02, y0 + 0.02, 0.6, 0.06,
+						Enum.Material.SmoothPlastic, WHITE)
+				end
+			end
+			if seg % 3 == 0 then
+				for side = -1, 1, 2 do
+					local base = at(s, side * (deckWidth / 2 - 1), y0 + 3.2)
+					local top = base + Vector3.new(0, 16, 0)
+					part(model, "LightPole", Vector3.new(0.6, 16, 0.6), CFrame.new((base + top) / 2), Enum.Material.Metal, STEEL)
+					local arm = top - right * side * 5
+					beam(model, "LightArm", top, arm, 0.5, Enum.Material.Metal, STEEL)
+					local lamp = part(model, "Lamp", Vector3.new(2.4, 0.6, 1.2), CFrame.new(arm - Vector3.new(0, 0.3, 0)),
+						Enum.Material.Neon, rgb(255, 236, 196))
+					local light = Instance.new("PointLight")
+					light.Range = 36
+					light.Brightness = 1.2
+					light.Color = rgb(255, 230, 190)
+					light.Parent = lamp
+				end
+			end
+			seg += 1
 			s = s1
 		end
+
+		-- through truss
+		local panels = math.max(1, math.floor((TRUSS1 - TRUSS0) / 60 + 0.5))
+		local panel = (TRUSS1 - TRUSS0) / panels
+		local function node(i, side, top)
+			local sAt = TRUSS0 + i * panel
+			local y = deckY(sAt) - 2.5
+			if top then y += trussH(sAt) end
+			return at(sAt, side * hw, y)
+		end
+		for i = 0, panels do
+			for side = -1, 1, 2 do
+				local b0, t0 = node(i, side, false), node(i, side, true)
+				if i < panels then
+					local b1, t1 = node(i + 1, side, false), node(i + 1, side, true)
+					beam(model, "BottomChord", b0, b1, 3.4, Enum.Material.Metal, STEEL)
+					if i == 0 then
+						beam(model, "EndPost", b0, t1, 3.6, Enum.Material.Metal, STEEL)
+					elseif i == panels - 1 then
+						beam(model, "EndPost", t0, b1, 3.6, Enum.Material.Metal, STEEL)
+					else
+						beam(model, "TopChord", t0, t1, 3.4, Enum.Material.Metal, STEEL)
+						-- Warren diagonals alternating, with a K sub-strut to the panel's mid bottom
+						local fromTop = i % 2 == 0
+						local d0, d1 = fromTop and t0 or b0, fromTop and b1 or t1
+						beam(model, "Diagonal", d0, d1, 2.4, Enum.Material.Metal, STEEL)
+						beam(model, "SubStrut", (d0 + d1) / 2, (b0 + b1) / 2, 1.4, Enum.Material.Metal, STEEL)
+					end
+				end
+				if i > 0 and i < panels then
+					beam(model, "Vertical", b0, t0, 2.2, Enum.Material.Metal, STEEL)
+				end
+			end
+			-- bracing over the roadway: top strut, lower sway strut, X between them,
+			-- top lateral X to the next panel point
+			if i > 0 and i < panels then
+				local tl, tr = node(i, -1, true), node(i, 1, true)
+				local drop = Vector3.new(0, -trussH(TRUSS0 + i * panel) * 0.22, 0)
+				local ll, lr = tl + drop, tr + drop
+				beam(model, "TopStrut", tl, tr, 2.0, Enum.Material.Metal, STEEL)
+				beam(model, "SwayStrut", ll, lr, 1.6, Enum.Material.Metal, STEEL)
+				beam(model, "SwayBrace", tl, lr, 1.2, Enum.Material.Metal, STEEL)
+				beam(model, "SwayBrace", tr, ll, 1.2, Enum.Material.Metal, STEEL)
+				if i < panels - 1 then
+					local nl, nr = node(i + 1, -1, true), node(i + 1, 1, true)
+					beam(model, "TopLateral", tl, nr, 1.0, Enum.Material.Metal, STEEL)
+					beam(model, "TopLateral", tr, nl, 1.0, Enum.Material.Metal, STEEL)
+				end
+			end
+		end
+
+		-- piers: main river piers, anchor piers, twin-column bents under the
+		-- girder approach spans
+		local function riverBed(p)
+			return math.min(groundY(p.X, p.Z) or -40, -40)
+		end
+		local function pierAt(sAt, big)
+			local c = at(sAt, 0, 0)
+			local top = deckY(sAt) - (big and 4 or 6)
+			local bed = riverBed(c)
+			local look = CFrame.lookAt(c, c + dir).Rotation
+			local colW = big and 18 or 9
+			local footTop = math.min(big and 12 or 4, top - 10)
+			if big then
+				part(model, "PierFooting", Vector3.new(deckWidth + 34, footTop - bed, 46),
+					CFrame.new(c.X, (footTop + bed) / 2, c.Z) * look, Enum.Material.Concrete, CONC)
+			end
+			for side = -1, 1, 2 do
+				local x = at(sAt, side * (big and hw or deckWidth / 2 - 6), 0)
+				local bottom = big and footTop or bed
+				part(model, "PierColumn", Vector3.new(colW, top - bottom, colW),
+					CFrame.new(x.X, (top + bottom) / 2, x.Z) * look, Enum.Material.Concrete, CONC)
+			end
+			part(model, "PierCap", Vector3.new(deckWidth + (big and 22 or 10), big and 8 or 5, colW + 2),
+				CFrame.new(c.X, top - (big and 4 or 2.5), c.Z) * look, Enum.Material.Concrete, CONC)
+			if big then
+				part(model, "PierStrut", Vector3.new(deckWidth, 6, colW - 2),
+					CFrame.new(c.X, (top + footTop) / 2, c.Z) * look, Enum.Material.Concrete, CONC)
+			end
+		end
+		pierAt(PIER1, true)
+		pierAt(PIER2, true)
+		pierAt(TRUSS0, false)
+		pierAt(TRUSS1, false)
+		local BENT = 160
+		for sAt = BENT, length, BENT do
+			if sAt < TRUSS0 - 40 or sAt > TRUSS1 + 40 then
+				pierAt(sAt, false)
+			end
+		end
+		-- steel plate girders under the approach spans
+		for _, range in ipairs({ { 0, TRUSS0 }, { TRUSS1, length } }) do
+			local g = range[1]
+			while g < range[2] do
+				local g1 = math.min(g + 80, range[2])
+				for _, off in ipairs({ -deckWidth / 2 + 6, 0, deckWidth / 2 - 6 }) do
+					slab("Girder", g, g1, off, deckY(g) - 7, deckY(g1) - 7, 1.6, 8, Enum.Material.Metal, STEEL)
+				end
+				g = g1
+			end
+		end
+
+		-- County footprints traced from the bridge itself (the landmark's ids,
+		-- and building 41244: a 48 m "warehouse" at the deck height straddling
+		-- the Riverfront abutment) and anything else poking up through the
+		-- deck: cleared. Buildings below the deck stay.
+		do
+			local listed = {}
+			for _, id in ipairs(lm.buildings or {}) do listed[id] = true end
+			local cleared = 0
+			for id, bm in pairs(buildingsById) do
+				if bm.Parent then
+					local cf, size
+					if bm:IsA("Model") then
+						cf, size = bm:GetBoundingBox()
+					else
+						cf, size = bm.CFrame, bm.Size
+					end
+					local rel = Vector3.new(cf.X - startP.X, 0, cf.Z - startP.Z)
+					local along = rel:Dot(dir)
+					local across = math.abs(rel:Dot(right))
+					local reach = math.max(size.X, size.Z) / 2
+					local topY = cf.Y + size.Y / 2
+					if listed[id] or (along > -reach and along < length + reach
+						and across < deckWidth / 2 + reach and topY > deckY(math.clamp(along, 0, length)) - 6) then
+						bm:Destroy()
+						cleared += 1
+					end
+				end
+			end
+			model:SetAttribute("ClearedBuildings", cleared)
+		end
 		-- the far end leaves the world: close it off
-		local last = startP + dir * length + Vector3.new(0, deckY(length), 0)
-		part(model, "EndBarrier", Vector3.new(deckWidth, 4, 2), CFrame.lookAt(last + Vector3.new(0, 3.5, 0), last + Vector3.new(0, 3.5, 0) + dir), Enum.Material.Concrete, rgb(220, 200, 60))
+		local last = at(length, 0, deckY(length))
+		part(model, "EndBarrier", Vector3.new(deckWidth, 4, 2), CFrame.lookAt(last + Vector3.new(0, 2, 0), last + Vector3.new(0, 2, 0) + dir),
+			Enum.Material.Concrete, rgb(220, 200, 60))
 		model.Parent = root
 		built.barry_bridge = true
 		model:SetAttribute("StartDeckY", startY)
+		model:SetAttribute("PeakDeckY", deckY(MID))
 	end
 end
 

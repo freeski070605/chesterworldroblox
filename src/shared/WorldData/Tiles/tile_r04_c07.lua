@@ -1,8 +1,6 @@
 return {
     tile_id = "tile_r04_c07",
     roads = {
-        {name="Commodore John Barry",x1=7000,z1=4104.423,x2=7085.321,z2=4000,width_m=7,road_class="local",bridge=false,tunnel=false,layer=0,grade_group="county:20298:g0",source="county"},
-        {name="Commodore John Barry",x1=7103.472,z1=4000,x2=7000,z2=4127.981,width_m=7,road_class="local",bridge=false,tunnel=false,layer=0,grade_group="county:18252:g0",source="county"},
         {name="Chester Riverfront",x1=7000,z1=4609.755,x2=7000.508,z2=4609.488,width_m=7,road_class="local",bridge=false,tunnel=false,layer=0,grade_group="county:22423:g0",source="county"},
         {name="Chester Riverfront",x1=7000.508,z1=4609.488,x2=7002.686,z2=4608.707,width_m=7,road_class="local",bridge=false,tunnel=false,layer=0,grade_group="county:22423:g0",source="county"},
         {name="Chester Riverfront",x1=7002.686,z1=4608.707,x2=7004.952,z2=4608.24,width_m=7,road_class="local",bridge=false,tunnel=false,layer=0,grade_group="county:22423:g0",source="county"},

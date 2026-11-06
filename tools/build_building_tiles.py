@@ -29,6 +29,40 @@ OVERTURE = DATA / "01_Buildings" / "overture_buildings_region_20261021.geojson"
 TILES = ROOT / "src" / "shared" / "WorldData" / "Tiles"
 OUT = ROOT / "src" / "shared" / "WorldData" / "BuildingTiles"
 AERIAL = DATA / "19_Aerial"
+# facade colour / material measured from street imagery (tools/storefronts/facade_from_streetview.py)
+FACADES = DATA / "25_GoogleStreetView_Buildings" / "facade_measurements.json"
+FACADE_MIN_CONF = 0.33
+FACADE_MIN_BRIGHT = 70  # darker clusters are shade / tree trunks, not walls
+
+
+STORES = DATA / "10_StorefrontPanoramas" / "chesterworld_storefront_reference_manifest.json"
+STORE_OK = ("visually_confirmed", "visually_plausible")
+
+
+def load_stores():
+    """Visually verified corner stores / delis / markets / gas stations -> {objectid: (name, group)}."""
+    if not STORES.exists():
+        return {}
+    out = {}
+    for b in json.loads(STORES.read_text(encoding="utf-8"))["businesses"]:
+        bld = b.get("building") or {}
+        if b.get("review_status") in STORE_OK and bld.get("objectid") and bld.get("distance_m", 99) <= 12:
+            out[str(bld["objectid"])] = (b["name"], b["group"])
+    return out
+
+
+def load_facades():
+    if not FACADES.exists():
+        return {}
+    out = {}
+    for oid, m in json.loads(FACADES.read_text(encoding="utf-8")).items():
+        r, g, b = m["rgb"]
+        if m["confidence"] < FACADE_MIN_CONF or max(r, g, b) < FACADE_MIN_BRIGHT:
+            continue
+        sat = (max(r, g, b) - min(r, g, b)) / max(r, g, b)
+        mat = "b" if m["material"] == "brick" else ("s" if sat < 0.15 and max(r, g, b) > 165 else None)
+        out[oid] = ((r, g, b), mat)
+    return out
 
 # EPSG:3857 metres -> source metres (tiles store x_m, z_m in this frame)
 X_OFFSET, Z_OFFSET = 8397592.0, -4837229.0
@@ -242,6 +276,8 @@ def main(check_only=False):
     tree = STRtree(polys)
 
     roofs = RoofSampler()
+    facades = load_facades()
+    stores = load_stores()
     roofed = 0
     tiles = defaultdict(list)
     styles = Counter()
@@ -275,6 +311,9 @@ def main(check_only=False):
         if not style:
             touching = sum(1 for j in tree.query(poly.buffer(0.6), predicate="intersects") if j != index)
             style = classify_unlabelled(p, poly, touching)
+        store = stores.get(bid)
+        if store and store[1] == "store_market" and style in ("house", "rowhouse", "twin", "generic", "apartment"):
+            style = "storefront"  # verified corner store / deli / market (street imagery)
         if not height:
             height = DEFAULT_BY_STYLE.get(style, DEFAULT_HEIGHT_M)
         styles[style] += 1
@@ -294,12 +333,14 @@ def main(check_only=False):
         roofed += roof is not None
         tiles[tile].append({
             "id": bid, "style": style, "h": round(height, 2), "a": math.degrees(angle),
-            "floors": p.get("estimated_floors"), "name": p.get("poi_name") or p.get("site_name"),
-            "rects": out_rects, "roof": roof,
+            "floors": p.get("estimated_floors"),
+            "name": (store[0] if store else None) or p.get("poi_name") or p.get("site_name"),
+            "rects": out_rects, "roof": roof, "facade": facades.get(bid),
         })
 
     print("buildings", sum(len(v) for v in tiles.values()), "tiles", len(tiles), "rects", rect_total,
-          "maxRects", max_rects, "heightsFilled", filled, "roofColours", roofed)
+          "maxRects", max_rects, "heightsFilled", filled, "roofColours", roofed,
+          "facadeColours", sum(1 for v in tiles.values() for b in v if b["facade"]))
     print("styles", styles.most_common())
     if check_only:
         return
@@ -320,6 +361,12 @@ def main(check_only=False):
             if b["roof"]:
                 # roof colour measured from the 2025 aerial, 0xRRGGBB
                 extra += ",rc=0x%02x%02x%02x" % b["roof"]
+            if b["facade"]:
+                # facade colour (+ material b=brick, s=smooth siding/stucco) from street imagery
+                rgb, mat = b["facade"]
+                extra += ",wc=0x%02x%02x%02x" % rgb
+                if mat:
+                    extra += ',wm="%s"' % mat
             lines.append('\t["%s"]={style="%s",h=%.2f,a=%.2f%s,r={%s}},' % (
                 b["id"], b["style"], b["h"], b["a"], extra, rects))
         lines.append("}")

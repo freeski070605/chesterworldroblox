@@ -1,0 +1,66 @@
+index,status,observed_name,note
+0,confirmed,,active station; red/black canopy, brand not legible (BP unverified)
+1,not_visible,,brick building + lot, no canopy or pumps - station likely closed
+2,renamed,US Gas,canopy sign reads US GAS
+3,not_visible,,overgrown roadside - seed location wrong or closed
+4,renamed,Eagle Fuel,Eagle Fuel canopy; Save Mart store on site
+5,confirmed,,station with MINI-MART kiosk; brand not legible
+6,not_visible,,overgrowth / brick wall - closed or mislocated
+7,confirmed,,Sunoco-style blue canopy
+8,confirmed,,Sunoco canopy legible
+9,confirmed,,Sunoco canopy legible
+10,confirmed,,blue canopy station
+11,confirmed,,strip of storefronts at site
+12,closed,,building is now a pediatric dentist
+13,confirmed,,corner store
+14,plausible,,corner building with painted base; no legible sign
+15,uncertain,,storefronts; sign not legible
+16,renamed,AA&N Market,sign reads AA N MARKET
+17,not_visible,,rowhouses only
+18,plausible,,storefront row with outdoor tables
+19,not_visible,,car lot - seed location wrong
+20,not_visible,,empty corner - seed location wrong
+21,confirmed,,small kiosk building
+22,confirmed,,Chester Shop & Save Food Market sign
+23,plausible,,corner building with red awning
+24,renamed,F&S Food Mart,sign reads F&S FOOD MART
+25,confirmed,,storefront with signage
+26,plausible,,corner brick store
+27,blurred,,Google privacy blur over the building
+28,confirmed,,red-front MARKET corner store
+29,possibly_closed,,storefront without signage
+30,confirmed,,Lucky 7 DELI sign
+31,not_visible,,auto body shop - seed location wrong
+32,uncertain,,yellow-brick corner store; sign reads Goodluck(?)
+33,confirmed,,corner store
+34,confirmed,,colourful corner store
+35,not_visible,,residential - seed location wrong
+36,not_visible,,residential apartments
+37,confirmed,,PETER'S MARKET sign
+38,possibly_closed,,small shuttered building
+39,confirmed,,SISTER FOOD MARKET sign
+40,renamed,Sky Food Market,painted sign reads SKY FOOD MARKET
+41,confirmed,,corner store with green awning
+42,uncertain,,red corner building with shop sign
+43,confirmed,,store sign on stucco building
+44,confirmed,,KANG'S VILLAGE DELI sign
+45,confirmed,,KING'S DELI sign
+46,confirmed,,LEE'S MARKET sign
+47,confirmed,,store at corner (sign at right)
+48,plausible,,brick building with boarded signs
+49,confirmed,,purple MART & DELI front
+50,confirmed,,NEW CHESTER DELI sign (shutters down at capture)
+51,confirmed,,red corner store
+52,plausible,,strip plaza
+53,not_visible,,rowhouses only
+54,uncertain,,building signed CHESTER WHOLESALE DISTRIBUTION
+55,possibly_closed,,red/white building, roll door closed
+56,confirmed,,CHOICE FOOD MARKET sign
+57,confirmed,,FRESH DELI / MEATS wall signs
+58,possibly_closed,,unsigned brick building
+59,renamed,Express Food Market,sign reads EXPRESS FOOD MARKET
+60,plausible,,storefront edge visible
+61,renamed,Highland Deli Market,sign reads HIGHLAND DELI MARKET
+62,confirmed,,FOOD MARKET sign
+63,confirmed,,FOOD MARKET sign (green building)
+64,not_visible,,rowhouses only

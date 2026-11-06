@@ -1657,6 +1657,19 @@ local function buildFootprintBuilding(parent, building, shapeData)
 	if style.alt and seed % 3 == 0 then
 		material = style.alt
 	end
+	-- facade colour / material measured from street imagery
+	-- (tools/storefronts/facade_from_streetview.py -> build_building_tiles.py)
+	if shapeData.wc then
+		wall = Color3.fromRGB(
+			math.floor(shapeData.wc / 65536) % 256 * 0.95,
+			math.floor(shapeData.wc / 256) % 256 * 0.95,
+			shapeData.wc % 256 * 0.95)
+		if shapeData.wm == "b" then
+			material = Enum.Material.Brick
+		elseif shapeData.wm == "s" then
+			material = Enum.Material.SmoothPlastic
+		end
+	end
 	local heightStuds = math.max(shapeData.h * S, 6)
 	local yaw = CFrame.Angles(0, math.rad(shapeData.a), 0)
 	local model = Instance.new("Model")

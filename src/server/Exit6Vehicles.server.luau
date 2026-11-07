@@ -247,12 +247,27 @@ local function groundAt(x, z)
 	local hit = Workspace:Raycast(Vector3.new(x, 600, z), Vector3.new(0, -900, 0), terrainOnly)
 	return hit and hit.Position.Y
 end
+-- nothing built on it at all, ground-level paving included (a gas station
+-- forecourt or a parking lot is not an empty lot)
 local function lotFree(cf)
 	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = { Workspace.Terrain }
 	params.MaxParts = 1
-	return #Workspace:GetPartBoundsInBox(cf * CFrame.new(0, 13, 0), Vector3.new(LOT.X + 6, 22, LOT.Z + 4), params) == 0
+	return #Workspace:GetPartBoundsInBox(cf * CFrame.new(0, 12, 0), Vector3.new(LOT.X + 6, 23.5, LOT.Z + 2), params) == 0
+end
+-- keep clear of the gas stations and of the 9th & Kerlin corner (a visual staple)
+local KEEP_CLEAR = { { Vector3.new(2810, 0, 1518), 250 } }
+local function awayFromLandmarks(pos)
+	for _, k in ipairs(KEEP_CLEAR) do
+		if (Vector3.new(pos.X, 0, pos.Z) - k[1]).Magnitude < k[2] then return false end
+	end
+	local stations = Workspace:FindFirstChild("ChesterGasStations")
+	for _, st in ipairs(stations and stations:GetChildren() or {}) do
+		local ok, pivot = pcall(function() return st:GetPivot().Position end)
+		if ok and (Vector3.new(pivot.X, 0, pivot.Z) - Vector3.new(pos.X, 0, pos.Z)).Magnitude < 150 then return false end
+	end
+	return true
 end
 local function findLot(near)
 	local region = require(Shared:WaitForChild("WorldConfig")).REAL_BUILDINGS_REGION
@@ -278,8 +293,8 @@ local function findLot(near)
 		local width = math.min(p.Size.X, p.Size.Z)
 		local right = Vector3.new(-axis.Z, 0, axis.X)
 		for _, side in ipairs({ 1, -1 }) do
-			local center = p.Position + right * side * (width / 2 + 10 + LOT.Z / 2)
-			local gy = groundAt(center.X, center.Z)
+			local center = p.Position + right * side * (width / 2 + 14 + LOT.Z / 2)
+			local gy = awayFromLandmarks(center) and groundAt(center.X, center.Z)
 			if gy then
 				local flat = true
 				for _, o in ipairs({ { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } }) do
@@ -385,9 +400,9 @@ local function buildDealership()
 		car.Name = "Display_" .. itemId
 		car.Parent = m
 		local bb = Instance.new("BillboardGui")
-		bb.Size = UDim2.fromOffset(150, 46)
-		bb.StudsOffset = Vector3.new(0, 6, 0)
-		bb.MaxDistance = 90
+		bb.Size = UDim2.fromOffset(120, 36)
+		bb.StudsOffset = Vector3.new(0, 5.5 + (i % 2) * 2.2, 0)
+		bb.MaxDistance = 45
 		bb.Parent = car.PrimaryPart
 		local l = Instance.new("TextLabel")
 		l.Size = UDim2.fromScale(1, 1)
@@ -395,7 +410,7 @@ local function buildDealership()
 		l.BackgroundTransparency = 0.15
 		l.TextColor3 = Color3.fromRGB(245, 245, 242)
 		l.Font = Enum.Font.GothamBold
-		l.TextSize = 15
+		l.TextSize = 13
 		l.Text = item.name .. "\n$" .. item.price
 		l.Parent = bb
 	end

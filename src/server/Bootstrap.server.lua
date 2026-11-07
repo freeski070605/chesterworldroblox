@@ -190,8 +190,8 @@ do
 	local ok, RealBuildings = pcall(require, script.Parent:WaitForChild("World"):WaitForChild("RealBuildings"))
 	if ok and RealBuildings.stats then
 		local st = RealBuildings.stats
-		print(("[ChesterWorld RealBuildings] homes=%d stores=%d shops=%d storefronts=%d frontDoors=%d backDoors=%d sideDoors=%d")
-			:format(st.homes, st.stores, st.shops, st.storefronts, st.frontDoors, st.backDoors, st.sideDoors))
+		print(("[ChesterWorld RealBuildings] homes=%d stores=%d shops=%d storefronts=%d frontDoors=%d backDoors=%d sideDoors=%d rentals=%d")
+			:format(st.homes, st.stores, st.shops, st.storefronts, st.frontDoors, st.backDoors, st.sideDoors, st.rentals or 0))
 	end
 end
 

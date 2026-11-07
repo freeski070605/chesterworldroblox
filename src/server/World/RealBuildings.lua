@@ -15,6 +15,7 @@
 -- shop gets an Exit6StoreAnchor (local -Z = its door) in a model tagged
 -- Exit6Store, with the size / name attributes gameplay fits the interior from.
 local CollectionService = game:GetService("CollectionService")
+local HouseKit = require(script.Parent:WaitForChild("HouseKit"))
 
 local RealBuildings = {}
 
@@ -95,77 +96,11 @@ end
 -- Home: windows all round (applyFacade), doors on the front / back / side.
 -- r: { frame, along, across, x, z, streetLevel, base, wallTop }, ctx: building context
 function RealBuildings.Home(model, r, ctx)
-	local block = part(model, "Walls", Vector3.new(r.along, r.wallTop - r.base, r.across),
-		r.frame * CFrame.new(0, 0, 0) + Vector3.new(0, (r.wallTop + r.base) / 2, 0), ctx.material, ctx.wall)
-	block:SetAttribute("GroundY", r.streetLevel + 0.4)
-	ctx.applyFacade(block, ctx.style, r.storey)
-	if not ctx.front then return end
-	local doorColor = DOOR_COLORS[(ctx.seed % #DOOR_COLORS) + 1]
-	local nFront = faceAxis(r.frame, ctx.front)
-	local function exposed(fcf, span, u)
-		local p = (fcf * CFrame.new(u, 0, -2.5)).Position
-		return not covered(p, ctx.rects, r)
-	end
-	-- front: one door per unit (rowhouse), two on a twin, one on a house
-	local fcf, span = faceOf(r, nFront)
-	local units = 1
-	if ctx.style == "rowhouse" then
-		units = math.max(1, math.floor(span / UNIT_STUDS + 0.5))
-	elseif ctx.style == "twin" and span >= 28 then
-		units = 2
-	elseif ctx.style == "apartment" then
-		units = 1
-	end
-	if span >= 7 then
-		local w = span / units
-		for i = 1, units do
-			-- door toward one side of its unit, mirrored pair by pair as on a real row
-			local side = (i % 2 == 0) and 1 or -1
-			local u = -span / 2 + w * (i - 0.5) + side * math.min(w * 0.22, 3)
-			if exposed(fcf, span, u) then
-				-- every unit of a row has its own door colour
-				local unitColor = DOOR_COLORS[((ctx.seed + i * 7) % #DOOR_COLORS) + 1]
-				local d = door(model, fcf, u, r.streetLevel + 0.4, units > 1 and unitColor or doorColor, not ctx.porch)
-				-- the address a delivery goes to (Exit6Delivery.server)
-				CollectionService:AddTag(d, "Exit6FrontDoor")
-				-- stable home address for saves (Exit6Housing): building id : front door n
-				ctx.homeDoors = (ctx.homeDoors or 0) + 1
-				d:SetAttribute("Exit6HomeId", tostring(ctx.buildingId) .. ":" .. ctx.homeDoors)
-				d:SetAttribute("Exit6HomeStyle", ctx.style)
-				ctx.stats.frontDoors += 1
-			end
-		end
-	end
-	-- back: one door per unit
-	local bcf, bspan = faceOf(r, -nFront)
-	if bspan >= 7 then
-		local w = bspan / units
-		for i = 1, units do
-			local u = -bspan / 2 + w * (i - 0.5)
-			if exposed(bcf, bspan, u) then
-				door(model, bcf, u, r.streetLevel + 0.4, doorColor, false)
-				ctx.stats.backDoors += 1
-			end
-		end
-	end
-	-- side: a house or twin end wall that is exposed, toward the back
-	if ctx.style == "house" or ctx.style == "twin" then
-		local sideAxis = Vector3.new(nFront.Z, 0, -nFront.X)
-		if ctx.corner then
-			sideAxis = faceAxis(r.frame, ctx.corner)
-			if sideAxis == nFront or sideAxis == -nFront then sideAxis = Vector3.new(nFront.Z, 0, -nFront.X) end
-		end
-		local scf, sspan = faceOf(r, sideAxis)
-		if sspan >= 22 then
-			-- toward the back of the house along this wall
-			local backWorld = r.frame:VectorToWorldSpace(-nFront)
-			local u = sspan * 0.25 * ((scf.RightVector:Dot(backWorld) >= 0) and 1 or -1)
-			if exposed(scf, sspan, u) then
-				door(model, scf, u, r.streetLevel + 0.4, doorColor, false)
-				ctx.stats.sideDoors += 1
-			end
-		end
-	end
+	-- Chester house kit: archetype facades, porches, roofs, rentable interiors
+	HouseKit.Build(model, r, ctx, {
+		part = part, faceAxis = faceAxis, faceOf = faceOf, covered = covered, door = door,
+		DOOR_COLORS = DOOR_COLORS, TRIM = TRIM, CONCRETE = CONCRETE, UNIT_STUDS = UNIT_STUDS,
+	})
 end
 
 -- Store section: walk-in ground floor + upper storeys.

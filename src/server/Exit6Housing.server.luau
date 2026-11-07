@@ -1,8 +1,10 @@
 -- EXIT 6 housing (master plan Phase E): rent a real home in the city.
--- Every RealBuildings front door (tag Exit6FrontDoor, attribute Exit6HomeId)
--- can be moved into with a one-time payment (Catalog.Housing by style). Your
--- home is saved in the profile; you respawn on its doorstep, and items can be
--- stashed there (phone > Home). One player per home in a server.
+-- The house kit (World/HouseKit.lua) makes about one unit in five a rental:
+-- a FOR RENT sign in the front window, a real ground floor, and its front door
+-- tagged Exit6FrontDoor with Exit6Rentable. Anyone can look inside a vacant
+-- one; moving in is a one-time payment (Catalog.Housing by style). Your home
+-- is saved in the profile, you wake up inside it, and the stash chest keeps
+-- items (phone > Home). One player per home in a server; it's locked to others.
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,8 +18,11 @@ local remotes = ReplicatedStorage:WaitForChild("Exit6Remotes")
 local HomeAction = Instance.new("RemoteFunction")
 HomeAction.Name = "HomeAction"
 HomeAction.Parent = remotes
+local OpenPhone = Instance.new("RemoteEvent")
+OpenPhone.Name = "OpenPhoneTab"
+OpenPhone.Parent = remotes
 
-local STASH_REACH = 18
+local STASH_REACH = 14   -- beyond the home's depth
 local doors = {}      -- homeId -> door part
 
 local function notify(player, text)
@@ -26,6 +31,13 @@ local function notify(player, text)
 end
 local function doorstep(door)
 	return door.CFrame * CFrame.new(0, -door.Size.Y / 2 + 3, -4) * CFrame.Angles(0, math.pi, 0)
+end
+-- just inside the front door, facing in (door local +Z is inward)
+local function inside(door)
+	return door.CFrame * CFrame.new(0, -door.Size.Y / 2 + 3, 4.5) * CFrame.Angles(0, math.pi, 0)
+end
+local function isInside(door, pos)
+	return door.CFrame:PointToObjectSpace(pos).Z > 0
 end
 local function priceOf(door)
 	return Catalog.Housing[door:GetAttribute("Exit6HomeStyle") or ""] or Catalog.Housing.default
@@ -52,14 +64,33 @@ local function occupant(homeId)
 end
 local function refreshDoor(door)
 	local prompt = door:FindFirstChild("HomePrompt")
-	if not prompt then return end
+	local enter = door:FindFirstChild("EnterPrompt")
+	if not prompt or not enter then return end
 	local who = occupant(door:GetAttribute("Exit6HomeId"))
+	local sign = door:FindFirstChild("RentSign")
 	if who then
-		prompt.ActionText = "Home"
-		prompt.ObjectText = who.DisplayName .. "'s place"
+		prompt.Enabled = false
+		enter.ActionText = "Go inside"
+		enter.ObjectText = who.DisplayName .. "'s place"
 	else
+		prompt.Enabled = true
 		prompt.ActionText = "Move in ($" .. priceOf(door) .. ")"
 		prompt.ObjectText = "For rent"
+		enter.ActionText = "Look inside"
+		enter.ObjectText = "For rent"
+	end
+	if sign then sign.Transparency = who and 1 or 0 end
+	if sign and sign:FindFirstChildOfClass("SurfaceGui") then sign:FindFirstChildOfClass("SurfaceGui").Enabled = who == nil end
+	local light = door:FindFirstChild("PorchLight")
+	if who and not light then
+		light = Instance.new("PointLight")
+		light.Name = "PorchLight"
+		light.Range = 14
+		light.Brightness = 1.4
+		light.Color = Color3.fromRGB(255, 220, 160)
+		light.Parent = door
+	elseif not who and light then
+		light:Destroy()
 	end
 end
 local function refreshAll()
@@ -87,17 +118,53 @@ local function moveIn(player, door)
 	notify(player, "You moved in on " .. p.home.street .. "! You'll wake up here (-$" .. price .. ")")
 end
 
+local function goThrough(player, door)
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not root then return end
+	local who = occupant(door:GetAttribute("Exit6HomeId"))
+	if who and who ~= player and not isInside(door, root.Position) then
+		notify(player, "It's locked")
+		return
+	end
+	player.Character:PivotTo(isInside(door, root.Position) and doorstep(door) or inside(door))
+end
+
 local function setup(door)
 	local id = door:GetAttribute("Exit6HomeId")
-	if not id or doors[id] then return end
+	if not id or doors[id] or not door:GetAttribute("Exit6Rentable") then return end
 	doors[id] = door
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "HomePrompt"
-	prompt.MaxActivationDistance = 7
+	prompt.MaxActivationDistance = 8
 	prompt.HoldDuration = 0.6
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = door
 	prompt.Triggered:Connect(function(player) moveIn(player, door) end)
+	local enter = Instance.new("ProximityPrompt")
+	enter.Name = "EnterPrompt"
+	enter.KeyboardKeyCode = Enum.KeyCode.F
+	enter.GamepadKeyCode = Enum.KeyCode.ButtonX
+	enter.MaxActivationDistance = 8
+	enter.RequiresLineOfSight = false
+	enter.UIOffset = Vector2.new(0, 70)
+	enter.Parent = door
+	enter.Triggered:Connect(function(player) goThrough(player, door) end)
+	-- the stash chest inside (HouseKit marks it Exit6Stash): opens phone > Home
+	local home = door.Parent
+	for _, c in ipairs(home and home:GetChildren() or {}) do
+		if c:GetAttribute("Exit6Stash") and (c.Position - door.Position).Magnitude < (door:GetAttribute("Exit6HomeDepth") or 30) + 8 then
+			local sp = Instance.new("ProximityPrompt")
+			sp.ActionText = "Stash"
+			sp.ObjectText = "Your stuff"
+			sp.MaxActivationDistance = 8
+			sp.RequiresLineOfSight = false
+			sp.Parent = c
+			sp.Triggered:Connect(function(player)
+				local p = Profile.Get(player)
+				if p and p.home and p.home.id == id then OpenPhone:FireClient(player, "home") else notify(player, "Not your place") end
+			end)
+		end
+	end
 	refreshDoor(door)
 end
 for _, d in ipairs(CollectionService:GetTagged("Exit6FrontDoor")) do setup(d) end
@@ -111,7 +178,7 @@ local function spawnAtHome(player, char)
 	local root = char:WaitForChild("HumanoidRootPart", 10)
 	if root then
 		task.wait(0.2)
-		char:PivotTo(doorstep(door))
+		char:PivotTo(inside(door))
 	end
 end
 local function hook(player)
@@ -145,8 +212,8 @@ HomeAction.OnServerInvoke = function(player, action, itemId)
 	end
 	-- stash: only at home
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-	if not door or not root or (root.Position - door.Position).Magnitude > STASH_REACH then
-		notify(player, "You need to be at your front door")
+	if not door or not root or (root.Position - door.Position).Magnitude > (door:GetAttribute("Exit6HomeDepth") or 20) + STASH_REACH then
+		notify(player, "You need to be at home")
 		return false
 	end
 	if type(itemId) ~= "string" or not Catalog.Items[itemId] then return false end

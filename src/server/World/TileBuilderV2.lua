@@ -2269,7 +2269,8 @@ local function buildFootprintBuilding(parent, building, shapeData)
 				shops[big] = { front = shapeData.fb, corner = shapeData.fb2 }
 			end
 			realCtx = { sbIndex = sbIndex, rects = rects, shops = shops, front = shapeData.fb, corner = shapeData.fb2,
-				porch = shapeData.pb ~= nil, style = shapeData.style, material = material, wall = wall,
+				porch = shapeData.pb ~= nil, porchDepth = shapeData.pd and shapeData.pd * S or nil,
+				style = shapeData.style, material = material, wall = wall,
 				seed = seed, buildingId = tostring(building.id), applyFacade = applyFacade, stats = RealBuildings.stats }
 		end
 	end
@@ -2306,6 +2307,7 @@ local function buildFootprintBuilding(parent, building, shapeData)
 				realShop = nil   -- a sliver section: too small to walk into (sign only)
 			end
 			local realHome = realCtx and not realShop and GROUND_FOR_STYLE[shapeData.style] == "residential"
+			if realHome then realCtx.homeBuilt = true end
 			if realShop or realHome then
 				local rr = { frame = frame, along = along, across = across, streetLevel = streetLevel, base = base,
 					wallTop = wallTop, storey = storey }
@@ -2348,7 +2350,9 @@ local function buildFootprintBuilding(parent, building, shapeData)
 					applyFacade(block, shapeData.style, storey)
 				end
 			end
-			if style.roof == "cornice" then
+			if realHome then
+				-- the house kit built this section's roof (HouseKit.lua)
+			elseif style.roof == "cornice" then
 				newPart(model, "Cornice", Vector3.new(along + 0.8, 0.9, across + 0.8),
 					CFrame.new(x, wallTop + 0.45, z) * yaw, Enum.Material.Concrete, roofColor or style.top)
 			elseif gable then
@@ -2410,7 +2414,7 @@ local function buildFootprintBuilding(parent, building, shapeData)
 		end
 		if #names > 0 then model:SetAttribute("Shops", table.concat(names, " | ")) end
 	end
-	if built > 0 and shapeData.pb and shapeData.pd and signRect then
+	if built > 0 and shapeData.pb and shapeData.pd and signRect and not (realCtx and realCtx.homeBuilt) then
 		buildPorch(model, shapeData, signRect, yaw)
 	end
 	if built > 0 and shapeData.lm and shapeData.lb then

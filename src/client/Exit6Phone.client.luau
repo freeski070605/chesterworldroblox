@@ -222,6 +222,37 @@ local function markHome(pos)
 	task.delay(90, function() if homeMarker == marker then markHome(nil) end end)
 end
 
+-- FOR RENT markers on the nearest vacant rentals (phone > Home)
+local rentMarkers = {}
+local function markRentals()
+	for _, m in ipairs(rentMarkers) do m:Destroy() end
+	table.clear(rentMarkers)
+	local me = myRoot()
+	if not me then return 0 end
+	local list = {}
+	for _, d in ipairs(CollectionService:GetTagged("Exit6FrontDoor")) do
+		local sign = d:GetAttribute("Exit6Rentable") and d:FindFirstChild("RentSign")
+		if sign and sign.Transparency < 0.5 then
+			table.insert(list, { d = d, dist = (d.Position - me.Position).Magnitude })
+		end
+	end
+	table.sort(list, function(a, b) return a.dist < b.dist end)
+	for i = 1, math.min(5, #list) do
+		local d = list[i].d
+		local price = Catalog.Housing[d:GetAttribute("Exit6HomeStyle") or ""] or Catalog.Housing.default
+		local bb = new("BillboardGui", { Size = UDim2.fromOffset(150, 40), StudsOffset = Vector3.new(0, 7, 0), AlwaysOnTop = true,
+			LightInfluence = 0, MaxDistance = 100000, Adornee = d }, gui)
+		new("TextLabel", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(240, 240, 236), TextColor3 = Color3.fromRGB(190, 24, 28),
+			Font = Enum.Font.GothamBlack, TextSize = 16, Text = "FOR RENT  $" .. price }, bb)
+		table.insert(rentMarkers, bb)
+	end
+	task.delay(120, function()
+		for _, m in ipairs(rentMarkers) do m:Destroy() end
+		table.clear(rentMarkers)
+	end)
+	return math.min(5, #list)
+end
+
 drawPhone = function()
 	local c, r = cash()
 	local prof = profile()
@@ -304,9 +335,9 @@ drawPhone = function()
 			out.BackgroundColor3 = Color3.fromRGB(70, 36, 36)
 		else
 			row(phoneList, 1, "No place yet", "")
-			row(phoneList, 2, "Walk up to any front door", "")
-			row(phoneList, 3, "around 9th & Kerlin: Move in (E)", "")
-			row(phoneList, 4, "You'll wake up there", "")
+			row(phoneList, 2, "Show homes for rent nearby", "", act(markRentals))
+			row(phoneList, 3, "FOR RENT sign in the window:", "")
+			row(phoneList, 4, "E move in   F / X look inside", "")
 		end
 	elseif tab == "biz" then
 		local n = 0
@@ -360,6 +391,18 @@ drawPhone = function()
 		end
 	end
 end
+
+local function openTab(name)
+	if shop.Visible then closeAll() end
+	tab = name
+	phone.Visible = true
+	drawPhone()
+	GuiService.SelectedObject = tabButtons[tab]
+end
+task.spawn(function()
+	local ev = remotes:WaitForChild("OpenPhoneTab", 60)
+	if ev then ev.OnClientEvent:Connect(function(name) if tabButtons[name] then openTab(name) end end) end
+end)
 
 local function togglePhone()
 	if shop.Visible then closeAll() return end

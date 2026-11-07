@@ -78,7 +78,10 @@ STORES = {
     "cw_fefc0bb360": {"footprint": ("50221", 1), "sign": None,
                       "extra": [{"toward_point": (2790.0, 1520.0), "sign": "CHECK CASHING",
                                  "sign_colors": ((28, 70, 160), (240, 190, 40), (255, 255, 255))}]},
-    "cw_28a6741d42": {"footprint": ("40026", 1), "sign": "A-PLUS"},         # Sunoco 2200 Edgmont
+    # Sunoco 2200 Edgmont (22nd & Edgmont): the A-Plus is glass all round with
+    # an entrance on both sides - the pumps / corner side and the back lot
+    "cw_28a6741d42": {"footprint": ("40026", 1), "sign": "A-PLUS", "glass_all": True,
+                      "extra": [{"toward_point": (3436.0, -5082.0), "sign": "A-PLUS"}]},
     "cw_1ab25071e5": {"footprint": ("122402", "nearest"), "sign": "FOOD MART / DELI"},  # Sunoco 2nd St
     "cw_5f192ec41c": {"under": ("sw_end", 0.0), "size": (9.0, 4.6), "sign": "MINI-MART"},  # Lukoil
     "cw_442801b4e3": {"under": (0.0, 0.0), "size": (7.0, 4.0), "sign": None},  # Sunoco Township Line
@@ -445,6 +448,7 @@ def main():
         store = build_store(b["id"], canopies, sign, RECORDS)
         if store:
             store["extra"] = store_extras(b["id"], store, NAMED_ROADS)
+            store["glass_all"] = STORES.get(b["id"], {}).get("glass_all", False)
         sheds = []
         for sid in SHEDS.get(b["id"], []):
             a, h, rects, rc, wc = RECORDS[sid]
@@ -486,6 +490,8 @@ def main():
                 lua_str(so["sign"]) if so["sign"] else "nil",
                 "{%s}" % ",".join("{%d,%d,%d}" % c for c in sc) if sc else "nil",
                 lua_str(so["roof"]) if so.get("roof") else "nil")
+            if so.get("glass_all"):
+                store = store[:-1] + ",glassAll=true}"
             if so.get("extra"):
                 store = store[:-1] + ",extra={%s}}" % ",".join(
                     "{face=%s,sign=%s,signColors=%s}" % (

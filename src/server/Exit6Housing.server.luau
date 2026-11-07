@@ -1,29 +1,39 @@
--- EXIT 6 housing (master plan Phase E): rent a real home in the city.
--- The house kit (World/HouseKit.lua) makes about one unit in five a rental:
--- a FOR RENT sign in the front window, a real ground floor, and its front door
--- tagged Exit6FrontDoor with Exit6Rentable. Anyone can look inside a vacant
--- one; moving in is a one-time payment (Catalog.Housing by style). Your home
--- is saved in the profile, you wake up inside it, and the stash chest keeps
--- items (phone > Home). One player per home in a server; it's locked to others.
+-- EXIT 6 housing (master plan Phase E): every house in the city is for rent.
+-- The house kit (World/HouseKit.lua) tags each unit's front door
+-- Exit6FrontDoor + Exit6Rentable. The door prompts are made on each client for
+-- the doors streamed in near it (Exit6HomeDoors.client) - not ~19k prompts on
+-- the server - and come here through the HomeDoor remote, checked against the
+-- player's distance to that door.
+--   look inside   anyone, while nobody in this server lives there
+--   move in       a one-time payment (Catalog.Housing by style), saved
+--   go inside     your own home (locked to everyone else)
+-- The ground floor is built the first time someone goes in (HouseKit.Hollow):
+-- living room, kitchen, a stash chest (phone > Home). You wake up at home.
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Catalog = require(Shared:WaitForChild("Exit6Catalog"))
 local Profile = require(script.Parent:WaitForChild("Exit6Profile"))
 local Inventory = require(script.Parent:WaitForChild("Exit6Inventory"))
+local HouseKit = require(script.Parent:WaitForChild("World"):WaitForChild("HouseKit"))
 local remotes = ReplicatedStorage:WaitForChild("Exit6Remotes")
-local HomeAction = Instance.new("RemoteFunction")
-HomeAction.Name = "HomeAction"
-HomeAction.Parent = remotes
-local OpenPhone = Instance.new("RemoteEvent")
-OpenPhone.Name = "OpenPhoneTab"
-OpenPhone.Parent = remotes
+local function remote(class, name)
+	local r = Instance.new(class)
+	r.Name = name
+	r.Parent = remotes
+	return r
+end
+local HomeAction = remote("RemoteFunction", "HomeAction")
+local HomeDoor = remote("RemoteEvent", "HomeDoor")
+local OpenPhone = remote("RemoteEvent", "OpenPhoneTab")
 
+local DOOR_REACH = 14
 local STASH_REACH = 14   -- beyond the home's depth
-local doors = {}      -- homeId -> door part
+local doors = {}         -- homeId -> door part
 
 local function notify(player, text)
 	player:SetAttribute("Exit6Notice", text)
@@ -62,25 +72,10 @@ local function occupant(homeId)
 	end
 	return nil
 end
-local function refreshDoor(door)
-	local prompt = door:FindFirstChild("HomePrompt")
-	local enter = door:FindFirstChild("EnterPrompt")
-	if not prompt or not enter then return end
+local function markDoor(door)
 	local who = occupant(door:GetAttribute("Exit6HomeId"))
-	local sign = door:FindFirstChild("RentSign")
-	if who then
-		prompt.Enabled = false
-		enter.ActionText = "Go inside"
-		enter.ObjectText = who.DisplayName .. "'s place"
-	else
-		prompt.Enabled = true
-		prompt.ActionText = "Move in ($" .. priceOf(door) .. ")"
-		prompt.ObjectText = "For rent"
-		enter.ActionText = "Look inside"
-		enter.ObjectText = "For rent"
-	end
-	if sign then sign.Transparency = who and 1 or 0 end
-	if sign and sign:FindFirstChildOfClass("SurfaceGui") then sign:FindFirstChildOfClass("SurfaceGui").Enabled = who == nil end
+	door:SetAttribute("Exit6OccupantId", who and who.UserId or nil)
+	door:SetAttribute("Exit6OccupantName", who and who.DisplayName or nil)
 	local light = door:FindFirstChild("PorchLight")
 	if who and not light then
 		light = Instance.new("PointLight")
@@ -93,18 +88,43 @@ local function refreshDoor(door)
 		light:Destroy()
 	end
 end
-local function refreshAll()
-	for _, door in pairs(doors) do refreshDoor(door) end
+local function markAll()
+	-- only the doors of players in this server can be occupied
+	for _, d in pairs(doors) do
+		if d:GetAttribute("Exit6OccupantId") then markDoor(d) end
+	end
+	for _, pl in ipairs(Players:GetPlayers()) do
+		local p = Profile.Get(pl)
+		local d = p and p.home and doors[p.home.id]
+		if d then markDoor(d) end
+	end
+end
+
+-- the first time anyone goes in: build the ground floor, wire the stash chest
+local function openUp(door)
+	local stash = HouseKit.Hollow(door)
+	if stash and not stash:FindFirstChild("StashPrompt") then
+		local id = door:GetAttribute("Exit6HomeId")
+		local sp = Instance.new("ProximityPrompt")
+		sp.Name = "StashPrompt"
+		sp.ActionText = "Stash"
+		sp.ObjectText = "Your stuff"
+		sp.MaxActivationDistance = 8
+		sp.RequiresLineOfSight = false
+		sp.Parent = stash
+		sp.Triggered:Connect(function(player)
+			local p = Profile.Get(player)
+			if p and p.home and p.home.id == id then OpenPhone:FireClient(player, "home") else notify(player, "Not your place") end
+		end)
+	end
+	return stash
 end
 
 local function moveIn(player, door)
 	local p = Profile.Get(player)
 	if not p or player:GetAttribute("Exit6DataReady") ~= true then return end
 	local id = door:GetAttribute("Exit6HomeId")
-	if p.home and p.home.id == id then
-		notify(player, "Welcome home")
-		return
-	end
+	if p.home and p.home.id == id then notify(player, "Welcome home") return end
 	if occupant(id) then notify(player, "Someone lives here") return end
 	if p.home then notify(player, "You already have a place on " .. p.home.street .. " - move out first (phone > Home)") return end
 	local price = priceOf(door)
@@ -114,7 +134,8 @@ local function moveIn(player, door)
 	cash.Value -= price
 	p.home = { id = id, street = streetNear(door.Position) or "your block" }
 	Profile.Publish(player)
-	refreshAll()
+	openUp(door)
+	markAll()
 	notify(player, "You moved in on " .. p.home.street .. "! You'll wake up here (-$" .. price .. ")")
 end
 
@@ -126,49 +147,27 @@ local function goThrough(player, door)
 		notify(player, "It's locked")
 		return
 	end
+	if not isInside(door, root.Position) then openUp(door) end
 	player.Character:PivotTo(isInside(door, root.Position) and doorstep(door) or inside(door))
 end
 
-local function setup(door)
+local function track(door)
 	local id = door:GetAttribute("Exit6HomeId")
-	if not id or doors[id] or not door:GetAttribute("Exit6Rentable") then return end
-	doors[id] = door
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "HomePrompt"
-	prompt.MaxActivationDistance = 8
-	prompt.HoldDuration = 0.6
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = door
-	prompt.Triggered:Connect(function(player) moveIn(player, door) end)
-	local enter = Instance.new("ProximityPrompt")
-	enter.Name = "EnterPrompt"
-	enter.KeyboardKeyCode = Enum.KeyCode.F
-	enter.GamepadKeyCode = Enum.KeyCode.ButtonX
-	enter.MaxActivationDistance = 8
-	enter.RequiresLineOfSight = false
-	enter.UIOffset = Vector2.new(0, 70)
-	enter.Parent = door
-	enter.Triggered:Connect(function(player) goThrough(player, door) end)
-	-- the stash chest inside (HouseKit marks it Exit6Stash): opens phone > Home
-	local home = door.Parent
-	for _, c in ipairs(home and home:GetChildren() or {}) do
-		if c:GetAttribute("Exit6Stash") and (c.Position - door.Position).Magnitude < (door:GetAttribute("Exit6HomeDepth") or 30) + 8 then
-			local sp = Instance.new("ProximityPrompt")
-			sp.ActionText = "Stash"
-			sp.ObjectText = "Your stuff"
-			sp.MaxActivationDistance = 8
-			sp.RequiresLineOfSight = false
-			sp.Parent = c
-			sp.Triggered:Connect(function(player)
-				local p = Profile.Get(player)
-				if p and p.home and p.home.id == id then OpenPhone:FireClient(player, "home") else notify(player, "Not your place") end
-			end)
-		end
-	end
-	refreshDoor(door)
+	if id and door:GetAttribute("Exit6Rentable") then doors[id] = door end
 end
-for _, d in ipairs(CollectionService:GetTagged("Exit6FrontDoor")) do setup(d) end
-CollectionService:GetInstanceAddedSignal("Exit6FrontDoor"):Connect(setup)
+for _, d in ipairs(CollectionService:GetTagged("Exit6FrontDoor")) do track(d) end
+CollectionService:GetInstanceAddedSignal("Exit6FrontDoor"):Connect(track)
+
+HomeDoor.OnServerEvent:Connect(function(player, homeId, action)
+	local door = type(homeId) == "string" and doors[homeId]
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not door or not root or (root.Position - door.Position).Magnitude > DOOR_REACH then return end
+	if action == "movein" then
+		moveIn(player, door)
+	elseif action == "enter" then
+		goThrough(player, door)
+	end
+end)
 
 -- wake up at home
 local function spawnAtHome(player, char)
@@ -177,6 +176,7 @@ local function spawnAtHome(player, char)
 	if not door then return end
 	local root = char:WaitForChild("HumanoidRootPart", 10)
 	if root then
+		openUp(door)
 		task.wait(0.2)
 		char:PivotTo(inside(door))
 	end
@@ -187,14 +187,14 @@ end
 Players.PlayerAdded:Connect(hook)
 for _, pl in ipairs(Players:GetPlayers()) do hook(pl) end
 Profile.Loaded:Connect(function(player)
-	refreshAll()
+	markAll()
 	-- the first character may already be standing at the city spawn
 	if player.Character and player:GetAttribute("Exit6HomeSpawned") == nil then
 		player:SetAttribute("Exit6HomeSpawned", true)
 		task.spawn(spawnAtHome, player, player.Character)
 	end
 end)
-Players.PlayerRemoving:Connect(function() task.defer(refreshAll) end)
+Players.PlayerRemoving:Connect(function() task.defer(markAll) end)
 
 -- phone > Home
 HomeAction.OnServerInvoke = function(player, action, itemId)
@@ -204,9 +204,10 @@ HomeAction.OnServerInvoke = function(player, action, itemId)
 	if action == "where" then
 		return door and doorstep(door).Position or nil
 	elseif action == "moveout" then
+		local old = door
 		p.home = nil
 		Profile.Publish(player)
-		refreshAll()
+		if old then markDoor(old) end
 		notify(player, "You moved out")
 		return true
 	end

@@ -103,13 +103,13 @@ StartRide.OnServerInvoke = function(player)
 	if #doors < 10 then notify(player, "No riders around here") return false end
 	-- a pickup not too far, a drop-off a fair drive from it
 	local pickupDoor, dropDoor
-	for _ = 1, 60 do
+	for _ = 1, 600 do
 		local d = doors[rng:NextInteger(1, #doors)]
 		local dist = (d.Position - from).Magnitude
 		if dist > 80 and dist < 700 then pickupDoor = d break end
 	end
 	if not pickupDoor then notify(player, "No riders around here") return false end
-	for _ = 1, 80 do
+	for _ = 1, 600 do
 		local d = doors[rng:NextInteger(1, #doors)]
 		local dist = (d.Position - pickupDoor.Position).Magnitude
 		if dist >= R.minStuds and dist <= R.maxStuds then dropDoor = d break end

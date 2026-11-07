@@ -329,7 +329,19 @@ local function buildStore(model, st, fascia, accent, textColor, frame, width, de
 			return part(shop, name, size, fcf * CFrame.new(x, y, z), material or Enum.Material.SmoothPlastic, color)
 		end
 		local spec = shopfronts[faceName]
-		if not spec then
+		if not spec and s.glassAll then
+			-- glass all round (the 22nd & Edgmont A-Plus): a glass wall, no door
+			local g = mk("Shopfront", Vector3.new(len - 2.4, glassTop - 1.2, 0.3), 0, 0.6 + (glassTop - 1.2) / 2, 0.4,
+				Color3.fromRGB(150, 190, 210), Enum.Material.Glass)
+			g.Transparency = 0.35
+			g.Reflectance = 0.15
+			for _, side in ipairs({ -1, 1 }) do
+				mk("Pier", Vector3.new(1.2, glassTop, 0.9), side * (len / 2 - 0.6), glassTop / 2, 0.4, wall, Enum.Material.Brick)
+			end
+			mk("Sill", Vector3.new(len, 0.6, 0.9), 0, 0.6, 0.4, wall, Enum.Material.Brick)
+			mk("Wall", Vector3.new(len, h - glassTop, 0.8), 0, glassTop + (h - glassTop) / 2, 0.4, wall, Enum.Material.Brick)
+			mk("AccentStripe", Vector3.new(len, 0.5, 1.0), 0, glassTop - 0.1, 0.3, accent)
+		elseif not spec then
 			mk("Wall", Vector3.new(len, h, 0.8), 0, h / 2, 0.4, wall, Enum.Material.Brick)
 		else
 			-- glass either side of a centred door, piers, the shop's fascia above

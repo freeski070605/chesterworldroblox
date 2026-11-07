@@ -19,9 +19,15 @@
 -- per storey: front, back, and exposed side walls only. One front door per
 -- unit, a back door, a side door only on a detached house.
 --
--- A rentable unit (1 in ~5, deterministic) has a real ground floor: a hollow
--- shell with a living room, kitchen and a stash chest, a FOR RENT sign in the
--- front window, and its front door tagged for Exit6Housing (Exit6Rentable).
+-- Every unit is for rent (Exit6Housing): its front door is tagged
+-- Exit6FrontDoor + Exit6Rentable and records how the unit was built, so the
+-- first time someone looks inside or moves in, HouseKit.Hollow swaps the solid
+-- slice for a real ground floor (living room, kitchen, stash chest).
+--
+-- ctx.lite (outside the 9th & Kerlin core, i.e. most of the city): the same
+-- forms, finishes, porches, roofs and front doors, but windows are the facade
+-- texture on each unit slice and the small trim (back doors, rails, brackets,
+-- dormers) is left out - ~10 parts a unit instead of ~40.
 local CollectionService = game:GetService("CollectionService")
 
 local HouseKit = {}
@@ -37,7 +43,6 @@ local ROOFS = { Color3.fromRGB(62, 60, 60), Color3.fromRGB(84, 64, 56), Color3.f
 local WINDOW_GLASS = Color3.fromRGB(46, 58, 70)
 local WHITE = Color3.fromRGB(236, 234, 226)
 local STONE = Color3.fromRGB(186, 178, 164)
-local RENT_EVERY = 5
 
 local function hash(a, b)
 	local h = 2166136261
@@ -70,10 +75,160 @@ local function archetypeFor(ctx, floors, span)
 	return "apartment"
 end
 
+-- the ground floor of a unit as a real home: the unit's solid slice is
+-- replaced by the storeys above, a hollow shell, drywall, a partition and
+-- furniture. Built on demand (HouseKit.Hollow) the first time someone looks
+-- inside or moves in - every house in the city is for rent.
+local function buildInterior(model, I)
+	local fcf, u, w, depth, floorY, groundTop = I.fcf, I.u, I.w, I.depth, I.floorY, I.groundTop
+	local doorU, winU, side, hu, mat, col = I.doorU, I.winU, I.side, I.hu, I.mat, I.col
+	local r = { wallTop = I.wallTop, base = I.base }
+	local storeyH = groundTop - floorY
+	local sliceCf = fcf * CFrame.new(u, 0, depth / 2)
+	local H = { CONCRETE = Color3.fromRGB(176, 172, 164) }
+	local function solid(name, size, cf, m, c)
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Anchored = true
+		p.Size = size
+		p.CFrame = cf
+		p.Material = m or Enum.Material.SmoothPlastic
+		p.Color = c
+		p.TopSurface, p.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
+		p.Parent = model
+		return p
+	end
+	local function at(face, x, y, z)
+		return face * CFrame.new(x, 0, z) + Vector3.new(0, y, 0)
+	end
+		local upperH = r.wallTop - groundTop
+		if upperH > 0.5 then
+			local upper = solid("Walls", Vector3.new(w, upperH, depth), sliceCf + Vector3.new(0, (r.wallTop + groundTop) / 2, 0), mat, col)
+			if I.lite and HouseKit.applyFacade then HouseKit.applyFacade(upper, I.style, storeyH) end
+		end
+		if floorY - r.base > 0.2 then
+			solid("Foundation", Vector3.new(w, floorY - r.base, depth), sliceCf + Vector3.new(0, (floorY + r.base) / 2, 0), Enum.Material.Concrete,
+				H.CONCRETE)
+		end
+		local gh = storeyH
+		-- (floor top a hair above the foundation: no z-fighting)
+		solid("HomeFloor", Vector3.new(w - 0.2, 0.4, depth - 0.2), sliceCf + Vector3.new(0, floorY - 0.14, 0), Enum.Material.WoodPlanks,
+			Color3.fromRGB(150, 110, 76))
+		solid("HomeCeiling", Vector3.new(w, 0.5, depth), sliceCf + Vector3.new(0, groundTop - 0.25, 0), Enum.Material.SmoothPlastic,
+			Color3.fromRGB(236, 232, 224))
+		local function wallPiece(x0, x1, y0, y1, z)
+			if x1 - x0 < 0.05 or y1 - y0 < 0.05 then return end
+			solid("HomeWall", Vector3.new(x1 - x0, y1 - y0, 0.8), at(fcf, (x0 + x1) / 2, (y0 + y1) / 2, z), mat, col)
+		end
+		-- front wall around the door and the window
+		local open = {
+			{ doorU - 2.2, doorU + 2.2, floorY, floorY + 8.6 },
+			{ winU - 2.3, winU + 2.3, floorY + 2.6, floorY + 8.2 },
+		}
+		table.sort(open, function(a, b) return a[1] < b[1] end)
+		local x = u - w / 2
+		for _, o in ipairs(open) do
+			wallPiece(x, o[1], floorY, groundTop, 0.4)
+			wallPiece(o[1], o[2], o[4], groundTop, 0.4)
+			wallPiece(o[1], o[2], floorY, o[3], 0.4)
+			x = o[2]
+		end
+		wallPiece(x, u + w / 2, floorY, groundTop, 0.4)
+		-- back and party walls
+		solid("HomeWall", Vector3.new(w, gh, 0.8), at(fcf, u, floorY + gh / 2, depth - 0.4), mat, col)
+		for _, s in ipairs({ -1, 1 }) do
+			solid("HomeWall", Vector3.new(0.8, gh, depth), at(fcf, u + s * (w / 2 - 0.4), floorY + gh / 2, depth / 2), mat, col)
+		end
+		local inner = function(x, y, z) return at(fcf, u + x, floorY + y, z) end
+		-- drywall inside the shell (the walls themselves carry the outside finish)
+		local DRY = pick({ Color3.fromRGB(232, 226, 212), Color3.fromRGB(214, 222, 226), Color3.fromRGB(226, 216, 196) }, hu, "paint")
+		solid("Drywall", Vector3.new(w - 1.6, gh - 0.6, 0.12), at(fcf, u, floorY + gh / 2 - 0.3, depth - 0.86), Enum.Material.SmoothPlastic, DRY)
+		for _, s in ipairs({ -1, 1 }) do
+			solid("Drywall", Vector3.new(0.12, gh - 0.6, depth - 1.8), at(fcf, u + s * (w / 2 - 0.86), floorY + gh / 2 - 0.3, depth / 2), Enum.Material.SmoothPlastic, DRY)
+		end
+		-- a partition between the front room and the kitchen, doorway in the middle
+		local pz = math.min(depth * 0.55, 26)
+		for _, s in ipairs({ -1, 1 }) do
+			local pw = (w - 1.6) / 2 - 2.2
+			if pw > 0.5 then
+				solid("Partition", Vector3.new(pw, gh - 0.6, 0.5), at(fcf, u + s * (2.2 + pw / 2), floorY + gh / 2 - 0.3, pz), Enum.Material.SmoothPlastic, DRY)
+			end
+		end
+		solid("Partition", Vector3.new(4.4, gh - 0.6 - 8, 0.5), at(fcf, u, floorY + 8 + (gh - 0.6 - 8) / 2, pz), Enum.Material.SmoothPlastic, DRY)
+		-- dining table and chairs in the back room
+		local dz = pz + (depth - pz) * 0.45
+		solid("DiningTable", Vector3.new(4, 0.3, 6), inner(0, 2.9, dz), Enum.Material.Wood, Color3.fromRGB(120, 86, 56))
+		solid("TableLeg", Vector3.new(0.4, 2.8, 0.4), inner(0, 1.4, dz), Enum.Material.Wood, Color3.fromRGB(100, 70, 46))
+		for _, c in ipairs({ { -2.6, -1.5 }, { -2.6, 1.5 }, { 2.6, -1.5 }, { 2.6, 1.5 } }) do
+			solid("Chair", Vector3.new(1.6, 1.8, 1.6), inner(c[1], 0.9, dz + c[2]), Enum.Material.Wood, Color3.fromRGB(110, 78, 52))
+		end
+		-- furniture: living room at the front, kitchen at the back
+		local wood = Color3.fromRGB(110, 78, 52)
+		local fabric = pick({ Color3.fromRGB(60, 70, 96), Color3.fromRGB(110, 60, 50), Color3.fromRGB(70, 90, 70), Color3.fromRGB(90, 86, 82) }, hu, "couch")
+		local cx = -side * (w / 2 - 3)
+		solid("Couch", Vector3.new(2.6, 2.2, 7), inner(cx, 1.1, depth * 0.38), Enum.Material.Fabric, fabric)
+		solid("CouchBack", Vector3.new(0.9, 3.4, 7), inner(cx + (cx > 0 and 1.3 or -1.3), 1.7, depth * 0.38), Enum.Material.Fabric, fabric)
+		solid("CoffeeTable", Vector3.new(2.4, 1.4, 4), inner(cx + (cx > 0 and -3.4 or 3.4), 0.7, depth * 0.38), Enum.Material.Wood, wood)
+		solid("Rug", Vector3.new(7, 0.1, 9), inner(cx + (cx > 0 and -3 or 3), 0.05, depth * 0.38), Enum.Material.Fabric, Color3.fromRGB(150, 120, 96))
+		solid("TVStand", Vector3.new(1.6, 2.4, 5), inner(-cx, 1.2, depth * 0.38), Enum.Material.Wood, wood)
+		solid("TV", Vector3.new(0.3, 2.8, 4.6), inner(-cx + (cx > 0 and 0.6 or -0.6), 3.9, depth * 0.38), Enum.Material.SmoothPlastic,
+			Color3.fromRGB(16, 16, 18))
+		solid("KitchenCounter", Vector3.new(w - 3, 3.2, 2.4), inner(0, 1.6, depth - 2.2), Enum.Material.Marble, Color3.fromRGB(220, 216, 208))
+		solid("Fridge", Vector3.new(3, 6.6, 2.6), inner(side * (w / 2 - 2.4), 3.3, depth - 5), Enum.Material.SmoothPlastic, Color3.fromRGB(226, 228, 230))
+		local stash = solid("StashChest", Vector3.new(3.4, 2.2, 2.2), inner(-side * (w / 2 - 2.6), 1.1, depth - 6.5), Enum.Material.WoodPlanks,
+			Color3.fromRGB(120, 86, 56))
+		stash:SetAttribute("Exit6Stash", true)
+		local lamp = solid("CeilingLamp", Vector3.new(1.6, 0.4, 1.6), inner(0, groundTop - floorY - 0.7, depth * 0.45), Enum.Material.Neon,
+			Color3.fromRGB(255, 240, 210))
+		local light = Instance.new("PointLight")
+		light.Range = 22
+		light.Brightness = 1.2
+		light.Color = Color3.fromRGB(255, 236, 200)
+		light.Parent = lamp
+	if I.lite then
+		-- the window texture went with the slice: glass in the front window
+		local g = solid("WindowGlass", Vector3.new(4.4, 5.4, 0.3), at(fcf, winU, floorY + 5.4, 0.2), Enum.Material.Glass, Color3.fromRGB(150, 188, 205))
+		g.Transparency = 0.5
+	end
+	return stash
+end
+
+-- turn a unit (by its front door) into a walk-in home; returns the stash chest
+function HouseKit.Hollow(door)
+	if door:GetAttribute("KitHollow") then
+		local m = door.Parent
+		for _, c in ipairs(m and m:GetChildren() or {}) do
+			if c:GetAttribute("Exit6StashFor") == door:GetAttribute("Exit6HomeId") then return c end
+		end
+		return nil
+	end
+	local ref = door:FindFirstChild("KitSlice")
+	if not ref or not ref.Value or not door:GetAttribute("KitFcf") then return nil end
+	ref.Value:Destroy()
+	ref:Destroy()
+	door:SetAttribute("KitHollow", true)
+	local ok, mat = pcall(function() return Enum.Material[door:GetAttribute("KitMat")] end)
+	local stash = buildInterior(door.Parent, {
+		fcf = door:GetAttribute("KitFcf"), u = door:GetAttribute("KitU"), w = door:GetAttribute("KitW"),
+		depth = door:GetAttribute("Exit6HomeDepth"), floorY = door:GetAttribute("KitFloorY"),
+		groundTop = door:GetAttribute("KitGroundTop"), wallTop = door:GetAttribute("KitWallTop"), base = door:GetAttribute("KitBase"),
+		doorU = door:GetAttribute("KitDoorU"), winU = door:GetAttribute("KitWinU"), side = door:GetAttribute("KitSide"),
+		hu = door:GetAttribute("KitSeed"), mat = ok and mat or Enum.Material.Brick, col = door:GetAttribute("KitCol"),
+		lite = door:GetAttribute("KitLite"), style = door:GetAttribute("Exit6HomeStyle"),
+	})
+	if stash then
+		stash:SetAttribute("Exit6Stash", true)
+		stash:SetAttribute("Exit6StashFor", door:GetAttribute("Exit6HomeId"))
+	end
+	return stash
+end
+
 -- H: helpers from RealBuildings { part, faceAxis, faceOf, covered, door, DOOR_COLORS, TRIM, CONCRETE, UNIT_STUDS }
 function HouseKit.Build(model, r, ctx, H)
 	local part = H.part
 	local stats = ctx.stats
+	local lite = ctx.lite == true
+	HouseKit.applyFacade = ctx.applyFacade
 	local storeyH = math.clamp(r.storey, 9, 12)
 	local floorY = r.streetLevel + 0.4
 	-- Chester rows and twins are two storeys at least (Street View); the county
@@ -107,6 +262,7 @@ function HouseKit.Build(model, r, ctx, H)
 
 	-- a modelled window: trim frame + dark glass (+ sill), optional shutters / awning
 	local function window(face, u, y, w, hgt, opts)
+		if lite then return nil end   -- the slice's facade texture has the windows
 		opts = opts or {}
 		solid("WindowTrim", Vector3.new(w + 0.7, hgt + 0.7, 0.28), at(face, u, y, -0.1), Enum.Material.SmoothPlastic, opts.trim or WHITE)
 		local g = solid("WindowGlass", Vector3.new(w, hgt, 0.3), at(face, u, y, -0.16), Enum.Material.Glass, WINDOW_GLASS)
@@ -133,6 +289,7 @@ function HouseKit.Build(model, r, ctx, H)
 		local block = solid("Walls", Vector3.new(r.along, r.wallTop - r.base, r.across), r.frame + Vector3.new(0, (r.wallTop + r.base) / 2, 0),
 			ctx.material, baseWall)
 		block:SetAttribute("GroundY", floorY)
+		if lite then ctx.applyFacade(block, ctx.style, storeyH) end
 		for _, n in ipairs({ Vector3.xAxis, -Vector3.xAxis, Vector3.zAxis, -Vector3.zAxis }) do
 			local face, fspan = H.faceOf(r, n)
 			if fspan >= 10 and exposed(face, 0) then
@@ -178,7 +335,7 @@ function HouseKit.Build(model, r, ctx, H)
 		local mat = siding and Enum.Material.WoodPlanks or ctx.material
 		local col = siding and pick(SIDING, hu, "siding") or vary(baseWall, hu, 0.08)
 		local trim = siding and WHITE or (hu % 3 == 0 and Color3.fromRGB(40, 40, 42) or WHITE)
-		local rentable = (arch ~= "apartment") and (hu % RENT_EVERY == 0) and w >= 12 and depth >= 18
+		local rentable = w >= 10 and depth >= 14
 		-- door position: toward one side of the unit, mirrored pair by pair
 		local side = (i % 2 == 0) and 1 or -1
 		if units == 1 then side = (hu % 2 == 0) and 1 or -1 end
@@ -188,106 +345,31 @@ function HouseKit.Build(model, r, ctx, H)
 			doorU = u + side * math.min(w * 0.12, 3)
 		end
 		local sliceCf = fcf * CFrame.new(u, 0, depth / 2)
-		if rentable then
-			-- hollow ground floor; the storeys above stay solid
-			local upperH = r.wallTop - groundTop
-			if upperH > 0.5 then
-				solid("Walls", Vector3.new(w, upperH, depth), sliceCf + Vector3.new(0, (r.wallTop + groundTop) / 2, 0), mat, col)
-			end
-			if floorY - r.base > 0.2 then
-				solid("Foundation", Vector3.new(w, floorY - r.base, depth), sliceCf + Vector3.new(0, (floorY + r.base) / 2, 0), Enum.Material.Concrete,
-					H.CONCRETE)
-			end
-			local gh = storeyH
-			-- (floor top a hair above the foundation: no z-fighting)
-			solid("HomeFloor", Vector3.new(w - 0.2, 0.4, depth - 0.2), sliceCf + Vector3.new(0, floorY - 0.14, 0), Enum.Material.WoodPlanks,
-				Color3.fromRGB(150, 110, 76))
-			solid("HomeCeiling", Vector3.new(w, 0.5, depth), sliceCf + Vector3.new(0, groundTop - 0.25, 0), Enum.Material.SmoothPlastic,
-				Color3.fromRGB(236, 232, 224))
-			local function wallPiece(x0, x1, y0, y1, z)
-				if x1 - x0 < 0.05 or y1 - y0 < 0.05 then return end
-				solid("HomeWall", Vector3.new(x1 - x0, y1 - y0, 0.8), at(fcf, (x0 + x1) / 2, (y0 + y1) / 2, z), mat, col)
-			end
-			-- front wall around the door and the window
-			local open = {
-				{ doorU - 2.2, doorU + 2.2, floorY, floorY + 8.6 },
-				{ winU - 2.3, winU + 2.3, floorY + 2.6, floorY + 8.2 },
-			}
-			table.sort(open, function(a, b) return a[1] < b[1] end)
-			local x = u - w / 2
-			for _, o in ipairs(open) do
-				wallPiece(x, o[1], floorY, groundTop, 0.4)
-				wallPiece(o[1], o[2], o[4], groundTop, 0.4)
-				wallPiece(o[1], o[2], floorY, o[3], 0.4)
-				x = o[2]
-			end
-			wallPiece(x, u + w / 2, floorY, groundTop, 0.4)
-			-- back and party walls
-			solid("HomeWall", Vector3.new(w, gh, 0.8), at(fcf, u, floorY + gh / 2, depth - 0.4), mat, col)
-			for _, s in ipairs({ -1, 1 }) do
-				solid("HomeWall", Vector3.new(0.8, gh, depth), at(fcf, u + s * (w / 2 - 0.4), floorY + gh / 2, depth / 2), mat, col)
-			end
-			local inner = function(x, y, z) return at(fcf, u + x, floorY + y, z) end
-			-- drywall inside the shell (the walls themselves carry the outside finish)
-			local DRY = pick({ Color3.fromRGB(232, 226, 212), Color3.fromRGB(214, 222, 226), Color3.fromRGB(226, 216, 196) }, hu, "paint")
-			solid("Drywall", Vector3.new(w - 1.6, gh - 0.6, 0.12), at(fcf, u, floorY + gh / 2 - 0.3, depth - 0.86), Enum.Material.SmoothPlastic, DRY)
-			for _, s in ipairs({ -1, 1 }) do
-				solid("Drywall", Vector3.new(0.12, gh - 0.6, depth - 1.8), at(fcf, u + s * (w / 2 - 0.86), floorY + gh / 2 - 0.3, depth / 2), Enum.Material.SmoothPlastic, DRY)
-			end
-			-- a partition between the front room and the kitchen, doorway in the middle
-			local pz = math.min(depth * 0.55, 26)
-			for _, s in ipairs({ -1, 1 }) do
-				local pw = (w - 1.6) / 2 - 2.2
-				if pw > 0.5 then
-					solid("Partition", Vector3.new(pw, gh - 0.6, 0.5), at(fcf, u + s * (2.2 + pw / 2), floorY + gh / 2 - 0.3, pz), Enum.Material.SmoothPlastic, DRY)
-				end
-			end
-			solid("Partition", Vector3.new(4.4, gh - 0.6 - 8, 0.5), at(fcf, u, floorY + 8 + (gh - 0.6 - 8) / 2, pz), Enum.Material.SmoothPlastic, DRY)
-			-- dining table and chairs in the back room
-			local dz = pz + (depth - pz) * 0.45
-			solid("DiningTable", Vector3.new(4, 0.3, 6), inner(0, 2.9, dz), Enum.Material.Wood, Color3.fromRGB(120, 86, 56))
-			solid("TableLeg", Vector3.new(0.4, 2.8, 0.4), inner(0, 1.4, dz), Enum.Material.Wood, Color3.fromRGB(100, 70, 46))
-			for _, c in ipairs({ { -2.6, -1.5 }, { -2.6, 1.5 }, { 2.6, -1.5 }, { 2.6, 1.5 } }) do
-				solid("Chair", Vector3.new(1.6, 1.8, 1.6), inner(c[1], 0.9, dz + c[2]), Enum.Material.Wood, Color3.fromRGB(110, 78, 52))
-			end
-			-- furniture: living room at the front, kitchen at the back
-			local wood = Color3.fromRGB(110, 78, 52)
-			local fabric = pick({ Color3.fromRGB(60, 70, 96), Color3.fromRGB(110, 60, 50), Color3.fromRGB(70, 90, 70), Color3.fromRGB(90, 86, 82) }, hu, "couch")
-			local cx = -side * (w / 2 - 3)
-			solid("Couch", Vector3.new(2.6, 2.2, 7), inner(cx, 1.1, depth * 0.38), Enum.Material.Fabric, fabric)
-			solid("CouchBack", Vector3.new(0.9, 3.4, 7), inner(cx + (cx > 0 and 1.3 or -1.3), 1.7, depth * 0.38), Enum.Material.Fabric, fabric)
-			solid("CoffeeTable", Vector3.new(2.4, 1.4, 4), inner(cx + (cx > 0 and -3.4 or 3.4), 0.7, depth * 0.38), Enum.Material.Wood, wood)
-			solid("Rug", Vector3.new(7, 0.1, 9), inner(cx + (cx > 0 and -3 or 3), 0.05, depth * 0.38), Enum.Material.Fabric, Color3.fromRGB(150, 120, 96))
-			solid("TVStand", Vector3.new(1.6, 2.4, 5), inner(-cx, 1.2, depth * 0.38), Enum.Material.Wood, wood)
-			solid("TV", Vector3.new(0.3, 2.8, 4.6), inner(-cx + (cx > 0 and 0.6 or -0.6), 3.9, depth * 0.38), Enum.Material.SmoothPlastic,
-				Color3.fromRGB(16, 16, 18))
-			solid("KitchenCounter", Vector3.new(w - 3, 3.2, 2.4), inner(0, 1.6, depth - 2.2), Enum.Material.Marble, Color3.fromRGB(220, 216, 208))
-			solid("Fridge", Vector3.new(3, 6.6, 2.6), inner(side * (w / 2 - 2.4), 3.3, depth - 5), Enum.Material.SmoothPlastic, Color3.fromRGB(226, 228, 230))
-			local stash = solid("StashChest", Vector3.new(3.4, 2.2, 2.2), inner(-side * (w / 2 - 2.6), 1.1, depth - 6.5), Enum.Material.WoodPlanks,
-				Color3.fromRGB(120, 86, 56))
-			stash:SetAttribute("Exit6Stash", true)
-			local lamp = solid("CeilingLamp", Vector3.new(1.6, 0.4, 1.6), inner(0, groundTop - floorY - 0.7, depth * 0.45), Enum.Material.Neon,
-				Color3.fromRGB(255, 240, 210))
-			local light = Instance.new("PointLight")
-			light.Range = 22
-			light.Brightness = 1.2
-			light.Color = Color3.fromRGB(255, 236, 200)
-			light.Parent = lamp
-			rentable = { stash = stash, depth = depth }
-		else
-			local block = solid("Walls", Vector3.new(w, wallH, depth), sliceCf + Vector3.new(0, (r.wallTop + r.base) / 2, 0), mat, col)
-			block:SetAttribute("GroundY", floorY)
-		end
+		local block = solid("Walls", Vector3.new(w, wallH, depth), sliceCf + Vector3.new(0, (r.wallTop + r.base) / 2, 0), mat, col)
+		block:SetAttribute("GroundY", floorY)
+		if lite then ctx.applyFacade(block, ctx.style, storeyH) end
 
 		-- front: door, ground window, upper windows
 		local doorColor = H.DOOR_COLORS[(hu % #H.DOOR_COLORS) + 1]
-		local d = H.door(model, fcf, doorU, r.streetLevel + 0.4, doorColor, not hasPorch)
+		local d
+		if lite then
+			-- door + trim (+ a stoop without a porch)
+			local lift = hasPorch and 0.3 or 1.1
+			local gy = r.streetLevel + 0.4
+			solid("DoorTrim", Vector3.new(4.8, 8.9, 0.3), at(fcf, doorU, gy + lift + 4.45, -0.12), Enum.Material.SmoothPlastic, H.TRIM)
+			d = solid("Door", Vector3.new(3.6, 7.3, 0.35), at(fcf, doorU, gy + lift + 3.65, -0.22), Enum.Material.Wood, doorColor)
+			if not hasPorch then
+				solid("Stoop", Vector3.new(5.4, 1.1, 3.0), at(fcf, doorU, gy + 0.55, -1.5), Enum.Material.Concrete, H.CONCRETE)
+			end
+		else
+			d = H.door(model, fcf, doorU, r.streetLevel + 0.4, doorColor, not hasPorch)
+		end
 		CollectionService:AddTag(d, "Exit6FrontDoor")
 		ctx.homeDoors = (ctx.homeDoors or 0) + 1
 		d:SetAttribute("Exit6HomeId", tostring(ctx.buildingId) .. ":" .. ctx.homeDoors)
 		d:SetAttribute("Exit6HomeStyle", ctx.style)
 		stats.frontDoors += 1
-		local opts = { sill = not siding, trim = trim, clear = rentable and true or false,
+		local opts = { sill = not siding, trim = trim, clear = false,
 			shutters = (arch == "colonial_twin" or arch == "colonial_house") and shutterColor or nil,
 			awning = (arch == "flat_row" or (arch == "porch_row" and hu % 4 == 0)) and awningColor or nil }
 		local gwin = window(fcf, winU, floorY + storeyH * 0.52, 4.4, 5.4, { sill = opts.sill, trim = trim, clear = opts.clear,
@@ -302,31 +384,27 @@ function HouseKit.Build(model, r, ctx, H)
 			end
 		end
 		if rentable then
+			-- for rent; how to rebuild this unit's ground floor (HouseKit.Hollow)
 			d:SetAttribute("Exit6Rentable", true)
 			d:SetAttribute("Exit6HomeDepth", depth)
-			-- FOR RENT sign stuck on the front window
-			local sign = Instance.new("Part")
-			sign.Name = "RentSign"
-			sign.Anchored = true
-			sign.CanCollide = false
-			sign.Size = Vector3.new(3.2, 2.0, 0.1)
-			sign.CFrame = at(fcf, winU, floorY + storeyH * 0.45, -0.45)
-			sign.Color = Color3.fromRGB(240, 240, 236)
-			sign.Material = Enum.Material.SmoothPlastic
-			local sg = Instance.new("SurfaceGui")
-			sg.Face = Enum.NormalId.Front
-			sg.PixelsPerStud = 40
-			sg.Parent = sign
-			local tl = Instance.new("TextLabel")
-			tl.Name = "Text"
-			tl.Size = UDim2.fromScale(1, 1)
-			tl.BackgroundTransparency = 1
-			tl.Text = "FOR RENT"
-			tl.TextColor3 = Color3.fromRGB(190, 24, 28)
-			tl.Font = Enum.Font.GothamBlack
-			tl.TextScaled = true
-			tl.Parent = sg
-			sign.Parent = d
+			d:SetAttribute("KitFcf", fcf)
+			d:SetAttribute("KitU", u)
+			d:SetAttribute("KitW", w)
+			d:SetAttribute("KitFloorY", floorY)
+			d:SetAttribute("KitGroundTop", groundTop)
+			d:SetAttribute("KitWallTop", r.wallTop)
+			d:SetAttribute("KitBase", r.base)
+			d:SetAttribute("KitDoorU", doorU)
+			d:SetAttribute("KitWinU", winU)
+			d:SetAttribute("KitSide", side)
+			d:SetAttribute("KitSeed", hu)
+			d:SetAttribute("KitMat", mat.Name)
+			d:SetAttribute("KitCol", col)
+			d:SetAttribute("KitLite", lite)
+			local ref = Instance.new("ObjectValue")
+			ref.Name = "KitSlice"
+			ref.Value = block
+			ref.Parent = d
 			stats.rentals = (stats.rentals or 0) + 1
 		end
 
@@ -340,7 +418,9 @@ function HouseKit.Build(model, r, ctx, H)
 			local pr = solid("PorchRoof", Vector3.new(w + 0.1, 0.45, porchDepth + 0.8), at(fcf, u, roofY, -(porchDepth + 0.8) / 2 + 0.2)
 				* CFrame.Angles(math.rad(-7), 0, 0), Enum.Material.SmoothPlastic, (arch == "porch_row" and hu % 2 == 0) and roofColor or trim)
 			pr.CanCollide = false
-			solid("PorchFascia", Vector3.new(w + 0.1, 0.9, 0.3), at(fcf, u, roofY - 0.3, -porchDepth - 0.1), Enum.Material.SmoothPlastic, trim)
+			if not lite then
+				solid("PorchFascia", Vector3.new(w + 0.1, 0.9, 0.3), at(fcf, u, roofY - 0.3, -porchDepth - 0.1), Enum.Material.SmoothPlastic, trim)
+			end
 			for _, s in ipairs({ -1, 1 }) do
 				if s == -1 or i == units then
 					local post = solid("PorchPost", Vector3.new(0.7, roofY - pf, 0.7), at(fcf, u + s * (w / 2 - 0.45), (roofY + pf) / 2, -porchDepth + 0.5),
@@ -357,8 +437,10 @@ function HouseKit.Build(model, r, ctx, H)
 				local spindles = solid("PorchSpindles", Vector3.new(x1 - x0, 2.6, 0.12), at(fcf, c, pf + 1.6, -porchDepth + 0.4), Enum.Material.DiamondPlate, trim)
 				spindles.Transparency = 0.35
 			end
-			rail(u - w / 2 + 0.8, gapL)
-			rail(gapR, u + w / 2 - 0.8)
+			if not lite then
+				rail(u - w / 2 + 0.8, gapL)
+				rail(gapR, u + w / 2 - 0.8)
+			end
 			solid("PorchStep", Vector3.new(4.4, 0.4, 1.4), at(fcf, doorU, r.streetLevel + 0.2, -porchDepth - 0.7), Enum.Material.Concrete,
 				Color3.fromRGB(150, 146, 140))
 		end
@@ -366,7 +448,7 @@ function HouseKit.Build(model, r, ctx, H)
 		-- back: a door and a window per storey
 		local bcf, bspan = H.faceOf(r, -nFront)
 		local bu = -u   -- the back face runs the other way
-		if bspan >= 7 and exposed(bcf, bu) then
+		if not lite and bspan >= 7 and exposed(bcf, bu) then
 			H.door(model, bcf, bu + side * math.min(w * 0.25, 4), r.streetLevel + 0.4, doorColor, false)
 			stats.backDoors += 1
 			for k = 0, floors - 1 do
@@ -379,8 +461,10 @@ function HouseKit.Build(model, r, ctx, H)
 			if parapet == "castle" then
 				-- stepped brick parapet with a raised centre per unit (Butler St)
 				local py = r.wallTop
-				solid("ParapetBand", Vector3.new(w, 0.6, 0.9), at(fcf, u, py - 1.2, -0.25), Enum.Material.Concrete, STONE)
-				local merlons = math.max(3, math.floor(w / 3.2))
+				if not lite then
+					solid("ParapetBand", Vector3.new(w, 0.6, 0.9), at(fcf, u, py - 1.2, -0.25), Enum.Material.Concrete, STONE)
+				end
+				local merlons = lite and 1 or math.max(3, math.floor(w / 3.2))
 				for m = 1, merlons do
 					local mu = u - w / 2 + (m - 0.5) * (w / merlons)
 					local centreBoost = (m == math.ceil(merlons / 2)) and 1.6 or 0
@@ -391,7 +475,7 @@ function HouseKit.Build(model, r, ctx, H)
 				solid("Parapet", Vector3.new(w, 1.0, 0.9), at(fcf, u, py + 0.5, 0.45), mat, col)
 			elseif parapet == "cornice" then
 				solid("Cornice", Vector3.new(w + 0.1, 1.3, 1.4), at(fcf, u, r.wallTop + 0.3, -0.3), Enum.Material.SmoothPlastic, trim)
-				for b = -1, 1 do
+				for b = -1, lite and -2 or 1 do
 					solid("Bracket", Vector3.new(0.5, 1.2, 1.0), at(fcf, u + b * (w / 2 - 1), r.wallTop - 0.8, -0.4), Enum.Material.SmoothPlastic, trim)
 				end
 			else
@@ -404,7 +488,9 @@ function HouseKit.Build(model, r, ctx, H)
 				m.Size = Vector3.new(w, 4.6, 3.2)
 				m.CFrame = at(fcf, u, r.wallTop + 2.3, 1.2) * CFrame.Angles(0, math.pi, 0)
 				m.Parent = model
-				solid("Dormer", Vector3.new(4.4, 3.6, 2.6), at(fcf, u, r.wallTop + 2.3, 0.4), Enum.Material.WoodPlanks, trim)
+				if not lite then
+					solid("Dormer", Vector3.new(4.4, 3.6, 2.6), at(fcf, u, r.wallTop + 2.3, 0.4), Enum.Material.WoodPlanks, trim)
+				end
 				window(fcf, u, r.wallTop + 2.3, 2.6, 2.4, { trim = trim })
 			end
 		elseif arch == "victorian_twin" or arch == "victorian_house" then
@@ -428,7 +514,7 @@ function HouseKit.Build(model, r, ctx, H)
 	-- exposed side walls: windows per storey (and a side door on a house)
 	for _, n in ipairs({ Vector3.new(nFront.Z, 0, -nFront.X), Vector3.new(-nFront.Z, 0, nFront.X) }) do
 		local scf, sspan = H.faceOf(r, n)
-		if sspan >= 14 then
+		if not lite and sspan >= 14 then
 			for _, t in ipairs({ -0.25, 0.25 }) do
 				local su = sspan * t
 				if exposed(scf, su) then

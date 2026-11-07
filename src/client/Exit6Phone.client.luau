@@ -231,8 +231,7 @@ local function markRentals()
 	if not me then return 0 end
 	local list = {}
 	for _, d in ipairs(CollectionService:GetTagged("Exit6FrontDoor")) do
-		local sign = d:GetAttribute("Exit6Rentable") and d:FindFirstChild("RentSign")
-		if sign and sign.Transparency < 0.5 then
+		if d:GetAttribute("Exit6Rentable") and not d:GetAttribute("Exit6OccupantName") then
 			table.insert(list, { d = d, dist = (d.Position - me.Position).Magnitude })
 		end
 	end
@@ -336,8 +335,8 @@ drawPhone = function()
 		else
 			row(phoneList, 1, "No place yet", "")
 			row(phoneList, 2, "Show homes for rent nearby", "", act(markRentals))
-			row(phoneList, 3, "FOR RENT sign in the window:", "")
-			row(phoneList, 4, "E move in   F / X look inside", "")
+			row(phoneList, 3, "Every house in Chester is for rent", "")
+			row(phoneList, 4, "At a front door: E move in, F / X look", "")
 		end
 	elseif tab == "biz" then
 		local n = 0

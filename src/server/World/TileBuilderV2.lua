@@ -2226,7 +2226,10 @@ local function buildFootprintBuilding(parent, building, shapeData)
 	if region and not landmark and shapeData.r[1] then
 		local fx, fz = sourceToStuds(shapeData.r[1][1], shapeData.r[1][2])
 		local extra = WorldConfig.REAL_BUILDINGS_EXTRA and WorldConfig.REAL_BUILDINGS_EXTRA[tostring(building.id)]
-		if extra or (fx >= region.minX and fx <= region.maxX and fz >= region.minZ and fz <= region.maxZ) then
+		local core = extra or (fx >= region.minX and fx <= region.maxX and fz >= region.minZ and fz <= region.maxZ)
+		-- city-wide (WorldConfig.REAL_BUILDINGS_ALL): every home and store; full
+		-- detail in the core, the lite house kit everywhere else
+		if core or WorldConfig.REAL_BUILDINGS_ALL then
 			local rects = {}
 			for _, rc in ipairs(shapeData.r) do
 				local rx, rz = sourceToStuds(rc[1], rc[2])
@@ -2271,7 +2274,8 @@ local function buildFootprintBuilding(parent, building, shapeData)
 			realCtx = { sbIndex = sbIndex, rects = rects, shops = shops, front = shapeData.fb, corner = shapeData.fb2,
 				porch = shapeData.pb ~= nil, porchDepth = shapeData.pd and shapeData.pd * S or nil,
 				style = shapeData.style, material = material, wall = wall,
-				seed = seed, buildingId = tostring(building.id), applyFacade = applyFacade, stats = RealBuildings.stats }
+				seed = seed, buildingId = tostring(building.id), applyFacade = applyFacade, stats = RealBuildings.stats,
+				lite = not core }
 		end
 	end
 	for rectIndex, rect in ipairs(shapeData.r) do

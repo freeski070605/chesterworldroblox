@@ -81,9 +81,6 @@ UserInputService.InputBegan:Connect(function(input,processed)
  if current=="playing" then return end
  if input.KeyCode==Enum.KeyCode.ButtonB or input.KeyCode==Enum.KeyCode.Escape then
   if current=="detail" then showMain() end
- elseif input.KeyCode==Enum.KeyCode.Return and not processed then
-  local selected=GuiService.SelectedObject
-  if selected and selected:IsDescendantOf(page) then selected:Activate() end
  end
 end)
 -- Prevent character movement while menu is open; restore after Play.

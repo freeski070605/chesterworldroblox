@@ -10,4 +10,7 @@ return {
  -- stores run the shop system (Exit6Shop.server: cashier, menu, stock shift)
  -- instead of the starter one-button shift / drink prompts
  ShopSystem = true,
+ -- Exit6Pedestrians.server: sidewalk walkers and store-front hangers-out in
+ -- the real-buildings region (WorldConfig.REAL_BUILDINGS_REGION)
+ Pedestrians = { walkers = 22, hangers = 8 },
 }

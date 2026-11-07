@@ -152,8 +152,9 @@ phoneList.Position = UDim2.fromOffset(12, 102)
 phoneList.Size = UDim2.new(1, -24, 1, -142)
 local drawPhone
 local tabButtons = {}
-for i, t in ipairs({ { "wallet", "Wallet" }, { "bag", "Bag" }, { "job", "Job" } }) do
-	local b = new("TextButton", { Name = t[1], Position = UDim2.new((i - 1) / 3, 2, 0, 0), Size = UDim2.new(1 / 3, -4, 1, 0),
+local TABS = { { "wallet", "Wallet" }, { "bag", "Bag" }, { "job", "Job" }, { "car", "Car" } }
+for i, t in ipairs(TABS) do
+	local b = new("TextButton", { Name = t[1], Position = UDim2.new((i - 1) / #TABS, 2, 0, 0), Size = UDim2.new(1 / #TABS, -4, 1, 0),
 		BackgroundColor3 = CARD, Text = t[2], Font = Enum.Font.GothamBold, TextSize = 15, TextColor3 = TEXT }, tabs)
 	round(b, 6)
 	b.Activated:Connect(function() tab = t[1] drawPhone() end)
@@ -176,6 +177,27 @@ drawPhone = function()
 	if tab == "wallet" then
 		row(phoneList, 1, "Chester Cash", "$" .. c)
 		row(phoneList, 2, "Reputation", tostring(r))
+	elseif tab == "car" then
+		local car = nil
+		local folder = Workspace:FindFirstChild("Exit6Vehicles")
+		for _, m in ipairs(folder and folder:GetChildren() or {}) do
+			if m:GetAttribute("Owner") == player.UserId then car = m end
+		end
+		row(phoneList, 1, "Sedan", car and "OUT" or "HOME")
+		row(phoneList, 2, car and "Call it again" or "Call my car", "", function()
+			local remote = remotes:FindFirstChild("CallCar")
+			if remote then remote:InvokeServer() end
+			drawPhone()
+		end)
+		if car then
+			row(phoneList, 3, "Send it home", "", function()
+				local remote = remotes:FindFirstChild("SendCarHome")
+				if remote then remote:FireServer() end
+				task.wait(0.3)
+				drawPhone()
+			end)
+		end
+		row(phoneList, 4, "Drive: WASD / triggers", "")
 	elseif tab == "bag" then
 		local items, n = bag(), 0
 		local ids = {}

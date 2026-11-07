@@ -121,6 +121,7 @@ end
 
 local function stopFlight()
 	flying = false
+	player:SetAttribute("CW_Flying", nil)
 	for _, inst in ipairs({ mover, aligner, attachment }) do
 		if inst then inst:Destroy() end
 	end
@@ -137,6 +138,7 @@ end
 local function startFlight()
 	if not currentCharacter() or not rootPart or not humanoid then return end
 	flying = true
+	player:SetAttribute("CW_Flying", true)
 	humanoid.AutoRotate = false
 	humanoid.PlatformStand = true
 	rootPart.AssemblyLinearVelocity = Vector3.zero
@@ -210,9 +212,11 @@ end
 local YIELD_KEYS = {
 	[Enum.KeyCode.F] = true, [Enum.KeyCode.X] = true, [Enum.KeyCode.ButtonY] = true,
 	[Enum.KeyCode.DPadUp] = true, [Enum.KeyCode.DPadDown] = true, [Enum.KeyCode.DPadLeft] = true,
-	[Enum.KeyCode.DPadRight] = true,
+	[Enum.KeyCode.DPadRight] = true, [Enum.KeyCode.ButtonR1] = true,
 }
 local function gameplayOwns(code)
+	-- on foot, D-pad Up opens the EXIT 6 phone (Exit6Phone.client); in flight it is the speed tier
+	if code == Enum.KeyCode.DPadUp and not flying then return true end
 	return YIELD_KEYS[code] and (anyPrompt() or player:GetAttribute("Exit6Context") ~= nil)
 end
 

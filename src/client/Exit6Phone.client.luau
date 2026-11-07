@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GuiService = game:GetService("GuiService")
 local ContextActionService = game:GetService("ContextActionService")
 local HttpService = game:GetService("HttpService")
+local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
@@ -142,20 +143,20 @@ ShopOpen.OnClientEvent:Connect(function(payload)
 end)
 
 -- ------------------------------------------------------------------ phone
-local phone, phoneTitle, phoneSub, phoneList = panel("Phone", 340)
+local phone, phoneTitle, phoneSub, phoneList = panel("Phone", 400)
 phone.AnchorPoint = Vector2.new(1, 1)
 phone.Position = UDim2.new(1, -16, 1, -16)
-phone.Hint.Text = "P / SELECT  CLOSE      A  USE ITEM"
+phone.Hint.Text = "P / ▲ / B  CLOSE      A  SELECT"
 local tab = "wallet"
 local tabs = new("Frame", { Position = UDim2.fromOffset(12, 64), Size = UDim2.new(1, -24, 0, 30), BackgroundTransparency = 1 }, phone)
 phoneList.Position = UDim2.fromOffset(12, 102)
 phoneList.Size = UDim2.new(1, -24, 1, -142)
 local drawPhone
 local tabButtons = {}
-local TABS = { { "wallet", "Wallet" }, { "bag", "Bag" }, { "job", "Job" }, { "car", "Car" } }
+local TABS = { { "wallet", "Wallet" }, { "bag", "Bag" }, { "job", "Job" }, { "car", "Car" }, { "home", "Home" }, { "biz", "Biz" } }
 for i, t in ipairs(TABS) do
 	local b = new("TextButton", { Name = t[1], Position = UDim2.new((i - 1) / #TABS, 2, 0, 0), Size = UDim2.new(1 / #TABS, -4, 1, 0),
-		BackgroundColor3 = CARD, Text = t[2], Font = Enum.Font.GothamBold, TextSize = 15, TextColor3 = TEXT }, tabs)
+		BackgroundColor3 = CARD, Text = t[2], Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = TEXT }, tabs)
 	round(b, 6)
 	b.Activated:Connect(function() tab = t[1] drawPhone() end)
 	tabButtons[t[1]] = b
@@ -167,9 +168,63 @@ local function jobInfo()
 	local ok, j = pcall(function() return raw and HttpService:JSONDecode(raw) end)
 	return ok and type(j) == "table" and j or nil
 end
+local function profile()
+	local raw = player:GetAttribute("Exit6Profile")
+	local ok, t = pcall(function() return raw and HttpService:JSONDecode(raw) end)
+	return ok and type(t) == "table" and t or {}
+end
+local function myRoot()
+	return player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+end
+local function nearestPlayer(range)
+	local me = myRoot()
+	if not me then return nil end
+	local best, bd = nil, range
+	for _, p in ipairs(Players:GetPlayers()) do
+		local r = p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+		if r and (r.Position - me.Position).Magnitude < bd then best, bd = p, (r.Position - me.Position).Magnitude end
+	end
+	return best
+end
+local function nearestStore(range)
+	local me = myRoot()
+	if not me then return nil end
+	local best, bd = nil, range
+	for _, tagName in ipairs({ "Exit6Store", "Exit6GasStation" }) do
+		for _, m in ipairs(CollectionService:GetTagged(tagName)) do
+			local a = m:GetAttribute("Exit6StoreKey") and m:FindFirstChild("Exit6StoreAnchor", true)
+			if a and (a.Position - me.Position).Magnitude < bd then best, bd = m, (a.Position - me.Position).Magnitude end
+		end
+	end
+	return best
+end
+local function remoteNamed(name) return remotes:FindFirstChild(name) end
+local function act(fn)
+	return function()
+		pcall(fn)
+		task.wait(0.25)
+		drawPhone()
+	end
+end
+
+-- a local HOME marker (phone > Home > Show my home)
+local homeMarker = nil
+local function markHome(pos)
+	if homeMarker then homeMarker:Destroy() homeMarker = nil end
+	if typeof(pos) ~= "Vector3" then return end
+	local marker = new("Part", { Name = "Exit6HomeMarker", Anchored = true, CanCollide = false, CanQuery = false, CanTouch = false,
+		Transparency = 1, Size = Vector3.one, CFrame = CFrame.new(pos) }, Workspace)
+	homeMarker = marker
+	local bb = new("BillboardGui", { Size = UDim2.fromOffset(120, 40), StudsOffset = Vector3.new(0, 7, 0), AlwaysOnTop = true,
+		LightInfluence = 0, MaxDistance = 100000 }, marker)
+	new("TextLabel", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = INK, BackgroundTransparency = 0.2, TextColor3 = ACCENT,
+		Font = Enum.Font.GothamBlack, TextSize = 18, Text = "HOME" }, bb)
+	task.delay(90, function() if homeMarker == marker then markHome(nil) end end)
+end
 
 drawPhone = function()
 	local c, r = cash()
+	local prof = profile()
 	phoneTitle.Text = os.date("%I:%M %p"):gsub("^0", "")
 	phoneSub.Text = "Chester, PA"
 	for k, b in pairs(tabButtons) do b.BackgroundColor3 = (k == tab) and ACCENT or CARD end
@@ -177,27 +232,41 @@ drawPhone = function()
 	if tab == "wallet" then
 		row(phoneList, 1, "Chester Cash", "$" .. c)
 		row(phoneList, 2, "Reputation", tostring(r))
+		local other = nearestPlayer(12)
+		if other then
+			for i, amount in ipairs({ 10, 50 }) do
+				row(phoneList, 2 + i, "Give $" .. amount .. " to " .. other.DisplayName, "", act(function()
+					ReplicatedStorage:WaitForChild("Exit6RumbleEvent"):FireServer("GiveCash", other.UserId, amount)
+				end))
+			end
+		else
+			row(phoneList, 3, "Stand by someone to give cash", "")
+		end
 	elseif tab == "car" then
-		local car = nil
+		local out = nil
 		local folder = Workspace:FindFirstChild("Exit6Vehicles")
 		for _, m in ipairs(folder and folder:GetChildren() or {}) do
-			if m:GetAttribute("Owner") == player.UserId then car = m end
+			if m:GetAttribute("Owner") == player.UserId then out = m end
 		end
-		row(phoneList, 1, "Sedan", car and "OUT" or "HOME")
-		row(phoneList, 2, car and "Call it again" or "Call my car", "", function()
-			local remote = remotes:FindFirstChild("CallCar")
-			if remote then remote:InvokeServer() end
-			drawPhone()
-		end)
-		if car then
-			row(phoneList, 3, "Send it home", "", function()
-				local remote = remotes:FindFirstChild("SendCarHome")
-				if remote then remote:FireServer() end
-				task.wait(0.3)
-				drawPhone()
-			end)
+		local ids = {}
+		for id in pairs(prof.vehicles or {}) do table.insert(ids, id) end
+		table.sort(ids)
+		local n = 0
+		for _, id in ipairs(ids) do
+			local spec = Catalog.Vehicles[id]
+			if spec then
+				n += 1
+				local isOut = out and out:GetAttribute("Exit6Model") == id
+				local fuel = isOut and (out:GetAttribute("Fuel") or 0) or (prof.vehicles[id].fuel or 0)
+				row(phoneList, n, (isOut and "> " or "") .. spec.name, math.floor(fuel / spec.tank * 100 + 0.5) .. "% gas",
+					act(function() remoteNamed("CallCar"):InvokeServer(id) end))
+			end
 		end
-		row(phoneList, 4, "Drive: WASD / triggers", "")
+		if out then
+			row(phoneList, 20, "Send it home", "", act(function() remoteNamed("SendCarHome"):FireServer() end))
+		end
+		row(phoneList, 21, "Tap a car to call it", "")
+		row(phoneList, 22, "More cars: Exit 6 Motors", "")
 	elseif tab == "bag" then
 		local items, n = bag(), 0
 		local ids = {}
@@ -207,25 +276,80 @@ drawPhone = function()
 			local item = Catalog.Items[id]
 			if item then
 				n += 1
-				row(phoneList, n, item.name, "x" .. items[id], function()
-					UseItem:InvokeServer(id)
-					drawPhone()
-				end)
+				row(phoneList, n, item.name, "x" .. items[id], act(function() UseItem:InvokeServer(id) end))
 			end
 		end
 		if n == 0 then row(phoneList, 1, "Empty - buy something at a store", "") end
+	elseif tab == "home" then
+		if prof.home then
+			row(phoneList, 1, "Home on " .. tostring(prof.home.street), "")
+			row(phoneList, 2, "Show my home", "", act(function() markHome(remoteNamed("HomeAction"):InvokeServer("where")) end))
+			local n = 2
+			-- stash (works at the front door)
+			for id, count in pairs(prof.stash or {}) do
+				local item = Catalog.Items[id]
+				if item then
+					n += 1
+					row(phoneList, n, "Take " .. item.name, "x" .. count, act(function() remoteNamed("HomeAction"):InvokeServer("take", id) end))
+				end
+			end
+			for id, count in pairs(bag()) do
+				local item = Catalog.Items[id]
+				if item then
+					n += 1
+					row(phoneList, n, "Stash " .. item.name, "x" .. count, act(function() remoteNamed("HomeAction"):InvokeServer("stash", id) end))
+				end
+			end
+			local out = row(phoneList, 99, "Move out", "", act(function() remoteNamed("HomeAction"):InvokeServer("moveout") end))
+			out.BackgroundColor3 = Color3.fromRGB(70, 36, 36)
+		else
+			row(phoneList, 1, "No place yet", "")
+			row(phoneList, 2, "Walk up to any front door", "")
+			row(phoneList, 3, "around 9th & Kerlin: Move in (E)", "")
+			row(phoneList, 4, "You'll wake up there", "")
+		end
+	elseif tab == "biz" then
+		local n = 0
+		local here = nearestStore(30)
+		if here then
+			local key = here:GetAttribute("Exit6StoreKey")
+			local mine = prof.business and prof.business[key]
+			local owner = here:GetAttribute("Exit6OwnerName")
+			n += 1
+			row(phoneList, n, tostring(here:GetAttribute("ShopName") or here.Name),
+				mine and "YOURS" or (owner and "TAKEN" or ("$" .. tostring(here:GetAttribute("Exit6StorePrice")))))
+			if mine then
+				n += 1
+				row(phoneList, n, "Collect the till", "$" .. mine.bank, act(function() remoteNamed("BusinessAction"):InvokeServer("collect") end))
+			elseif not owner then
+				n += 1
+				row(phoneList, n, "Buy this business", "", act(function() remoteNamed("BusinessAction"):InvokeServer("buy") end))
+			end
+		end
+		for _, b in pairs(prof.business or {}) do
+			n += 1
+			row(phoneList, n, b.name, "$" .. b.bank .. " till")
+		end
+		if n == 0 then
+			row(phoneList, 1, "Own a Chester store", "")
+			row(phoneList, 2, "Stand in one and open Biz", "")
+		end
 	else
 		local j = jobInfo()
 		if j and j.type == "delivery" then
 			row(phoneList, 1, "Delivery: " .. j.store, "$" .. (j.pay or 0))
 			row(phoneList, 2, "To " .. tostring(j.address), "")
 			row(phoneList, 3, "Follow the orange line", "")
+		elseif j and j.type == "ride" then
+			row(phoneList, 1, "Rideshare", "$" .. (j.pay or 0))
+			row(phoneList, 2, (j.stage == "pickup" and "Pick up on " or "Drop off on ") .. tostring(j.address), "")
+			row(phoneList, 3, "Stop next to the marker", "")
 		elseif j then
 			row(phoneList, 1, "Stock shift: " .. j.store, "")
 			row(phoneList, 2, "Crates stocked", j.done .. "/" .. j.total)
 			row(phoneList, 3, j.carrying and "Carry it to a shelf" or "Grab a crate (back room)", "")
 		else
-			row(phoneList, 1, "No job", "")
+			row(phoneList, 1, "Drive rideshare (in your car)", "", act(function() remoteNamed("StartRideshare"):InvokeServer() end))
 			row(phoneList, 2, "Gas stations & markets: stock shifts", "")
 			row(phoneList, 3, "Takeout spots: food deliveries", "")
 			row(phoneList, 4, "Ask at the counter: F / X", "")
@@ -248,12 +372,25 @@ local function togglePhone()
 	end
 end
 
-ContextActionService:BindAction("Exit6Phone", function(_, state)
+-- P, D-pad Up (on foot; in tester flight it is the speed tier) or View / Select
+ContextActionService:BindAction("Exit6Phone", function(_, state, input)
 	if state ~= Enum.UserInputState.Begin then return Enum.ContextActionResult.Pass end
 	if gui.Parent and player.PlayerGui:FindFirstChild("Exit6MainMenu") then return Enum.ContextActionResult.Pass end
+	if input.KeyCode == Enum.KeyCode.DPadUp and player:GetAttribute("CW_Flying") then return Enum.ContextActionResult.Pass end
 	togglePhone()
 	return Enum.ContextActionResult.Sink
-end, false, Enum.KeyCode.P, Enum.KeyCode.ButtonSelect)
+end, false, Enum.KeyCode.P, Enum.KeyCode.DPadUp, Enum.KeyCode.ButtonSelect)
+
+-- on-screen phone button (mouse / touch; also shows the keys)
+local phoneButton = new("TextButton", { Name = "PhoneButton", AnchorPoint = Vector2.new(1, 1),
+	Position = UDim2.new(1, -16, 1, -16), Size = UDim2.fromOffset(150, 44), BackgroundColor3 = INK,
+	BackgroundTransparency = 0.1, Text = "PHONE  [P / ▲]", Font = Enum.Font.GothamBold, TextSize = 16,
+	TextColor3 = ACCENT, AutoButtonColor = true, Selectable = false }, gui)
+round(phoneButton, 10)
+phoneButton.Activated:Connect(togglePhone)
+RunService.Heartbeat:Connect(function()
+	phoneButton.Visible = not phone.Visible and not shop.Visible
+end)
 
 ContextActionService:BindAction("Exit6CloseShop", function(_, state)
 	if state ~= Enum.UserInputState.Begin or not (shop.Visible or phone.Visible) then
@@ -264,7 +401,7 @@ ContextActionService:BindAction("Exit6CloseShop", function(_, state)
 	return Enum.ContextActionResult.Sink
 end, false, Enum.KeyCode.Backspace, Enum.KeyCode.ButtonB)
 
-for _, name in ipairs({ "Exit6Inventory", "Exit6Job" }) do
+for _, name in ipairs({ "Exit6Inventory", "Exit6Job", "Exit6Profile" }) do
 	player:GetAttributeChangedSignal(name):Connect(function()
 		if phone.Visible then drawPhone() end
 	end)
@@ -304,11 +441,12 @@ RunService.RenderStepped:Connect(function()
 	hud.Visible = job ~= nil
 	if not job then return end
 	local left = math.max(0, math.floor(job.deadline - Workspace:GetServerTimeNow()))
-	if job.type == "delivery" then
+	if job.type == "delivery" or job.type == "ride" then
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 		local t = job.target
 		local d = (root and t) and math.floor((root.Position - Vector3.new(t[1], t[2], t[3])).Magnitude) or 0
-		hudTop.Text = string.format("DELIVERY  %s   $%d", job.store, job.pay or 0)
+		hudTop.Text = job.type == "ride" and string.format("RIDESHARE  %s   $%d", job.stage == "pickup" and "PICK UP" or "DROP OFF", job.pay or 0)
+			or string.format("DELIVERY  %s   $%d", job.store, job.pay or 0)
 		hudBottom.Text = string.format("To %s  -  %d studs   %d:%02d", tostring(job.address), d, left // 60, left % 60)
 	else
 		hudTop.Text = string.format("STOCK SHIFT  %s   %d/%d", job.store, job.done, job.total)
@@ -326,7 +464,7 @@ local function clearMarker()
 end
 local function showMarker()
 	clearMarker()
-	if not job or job.type ~= "delivery" or type(job.target) ~= "table" then return end
+	if not job or (job.type ~= "delivery" and job.type ~= "ride") or type(job.target) ~= "table" then return end
 	local t = Vector3.new(job.target[1], job.target[2], job.target[3])
 	marker = new("Part", { Name = "Exit6DropOff", Anchored = true, CanCollide = false, CanQuery = false, CanTouch = false,
 		Transparency = 1, Size = Vector3.new(1, 1, 1), CFrame = CFrame.new(t + Vector3.new(0, 1.5, 0)) }, Workspace)
@@ -336,11 +474,13 @@ local function showMarker()
 	local bb = new("BillboardGui", { Size = UDim2.fromOffset(170, 44), StudsOffset = Vector3.new(0, 6, 0), AlwaysOnTop = true,
 		LightInfluence = 0, MaxDistance = 100000 }, marker)
 	new("TextLabel", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = INK, BackgroundTransparency = 0.2, TextColor3 = ACCENT,
-		Font = Enum.Font.GothamBlack, TextSize = 18, Text = "DROP-OFF" }, bb)
+		Font = Enum.Font.GothamBlack, TextSize = 18, Text = (job.type == "ride" and job.stage == "pickup") and "PICKUP" or "DROP-OFF" }, bb)
 	local a1 = new("Attachment", {}, marker)
-	local prompt = new("ProximityPrompt", { ActionText = "Deliver order", ObjectText = job.store, HoldDuration = 0.4,
-		MaxActivationDistance = 10, RequiresLineOfSight = false }, marker)
-	prompt.Triggered:Connect(function() remotes:WaitForChild("Deliver"):FireServer() end)
+	if job.type == "delivery" then
+		local prompt = new("ProximityPrompt", { ActionText = "Deliver order", ObjectText = job.store, HoldDuration = 0.4,
+			MaxActivationDistance = 10, RequiresLineOfSight = false }, marker)
+		prompt.Triggered:Connect(function() remotes:WaitForChild("Deliver"):FireServer() end)
+	end
 	local function link()
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 		if not root or not marker then return end
@@ -353,7 +493,7 @@ end
 local lastTarget = nil
 local function onJob()
 	job = jobInfo()
-	local key = job and job.type == "delivery" and table.concat(job.target or {}, ",") or nil
+	local key = job and (job.type == "delivery" or job.type == "ride") and table.concat(job.target or {}, ",") or nil
 	if key ~= lastTarget then
 		lastTarget = key
 		showMarker()

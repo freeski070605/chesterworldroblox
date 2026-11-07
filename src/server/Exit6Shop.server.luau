@@ -13,6 +13,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Catalog = require(Shared:WaitForChild("Exit6Catalog"))
 local Config = require(Shared:WaitForChild("Exit6Config"))
 local Inventory = require(script.Parent:WaitForChild("Exit6Inventory"))
+local Profile = require(script.Parent:WaitForChild("Exit6Profile"))
+local Style = require(script.Parent:WaitForChild("Exit6Style"))
 if not Config.ShopSystem then return end
 
 -- remotes
@@ -111,6 +113,25 @@ local function purchase(player, storeId, itemId)
 	if not r or (r.Position - store.counter.Position).Magnitude > REACH then return false, "Walk up to the counter" end
 	local cash = stats(player)
 	if not cash or cash.Value < item.price then return false, "Not enough Chester Cash" end
+	if item.kind == "vehicle" then
+		-- dealership: into the garage (Exit6Vehicles calls it from the phone)
+		local prof = Profile.Get(player)
+		local spec = Catalog.Vehicles[item.model]
+		if not prof or not spec then return false, "Can't buy that here" end
+		if prof.vehicles[item.model] then return false, "You already own a " .. spec.name end
+		prof.vehicles[item.model] = { fuel = spec.tank }
+		prof.active = item.model
+		Profile.Publish(player)
+		cash.Value -= item.price
+		notify(player, "Bought the " .. item.name .. "! Call it from your phone (Car)")
+		return true
+	elseif item.kind == "haircut" or item.kind == "clothing" then
+		if not Style.Wear(player, itemId) then return false, "Can't do that right now" end
+		cash.Value -= item.price
+		notify(player, (item.kind == "haircut" and "Fresh cut: " or "Wearing: ") .. item.name ..
+			(item.price > 0 and (" (-$" .. item.price .. ")") or ""))
+		return true
+	end
 	if item.kind ~= "service" and not Inventory.Add(player, itemId, 1) then return false, "Your bag is full" end
 	cash.Value -= item.price
 	if item.kind == "service" then
@@ -123,6 +144,11 @@ end
 Purchase.OnServerInvoke = function(player, storeId, itemId)
 	local ok, why = purchase(player, storeId, itemId)
 	if not ok and why then notify(player, why) end
+	if ok and stores[storeId] and Catalog.Items[itemId] and Catalog.Items[itemId].price > 0 then
+		-- the owner's cut (Exit6Business.server owns this event)
+		local Sale = game:GetService("ServerStorage"):FindFirstChild("Exit6Sale")
+		if Sale then Sale:Fire(stores[storeId].model, player, Catalog.Items[itemId].price) end
+	end
 	return ok, why
 end
 

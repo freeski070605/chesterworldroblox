@@ -29,6 +29,36 @@ Catalog.Items = {
 	-- barber / salon
 	edge_up = { name = "Edge Up", price = 10, kind = "service" },
 	haircut = { name = "Haircut", price = 20, kind = "service" },
+	-- barbershop: a new cut changes your look (Exit6Style.server), saved
+	cut_fade = { name = "Fade", price = 20, kind = "haircut", style = "fade" },
+	cut_waves = { name = "Waves", price = 25, kind = "haircut", style = "waves" },
+	cut_twists = { name = "Twists", price = 35, kind = "haircut", style = "twists" },
+	cut_afro = { name = "Shape-up Afro", price = 30, kind = "haircut", style = "afro" },
+	cut_braids = { name = "Cornrows", price = 45, kind = "haircut", style = "braids" },
+	cut_bald = { name = "Clean Shave", price = 15, kind = "haircut", style = "bald" },
+	cut_own = { name = "Back to my own hair", price = 0, kind = "haircut", style = "own" },
+	-- clothing: solid-colour fits over your avatar (slot top / bottom / hat), saved
+	tee_white = { name = "White Tee", price = 12, kind = "clothing", slot = "top", color = { 236, 236, 232 } },
+	tee_black = { name = "Black Tee", price = 12, kind = "clothing", slot = "top", color = { 26, 26, 28 } },
+	tee_red = { name = "Red Tee", price = 12, kind = "clothing", slot = "top", color = { 160, 24, 32 } },
+	hoodie_grey = { name = "Grey Hoodie", price = 35, kind = "clothing", slot = "top", color = { 128, 128, 132 }, hood = true },
+	hoodie_navy = { name = "Navy Hoodie", price = 35, kind = "clothing", slot = "top", color = { 26, 38, 70 }, hood = true },
+	jersey_blue = { name = "Union Blue Jersey", price = 45, kind = "clothing", slot = "top", color = { 30, 90, 170 } },
+	jeans_blue = { name = "Blue Jeans", price = 30, kind = "clothing", slot = "bottom", color = { 52, 72, 110 } },
+	jeans_black = { name = "Black Jeans", price = 30, kind = "clothing", slot = "bottom", color = { 30, 30, 34 } },
+	sweats_grey = { name = "Grey Sweats", price = 25, kind = "clothing", slot = "bottom", color = { 120, 120, 124 } },
+	cargo_khaki = { name = "Khaki Cargos", price = 30, kind = "clothing", slot = "bottom", color = { 150, 132, 96 } },
+	beanie_black = { name = "Black Beanie", price = 15, kind = "clothing", slot = "hat", color = { 24, 24, 26 }, hat = "beanie" },
+	cap_red = { name = "Red Fitted Cap", price = 25, kind = "clothing", slot = "hat", color = { 160, 24, 32 }, hat = "cap" },
+	cap_navy = { name = "Navy Fitted Cap", price = 25, kind = "clothing", slot = "hat", color = { 26, 38, 70 }, hat = "cap" },
+	durag_black = { name = "Black Durag", price = 10, kind = "clothing", slot = "hat", color = { 20, 20, 22 }, hat = "durag" },
+	fit_own = { name = "Back to my own fit", price = 0, kind = "clothing", slot = "reset" },
+	-- dealership (Exit6Vehicles.server): goes in your garage, saved
+	car_hatch = { name = "2009 Hatchback", price = 1800, kind = "vehicle", model = "hatch" },
+	car_van = { name = "2006 Minivan", price = 2600, kind = "vehicle", model = "van" },
+	car_pickup = { name = "2012 Pickup", price = 4200, kind = "vehicle", model = "pickup" },
+	car_suv = { name = "2015 SUV", price = 6500, kind = "vehicle", model = "suv" },
+	car_coupe = { name = "2018 Coupe", price = 9500, kind = "vehicle", model = "coupe" },
 }
 
 -- store kind -> items on its menu
@@ -40,7 +70,10 @@ Catalog.Menus = {
 	gas = { "chips", "soda", "iced_tea", "water", "hoagie" },
 	phone = { "phone_case", "charger", "prepaid_card" },
 	laundry = { "detergent", "wash_load", "soda" },
-	barber = { "edge_up", "haircut" },
+	barber = { "edge_up", "cut_fade", "cut_waves", "cut_twists", "cut_afro", "cut_braids", "cut_bald", "cut_own" },
+	clothing = { "tee_white", "tee_black", "tee_red", "hoodie_grey", "hoodie_navy", "jersey_blue", "jeans_blue",
+		"jeans_black", "sweats_grey", "cargo_khaki", "beanie_black", "cap_red", "cap_navy", "durag_black", "fit_own" },
+	dealer = { "car_hatch", "car_van", "car_pickup", "car_suv", "car_coupe" },
 }
 
 -- what kind of store a name is (store names come from Street View / Overture)
@@ -49,7 +82,9 @@ local KEYWORDS = {
 	{ "chicken", "food" }, { "seafood", "food" }, { "grill", "food" }, { "cuisine", "food" },
 	{ "checkers", "food" }, { "wings", "food" }, { "steak", "food" }, { "j & s", "food" },
 	{ "mobile", "phone" }, { "wireless", "phone" }, { "metro", "phone" }, { "cricket", "phone" },
-	{ "laund", "laundry" }, { "barber", "barber" }, { "salon", "barber" }, { "hair", "barber" },
+	{ "laund", "laundry" }, { "barber", "barber" }, { "salon", "barber" }, { "hair", "barber" }, { "beauty", "barber" },
+	{ "fashion", "clothing" }, { "boutique", "clothing" }, { "apparel", "clothing" }, { "cloth", "clothing" },
+	{ "footwear", "clothing" }, { "motors", "dealer" },
 	{ "market", "market" }, { "deli", "market" }, { "mart", "market" }, { "grocery", "market" },
 }
 function Catalog.KindFor(name, isGasStation)
@@ -88,5 +123,39 @@ Catalog.Delivery = {
 	cooldown = 45,
 }
 Catalog.DeliveryKinds = { food = true, pizza = true, chinese = true }
+
+-- vehicles: body + handling per model (Exit6CarBuilder / Exit6CarPhysics).
+-- size = body length / width / height (studs), tank in gallons, mpg as
+-- studs per gallon (a tank lasts a good few trips across the city)
+Catalog.Vehicles = {
+	sedan = { name = "Family Sedan", body = "sedan", len = 16.4, wid = 7.2, topSpeed = 110, accel = 24, tank = 12, perGallon = 2600 },
+	hatch = { name = "Hatchback", body = "hatch", len = 14.2, wid = 6.8, topSpeed = 105, accel = 26, tank = 10, perGallon = 3200 },
+	van = { name = "Minivan", body = "van", len = 17.6, wid = 7.6, topSpeed = 100, accel = 20, tank = 16, perGallon = 2200 },
+	pickup = { name = "Pickup", body = "pickup", len = 19, wid = 7.8, topSpeed = 112, accel = 25, tank = 20, perGallon = 1800 },
+	suv = { name = "SUV", body = "suv", len = 17.8, wid = 7.8, topSpeed = 115, accel = 26, tank = 18, perGallon = 2000 },
+	coupe = { name = "Coupe", body = "coupe", len = 15.6, wid = 7.2, topSpeed = 135, accel = 34, tank = 13, perGallon = 2100 },
+}
+Catalog.StarterVehicle = "sedan"
+Catalog.FuelPrice = 3.29          -- per gallon when a station has no price sign
+
+-- housing (Exit6Housing.server): rent a real front door in the city
+Catalog.Housing = {
+	rowhouse = 400, twin = 650, house = 900, apartment = 300,
+	default = 450,
+}
+
+-- business ownership (Exit6Business.server): buy a store, it earns while you're in town
+Catalog.Business = {
+	priceByKind = { food = 6000, pizza = 5000, chinese = 5500, market = 7500, gas = 12000, phone = 4000,
+		laundry = 4500, barber = 4000, clothing = 5000 },
+	incomePerMinute = 0.012,   -- fraction of the price earned per minute online, collected at the register
+	maxBank = 0.25,            -- the till holds at most this fraction of the price
+}
+
+-- rideshare (Exit6Rideshare.server): pick up a pedestrian, drive them across town
+Catalog.Rideshare = {
+	minStuds = 400, maxStuds = 1600, basePay = 15, payPerStud = 0.05, secondsPerStud = 0.09, minSeconds = 60,
+	reputation = 1, cooldown = 30,
+}
 
 return Catalog

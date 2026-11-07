@@ -372,6 +372,8 @@ local function buildStore(model, st, fascia, accent, textColor, frame, width, de
 	anchor.CanQuery = false
 	model:SetAttribute("BrandName", st.brand)
 	model:SetAttribute("ShopName", s.sign or st.brand)
+	-- regular grade off the price sign, charged at the pumps (Exit6Vehicles.server)
+	model:SetAttribute("FuelPrice", (st.prices and st.prices[1]) or 3.29)
 	model:SetAttribute("BrandFascia", fascia)
 	model:SetAttribute("BrandAccent", accent)
 	model:SetAttribute("BrandText", textColor)

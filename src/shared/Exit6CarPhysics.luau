@@ -70,6 +70,10 @@ function CarPhysics.Step(model, dt, input)
 	local ang = chassis.AssemblyAngularVelocity
 	local speed = vel:Dot(look)
 	local throttle = math.clamp(input.throttle or 0, -1, 1)
+	-- per-model handling (Exit6CarBuilder) and an empty tank: no power, brakes still work
+	local topSpeed = model:GetAttribute("TopSpeed") or T.topSpeed
+	local accel = model:GetAttribute("EngineAccel") or T.engineAccel
+	local noFuel = (model:GetAttribute("Fuel") or 1) <= 0
 	local steer = math.clamp(input.steer or 0, -1, 1)
 	-- less lock at speed
 	local steerAngle = -steer * T.maxSteer / (1 + math.abs(speed) / 55)
@@ -110,15 +114,15 @@ function CarPhysics.Step(model, dt, input)
 				if vF < -2 then
 					jF = math.min(T.brakeDecel * share * dt, -vF * share)
 				elseif not w[2] then
-					local fall = 1 - math.clamp(vF / T.topSpeed, 0, 1) ^ 2
-					jF = throttle * T.engineAccel * mass / 2 * fall * dt
+					local fall = 1 - math.clamp(vF / topSpeed, 0, 1) ^ 2
+					jF = noFuel and 0 or throttle * accel * mass / 2 * fall * dt
 				end
 			elseif throttle < -0.05 then
 				if vF > 2 then
 					jF = -math.min(T.brakeDecel * share * dt, vF * share)
 				elseif not w[2] then
 					local fall = 1 - math.clamp(-vF / T.reverseSpeed, 0, 1) ^ 2
-					jF = throttle * T.engineAccel * 0.6 * mass / 2 * fall * dt
+					jF = noFuel and 0 or throttle * accel * 0.6 * mass / 2 * fall * dt
 				end
 			else
 				-- coasting; hold still when nearly stopped (no creeping downhill)

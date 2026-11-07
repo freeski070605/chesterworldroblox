@@ -128,6 +128,10 @@ function RealBuildings.Home(model, r, ctx)
 				local d = door(model, fcf, u, r.streetLevel + 0.4, units > 1 and unitColor or doorColor, not ctx.porch)
 				-- the address a delivery goes to (Exit6Delivery.server)
 				CollectionService:AddTag(d, "Exit6FrontDoor")
+				-- stable home address for saves (Exit6Housing): building id : front door n
+				ctx.homeDoors = (ctx.homeDoors or 0) + 1
+				d:SetAttribute("Exit6HomeId", tostring(ctx.buildingId) .. ":" .. ctx.homeDoors)
+				d:SetAttribute("Exit6HomeStyle", ctx.style)
 				ctx.stats.frontDoors += 1
 			end
 		end

@@ -189,5 +189,11 @@ WorldConfig.TESTER_USER_IDS = {}
 -- the entrance on their address street. Studs; nil = everywhere off. First
 -- region: 9th & Kerlin / 9th & Concord, for review before going citywide.
 WorldConfig.REAL_BUILDINGS_REGION = { minX = 1900, maxX = 3500, minZ = 800, maxZ = 2300 }
+-- single buildings outside the region that are built real too (walk-in
+-- stores the gameplay needs): county OBJECTID -> true
+WorldConfig.REAL_BUILDINGS_EXTRA = {
+	["1621"] = true,    -- Cliza Boutique (clothing), 9th St east of the region
+	["167270"] = true,  -- Chester Fashions (clothing)
+}
 
 return WorldConfig

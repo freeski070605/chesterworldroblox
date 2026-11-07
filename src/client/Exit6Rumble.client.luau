@@ -2,7 +2,8 @@
 -- Social actions (what you do to the nearest player), the consent challenge and
 -- the rumble itself; every outcome is decided by Exit6Rumble.server.
 --   near a player   T / DPad-Left  talk trash    G / DPad-Right  shove
---                   Y / DPad-Up    apologize     C / DPad-Down   walk away (cool down)
+--                   Y              apologize     C / DPad-Down   walk away (cool down), or apologize
+--                                                                 when nobody has provoked you
 --   tension 100     R / ButtonY    start a rumble (challenge)
 --   challenged      R / ButtonY    accept        X-key / ButtonB decline
 --   rumble          Click / R2     punch         Q / L2 (hold)   block
@@ -29,7 +30,7 @@ local accept=button("ACCEPT RUMBLE  [R / Y]",-270);accept.Visible=false
 local decline=button("DECLINE  [X / B]",-218);decline.Visible=false
 -- social bar: shown with any player in arm's reach
 local social=Instance.new("TextLabel")
-social.Size=UDim2.new(0,520,0,30);social.Position=UDim2.new(.5,-260,1,-196)
+social.Size=UDim2.new(0,620,0,30);social.Position=UDim2.new(.5,-310,1,-196)
 social.BackgroundColor3=Color3.fromRGB(18,21,27);social.BackgroundTransparency=.2;social.TextColor3=Color3.fromRGB(229,157,53)
 social.TextSize=15;social.Font=Enum.Font.GothamMedium;social.Visible=false;social.Parent=gui
 local sc=Instance.new("UICorner");sc.CornerRadius=UDim.new(0,8);sc.Parent=social
@@ -98,7 +99,7 @@ local function refresh()
  local other=not active and nearestPlayer(9,false)
  social.Visible=other~=nil and other~=false
  if social.Visible then
-  social.Text=other.DisplayName..":  [T] talk trash   [G] shove   [Y] apologize"
+  social.Text=other.DisplayName..":  [T / ◀] talk trash   [G / ▶] shove   [Y / ▼] apologize   [V / R1] dap"
  end
  fight.Visible=active
  if active then clock.Text=tostring(math.max(0,math.ceil(endsAt-os.clock()))) end
@@ -136,8 +137,15 @@ local function socialAct(kind)
 end
 bind("Exit6Insult",socialAct("Insult"),Enum.KeyCode.T,Enum.KeyCode.DPadLeft)
 bind("Exit6Shove",socialAct("Shove"),Enum.KeyCode.G,Enum.KeyCode.DPadRight)
-bind("Exit6Apology",socialAct("Apology"),Enum.KeyCode.Y,Enum.KeyCode.DPadUp)
-bind("Exit6CoolDown",function() if active or not nearestProvoker() then return false end coolDown() end,Enum.KeyCode.C,Enum.KeyCode.DPadDown)
+bind("Exit6Apology",socialAct("Apology"),Enum.KeyCode.Y)
+bind("Exit6Dap",socialAct("Dap"),Enum.KeyCode.V,Enum.KeyCode.ButtonR1)
+local apologize=socialAct("Apology")
+bind("Exit6CoolDown",function()
+ if active then return false end
+ if nearestProvoker() then coolDown() return end
+ -- nobody has provoked you: the same button apologizes to whoever is near
+ return apologize()
+end,Enum.KeyCode.C,Enum.KeyCode.DPadDown)
 bind("Exit6RumbleYes",function()
  if incoming then answer(true) return end
  if active or not rumble.Visible then return false end

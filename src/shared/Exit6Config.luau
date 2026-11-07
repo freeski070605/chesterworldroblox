@@ -13,4 +13,6 @@ return {
  -- Exit6Pedestrians.server: sidewalk walkers and store-front hangers-out in
  -- the real-buildings region (WorldConfig.REAL_BUILDINGS_REGION)
  Pedestrians = { walkers = 22, hangers = 8 },
+ -- Exit6Traffic.server: everyday cars on the region's streets
+ Traffic = { cars = 14 },
 }

@@ -22,7 +22,7 @@ gui.Parent = player:WaitForChild("PlayerGui")
 local panel = Instance.new("Frame")
 panel.AnchorPoint = Vector2.new(0, 1)
 panel.Position = UDim2.new(0, 16, 1, -16)
-panel.Size = UDim2.fromOffset(170, 74)
+panel.Size = UDim2.fromOffset(190, 92)
 panel.BackgroundColor3 = Color3.fromRGB(18, 21, 27)
 panel.BackgroundTransparency = 0.15
 panel.Parent = gui
@@ -46,8 +46,20 @@ unit.Font = Enum.Font.GothamBold
 unit.TextSize = 13
 unit.TextColor3 = Color3.fromRGB(229, 157, 53)
 unit.TextXAlignment = Enum.TextXAlignment.Left
-unit.Text = "MPH   SHIFT / X  HANDBRAKE"
+unit.Text = "MPH"
 unit.Parent = panel
+-- fuel gauge
+local gaugeBack = Instance.new("Frame")
+gaugeBack.Position = UDim2.fromOffset(14, 70)
+gaugeBack.Size = UDim2.new(1, -28, 0, 10)
+gaugeBack.BackgroundColor3 = Color3.fromRGB(50, 54, 62)
+gaugeBack.BorderSizePixel = 0
+gaugeBack.Parent = panel
+local gauge = Instance.new("Frame")
+gauge.Size = UDim2.fromScale(1, 1)
+gauge.BackgroundColor3 = Color3.fromRGB(229, 157, 53)
+gauge.BorderSizePixel = 0
+gauge.Parent = gaugeBack
 
 local handbrake = false
 local conn = nil
@@ -74,6 +86,11 @@ local function start(seat)
 			throttle = seat.ThrottleFloat, steer = seat.SteerFloat, handbrake = handbrake,
 		})
 		speedLabel.Text = tostring(math.floor(math.abs(speed) / STUDS_PER_MPH + 0.5))
+		local fuel, tank = car:GetAttribute("Fuel") or 0, car:GetAttribute("Tank") or 1
+		local f = math.clamp(fuel / tank, 0, 1)
+		gauge.Size = UDim2.fromScale(f, 1)
+		gauge.BackgroundColor3 = f < 0.15 and Color3.fromRGB(200, 50, 40) or Color3.fromRGB(229, 157, 53)
+		unit.Text = string.format("MPH    FUEL %d%%%s", math.floor(f * 100 + 0.5), fuel <= 0 and "  EMPTY" or (f < 0.15 and "  LOW" or ""))
 	end)
 end
 

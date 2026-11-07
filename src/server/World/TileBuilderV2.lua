@@ -2225,7 +2225,8 @@ local function buildFootprintBuilding(parent, building, shapeData)
 	local region = WorldConfig.REAL_BUILDINGS_REGION
 	if region and not landmark and shapeData.r[1] then
 		local fx, fz = sourceToStuds(shapeData.r[1][1], shapeData.r[1][2])
-		if fx >= region.minX and fx <= region.maxX and fz >= region.minZ and fz <= region.maxZ then
+		local extra = WorldConfig.REAL_BUILDINGS_EXTRA and WorldConfig.REAL_BUILDINGS_EXTRA[tostring(building.id)]
+		if extra or (fx >= region.minX and fx <= region.maxX and fz >= region.minZ and fz <= region.maxZ) then
 			local rects = {}
 			for _, rc in ipairs(shapeData.r) do
 				local rx, rz = sourceToStuds(rc[1], rc[2])

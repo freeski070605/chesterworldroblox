@@ -21,6 +21,17 @@ local WIN_REPUTATION=2
 local SOCIAL_COOLDOWN=1.5
 local hp,blocking,lastPunch,lastSocial={},{},{},{}
 local matchToken={} -- a rematch must not be ended by the previous match's timer
+-- positive interactions: a dap (both press it within DAP_WINDOW: +1 REP each,
+-- once per pair per DAP_COOLDOWN) and giving cash (capped per pair)
+local DAP_WINDOW,DAP_COOLDOWN=5,300
+local GIVE_AMOUNTS={[10]=true,[50]=true}
+local GIVE_CAP,GIVE_WINDOW=500,600
+local dapAsk,dapDone,given={}, {}, {}
+local function pairKey(a,b) return math.min(a.UserId,b.UserId)..":"..math.max(a.UserId,b.UserId) end
+local function notice(p,text)
+ p:SetAttribute("Exit6Notice",text)
+ p:SetAttribute("Exit6NoticeId",(p:GetAttribute("Exit6NoticeId") or 0)+1)
+end
 local rng=Random.new()
 local function get(victim,source)
  state[victim.UserId]=state[victim.UserId] or {}
@@ -94,7 +105,7 @@ local function punch(attacker)
  remote:FireClient(attacker,"Landed",target.UserId,hp[target],dmg,blocking[target]==true)
  if hp[target]<=0 then endMatch(attacker,target,"Knockout") end
 end
-remote.OnServerEvent:Connect(function(player,action,targetId)
+remote.OnServerEvent:Connect(function(player,action,targetId,...)
  if action=="Decline" then
   local challenger=requests[player]
   requests[player]=nil
@@ -134,6 +145,42 @@ remote.OnServerEvent:Connect(function(player,action,targetId)
   end)
  elseif action=="Deescalate" then
   report(target,player,"Deescalate")
+ elseif action=="Dap" then
+  if matches[player] then return end
+  local k=pairKey(player,target)
+  if dapDone[k] and os.clock()-dapDone[k]<DAP_COOLDOWN then notice(player,"You two already dapped up") return end
+  local theirs=dapAsk[target]
+  if theirs and theirs.to==player and os.clock()-theirs.at<DAP_WINDOW then
+   dapAsk[target]=nil;dapDone[k]=os.clock()
+   for _,p in ipairs({player,target}) do
+    local ls=p:FindFirstChild("leaderstats");local rep=ls and ls:FindFirstChild("Reputation")
+    if rep then rep.Value+=1 end
+   end
+   -- a dap cools things down too
+   report(player,target,"Apology");report(target,player,"Apology")
+   notice(player,"Dapped up "..target.DisplayName.." (+1 REP)")
+   notice(target,"Dapped up "..player.DisplayName.." (+1 REP)")
+  else
+   dapAsk[player]={to=target,at=os.clock()}
+   notice(target,player.DisplayName.." wants to dap you up - press V / R1")
+   notice(player,"Waiting for "..target.DisplayName.."...")
+  end
+ elseif action=="GiveCash" then
+  local amount=select(1,...)
+  if not GIVE_AMOUNTS[amount] then return end
+  local now=os.clock()
+  if lastSocial[player] and now-lastSocial[player]<SOCIAL_COOLDOWN then return end
+  lastSocial[player]=now
+  local k=player.UserId..">"..target.UserId
+  local g=given[k]
+  if not g or now-g.at>GIVE_WINDOW then g={at=now,total=0};given[k]=g end
+  if g.total+amount>GIVE_CAP then notice(player,"That's enough for now") return end
+  local ls1=player:FindFirstChild("leaderstats");local c1=ls1 and ls1:FindFirstChild("Chester Cash")
+  local ls2=target:FindFirstChild("leaderstats");local c2=ls2 and ls2:FindFirstChild("Chester Cash")
+  if not c1 or not c2 or c1.Value<amount then notice(player,"Not enough Chester Cash") return end
+  c1.Value-=amount;c2.Value+=amount;g.total+=amount
+  notice(player,"Gave $"..amount.." to "..target.DisplayName)
+  notice(target,player.DisplayName.." gave you $"..amount)
  elseif action=="Insult" or action=="Shove" or action=="Apology" then
   -- what a player does to another: it builds (or cools) the OTHER player's tension
   if matches[player] then return end
@@ -150,7 +197,7 @@ Players.PlayerRemoving:Connect(function(player)
  local opponent=matches[player]
  if opponent then endMatch(player,opponent,"Opponent left") end
  state[player.UserId]=nil;requests[player]=nil
- hp[player],blocking[player],lastPunch[player],lastSocial[player]=nil,nil,nil,nil
+ hp[player],blocking[player],lastPunch[player],lastSocial[player],dapAsk[player]=nil,nil,nil,nil,nil
  for _,row in pairs(state) do row[player.UserId]=nil end
  for target,challenger in pairs(requests) do if challenger==player then requests[target]=nil end end
 end)

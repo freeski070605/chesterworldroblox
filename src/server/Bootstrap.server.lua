@@ -139,6 +139,8 @@ local function enableSpawn()
 	spawn:SetAttribute("LocationLabel", spawnLabel)
 
 	spawnReady = true
+	-- the EXIT 6 loading screen (src/loading) follows the world build
+	workspace:SetAttribute("CW_SpawnReady", true)
 
 	if not spawnConnectionsReady then
 		spawnConnectionsReady = true
@@ -156,6 +158,8 @@ local function enableSpawn()
 	))
 end
 
+workspace:SetAttribute("CW_TilesTotal", tileBuildCount)
+workspace:SetAttribute("CW_TilesBuilt", 0)
 for index = 1, tileBuildCount do
     local module = modules[index]
 	if module:IsA("ModuleScript") then
@@ -173,6 +177,7 @@ for index = 1, tileBuildCount do
 			enableSpawn()
 		end
 
+		workspace:SetAttribute("CW_TilesBuilt", index)
 		if index % 5 == 0 or index == tileBuildCount then
 			print(("[ChesterWorld] Built %d/%d tiles."):format(index, tileBuildCount))
 		end

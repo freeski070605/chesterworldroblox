@@ -2,7 +2,6 @@
 -- Does not modify ChesterWorld's tile bootstrap or world geometry.
 local ReplicatedFirst = game:GetService("ReplicatedFirst")
 local Players = game:GetService("Players")
-local ContentProvider = game:GetService("ContentProvider")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
@@ -47,37 +46,41 @@ local function waitUntil(check,seconds)
  until os.clock()-started>=seconds
  return check()
 end
-progress(.12,"Connecting to EXIT 6...")
+progress(.04,"Connecting to EXIT 6...")
 waitUntil(function() return game:IsLoaded() end,25)
-progress(.32,"Preparing your character...")
+-- The city is built by the server after it starts (ChesterWorld bootstrap:
+-- 102 tiles, then highways, terrain and street dressing). Follow that build
+-- (Workspace attributes CW_TilesBuilt / CW_TilesTotal / CW_SpawnReady /
+-- CW_BootstrapComplete / CW_HighwayFinishComplete) so nobody lands in a
+-- half-built city; a joiner on a finished server passes straight through.
+local WORLD_TIMEOUT=180
+local started=os.clock()
+local function worldReady()
+ return Workspace:GetAttribute("CW_SpawnReady")==true and Workspace:GetAttribute("CW_HighwayFinishComplete")==true
+end
+while not worldReady() and os.clock()-started<WORLD_TIMEOUT do
+ local total=Workspace:GetAttribute("CW_TilesTotal") or 0
+ local built=Workspace:GetAttribute("CW_TilesBuilt") or 0
+ if Workspace:GetAttribute("CW_BootstrapComplete")==true then
+  progress(.86,"Laying the highways and bridges...")
+ elseif total>0 then
+  progress(.08+.74*built/total,string.format("Building the city...  %d / %d",built,total))
+ else
+  progress(.06,"Waiting for the city...")
+ end
+ task.wait(.25)
+end
+if not worldReady() then warn("[EXIT6] World build still running after "..WORLD_TIMEOUT.."s; entering anyway") end
+progress(.9,"Preparing your character...")
 local character=player.Character or player.CharacterAdded:Wait()
 local root=character:WaitForChild("HumanoidRootPart",20)
-progress(.52,"Loading the neighborhood...")
+progress(.94,"Loading the neighborhood...")
 if root then
  local ok,err=pcall(function()
   -- Roblox may stream more world parts after the screen disappears.
   player:RequestStreamAroundAsync(root.Position,12)
  end)
  if not ok then warn("[EXIT6] Initial streaming request:",err) end
-end
-progress(.78,"Preparing nearby assets...")
--- Preload only a bounded sample of assets already replicated near the player.
--- Preloading the whole city would make the loading screen take too long.
-local assets={}
-if root then
- for _,obj in ipairs(Workspace:GetPartBoundsInRadius(root.Position,180)) do
-  if #assets>=75 then break end
-  for _,child in ipairs(obj:GetDescendants()) do
-   if child:IsA("Decal") or child:IsA("Texture") or child:IsA("MeshPart") or child:IsA("SpecialMesh") then
-    table.insert(assets,child)
-    if #assets>=75 then break end
-   end
-  end
- end
-end
-if #assets>0 then
- local ok,err=pcall(function() ContentProvider:PreloadAsync(assets) end)
- if not ok then warn("[EXIT6] Asset preload:",err) end
 end
 progress(.95,"Welcome to Chester...")
 task.wait(.5)

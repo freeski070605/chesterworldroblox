@@ -1060,10 +1060,27 @@ local function buildCenterLine(markingsFolder, road, roadWidth)
         finish = clearance(endNode, endDir),
     })
     if not a2D or not b2D then return end
+    -- arterials (primary / secondary / trunk: Kerlin, 9th, Concord ...) carry a
+    -- double yellow centre line, as on Street View; other streets a single one
+    local roadClass = tostring(road.road_class or "")
+    local double = roadClass == "primary" or roadClass == "secondary" or roadClass == "trunk"
+    local offsets = { 0 }
+    local lineWidth = WorldConfig.CENTERLINE_WIDTH_STUDS
+    local px, pz = 0, 0
+    if double then
+        local dx, dz = b2D.X - a2D.X, b2D.Z - a2D.Z
+        local len = math.sqrt(dx * dx + dz * dz)
+        if len > 1e-3 then
+            px, pz = -dz / len, dx / len
+            offsets = { -0.55, 0.55 }
+            lineWidth = math.min(lineWidth, 0.45)
+        end
+    end
+    for _, o in ipairs(offsets) do
     buildAdaptiveCenterStrip(
         markingsFolder, "CenterLine",
-        a2D.X, a2D.Z, b2D.X, b2D.Z,
-        WorldConfig.CENTERLINE_WIDTH_STUDS,
+        a2D.X + px * o, a2D.Z + pz * o, b2D.X + px * o, b2D.Z + pz * o,
+        lineWidth,
         WorldConfig.CENTERLINE_THICKNESS_STUDS,
         WorldConfig.MARKING_MATERIAL,
         WorldConfig.CENTERLINE_COLOR,
@@ -1079,6 +1096,7 @@ local function buildCenterLine(markingsFolder, road, roadWidth)
             CW_RoadClass = tostring(road.road_class or ""),
         }
     )
+    end
 end
 
 -- ---------------------------------------------------------------------------

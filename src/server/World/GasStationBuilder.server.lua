@@ -266,7 +266,27 @@ local function buildStore(model, st, fascia, accent, textColor, frame, width, de
 	for _, side in ipairs({ -1, 1 }) do
 		make("SideWall", Vector3.new(0.8, h, depth), side * (W2 - 0.4), h / 2, 0, wall, Enum.Material.Brick)
 	end
-	make("Roof", Vector3.new(width + 0.6, 0.8, depth + 0.6), 0, h + 0.4, 0, roof, Enum.Material.Slate)
+	if s.roof == "gable" then
+		-- ridge along the shopfront, shingles down to the front and back walls
+		local rise = math.clamp(depth * 0.28, 4, 12)
+		for _, side in ipairs({ -1, 1 }) do
+			local w = Instance.new("WedgePart")
+			w.Name = "RoofSlope"
+			w.Anchored = true
+			w.Size = Vector3.new(width + 1.2, rise, D2 + 0.8)
+			-- a wedge's tall face is its +Z side: point it at the ridge
+			w.CFrame = frame * CFrame.new(0, h + rise / 2, side * (D2 + 0.8) / 2)
+				* CFrame.Angles(0, side == -1 and 0 or math.pi, 0)
+			w.Material = Enum.Material.Slate
+			w.Color = roof
+			w.TopSurface = Enum.SurfaceType.Smooth
+			w.BottomSurface = Enum.SurfaceType.Smooth
+			w.Parent = shop
+		end
+		make("Ceiling", Vector3.new(width, 0.4, depth), 0, h + 0.2, 0, wall)
+	else
+		make("Roof", Vector3.new(width + 0.6, 0.8, depth + 0.6), 0, h + 0.4, 0, roof, Enum.Material.Slate)
+	end
 	-- shopfront: glass either side of a centred door, brick piers, fascia over it
 	local fasciaH = math.clamp(h * 0.22, 2.4, 4.5)
 	local glassTop = h - fasciaH
@@ -283,7 +303,12 @@ local function buildStore(model, st, fascia, accent, textColor, frame, width, de
 	end
 	make("Sill", Vector3.new(width, 0.6, 0.9), 0, 0.6, -D2 + 0.4, wall, Enum.Material.Brick)
 	-- fascia: the shop's own name on the brand colour, or the fuel brand art
-	local board = make("ShopFascia", Vector3.new(width, fasciaH, 0.9), 0, glassTop + fasciaH / 2, -D2 + 0.3, fascia)
+	-- a shop with its own livery (US Gas: the blue check cashing sign)
+	local signBg, signAccent, signText = fascia, accent, textColor
+	if s.signColors then
+		signBg, signAccent, signText = rgb(s.signColors[1]), rgb(s.signColors[2]), rgb(s.signColors[3])
+	end
+	local board = make("ShopFascia", Vector3.new(width, fasciaH, 0.9), 0, glassTop + fasciaH / 2, -D2 + 0.3, signBg)
 	if s.sign then
 		local gui = Instance.new("SurfaceGui")
 		gui.Face = Enum.NormalId.Front
@@ -291,8 +316,20 @@ local function buildStore(model, st, fascia, accent, textColor, frame, width, de
 		gui.PixelsPerStud = 16
 		gui.LightInfluence = 0.25
 		gui.Parent = board
-		box(gui, UDim2.fromScale(0, 0.82), UDim2.fromScale(1, 0.18), accent)
-		text(gui, s.sign, UDim2.fromScale(0.05, 0.1), UDim2.fromScale(0.9, 0.68), textColor, Enum.Font.GothamBlack)
+		if s.sign == "A-PLUS" then
+			-- Sunoco's A-Plus badge centred on the blue band (Street View)
+			local badge = box(gui, UDim2.fromScale(0.5, 0.12), UDim2.fromScale(0.26, 0.76), Color3.fromRGB(250, 250, 248))
+			badge.AnchorPoint = Vector2.new(0.5, 0)
+			local corner = Instance.new("UICorner")
+			corner.CornerRadius = UDim.new(0.2, 0)
+			corner.Parent = badge
+			text(badge, "A", UDim2.fromScale(0.04, 0.05), UDim2.fromScale(0.3, 0.9), Color3.fromRGB(226, 32, 40), Enum.Font.GothamBlack)
+			text(badge, "Plus", UDim2.fromScale(0.34, 0.15), UDim2.fromScale(0.62, 0.7), Color3.fromRGB(236, 120, 30), Enum.Font.GothamBold)
+			box(gui, UDim2.fromScale(0, 0.9), UDim2.fromScale(1, 0.1), signAccent)
+		else
+			box(gui, UDim2.fromScale(0, 0.82), UDim2.fromScale(1, 0.18), signAccent)
+			text(gui, s.sign, UDim2.fromScale(0.05, 0.1), UDim2.fromScale(0.9, 0.68), signText, Enum.Font.GothamBlack)
+		end
 	else
 		artPanel(board, st, { Enum.NormalId.Front }, fascia, accent, textColor, 16)
 	end
@@ -403,8 +440,10 @@ for _, st in ipairs(Stations) do
 			local postH, priceH, brandH = 3.2 * V, 2.4 * V, 1.9 * V
 			part(model, "SignBase", Vector3.new(W * 0.7, 1.2, 2.4 * H * 0.7), base * CFrame.new(0, 0.6, 0),
 				Enum.Material.Concrete, CONCRETE)
+			-- post / frame in the pylon's own colour where it differs (Eagle Fuel: red)
+			local postColor = st.post and rgb(st.post) or fascia
 			part(model, "SignPost", Vector3.new(0.9 * H, postH, 0.9 * H), base * CFrame.new(0, postH / 2, 0),
-				Enum.Material.SmoothPlastic, fascia)
+				Enum.Material.SmoothPlastic, postColor)
 			local priceBoard = part(model, "PriceBoard", Vector3.new(W, priceH, 1.2), base * CFrame.new(0, postH + priceH / 2, 0),
 				Enum.Material.SmoothPlastic, st.panel and rgb(st.panel) or fascia)
 			pricePanel(priceBoard, st, { Enum.NormalId.Front, Enum.NormalId.Back })

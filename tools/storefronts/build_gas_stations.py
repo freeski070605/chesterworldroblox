@@ -48,6 +48,9 @@ PRICE_STYLE = {
     "Lukoil": ((245, 245, 245), (220, 30, 36), ("REGULAR", "PLUS", "PREMIUM")),
     "US Gas": ((20, 20, 24), (255, 52, 40), ("REGULAR", "PLUS", "DIESEL")),
 }
+# pylon post / frame colour where it differs from the canopy fascia (Street
+# View: Eagle Fuel's pylon is red with the eagle emblem on top)
+PYLON_POST = {"Eagle Fuel": (206, 38, 44)}
 PRICES = {
     "cw_98a00d067e": (2.97, 3.57, 3.89),
     "cw_28a6741d42": (3.49, 4.09, 4.29),
@@ -65,8 +68,14 @@ DEFAULT_PRICES = {"Sunoco": (3.39, 3.99, 4.19), "Eagle Fuel": (3.19, 3.79, 4.09)
 #   behind:    kiosk this many metres behind the canopy (away from the street)
 # sign: the shop's own fascia text (None = the fuel brand artwork)
 STORES = {
-    "cw_687c501096": {"footprint": ("191030", 0), "sign": "A-PLUS"},        # Sunoco 700 W 9th
-    "cw_fefc0bb360": {"footprint": ("50221", 1), "sign": None},             # US Gas kiosk
+    # Sunoco 700 W 9th (9th & Kerlin): white walls, grey shingle gable roof,
+    # blue band with the A-Plus badge (Street View 2024)
+    "cw_687c501096": {"footprint": ("191030", 0), "sign": "A-PLUS", "roof": "gable",
+                      "wall": (236, 236, 232), "roofColor": (104, 106, 112)},
+    # US Gas: the white building at the canopy's east end is the check cashing
+    # office (blue sign on Street View) that doubles as the station's shop
+    "cw_fefc0bb360": {"footprint": ("50221", 1), "sign": "CHECK CASHING",
+                      "sign_colors": ((28, 70, 160), (240, 190, 40), (255, 255, 255))},
     "cw_28a6741d42": {"footprint": ("40026", 1), "sign": "A-PLUS"},         # Sunoco 2200 Edgmont
     "cw_1ab25071e5": {"footprint": ("122402", "nearest"), "sign": "FOOD MART / DELI"},  # Sunoco 2nd St
     "cw_5f192ec41c": {"under": ("sw_end", 0.0), "size": (9.0, 4.6), "sign": "MINI-MART"},  # Lukoil
@@ -76,9 +85,20 @@ STORES = {
     # another business) - no EXIT 6 store
 }
 KIOSK_H_M = 3.4
-# Pylon spot fixes from Street View: the 9th & Kerlin Sunoco's sign stands on
-# Concord Ave in front of the shop, not beside the canopies.
-SIGN_ON_ROAD_IN_FRONT_OF_STORE = {"cw_687c501096": "Concord"}
+# Pylon spot fixes from Street View (9th & Kerlin captures, 2024): the pylon
+# stands at the lot corner where the two named streets meet.
+SIGN_AT_CORNER = {
+    # Sunoco: SE corner by the 9th St crosswalk, board facing Kerlin traffic
+    # (first road = the one the board runs along)
+    "cw_687c501096": ("Kerlin", "9th"),
+}
+# measured off the gridded aerial (tools/harness/aerial_grid.py): the Eagle
+# Fuel lot corner at Kerlin / Concord; the county Concord centreline meets
+# Kerlin ~10 m south of the real road there, so the corner rule lands short
+SIGN_FIXED = {
+    "cw_ab912b6f80": [2699.0, 1383.0, 152.0],
+}
+SIGN_ON_ROAD_IN_FRONT_OF_STORE = {}
 
 # pylon placement: just inside the lot, behind the sidewalk of a public street
 SIGN_SETBACK = 5.0      # studs past the back of the sidewalk
@@ -230,7 +250,11 @@ def build_store(sid, canopies, sign, records):
             which = min(range(len(studs)), key=lambda i: math.hypot(studs[i][0] - ccx, studs[i][1] - ccz))
         x, z, rl, rw = studs[which]
         box = store_box(x, z, rl, rw, a, (ccx, ccz))
-        return {"box": box, "h": round(max(h * S, 10.0), 1), "model": bid, "rc": rc, "wc": wc, "sign": spec["sign"]}
+        wall, roofc = spec.get("wall"), spec.get("roofColor")
+        return {"box": box, "h": round(max(h * S, 10.0), 1), "model": bid,
+                "rc": (roofc[0] << 16 | roofc[1] << 8 | roofc[2]) if roofc else rc,
+                "wc": (wall[0] << 16 | wall[1] << 8 | wall[2]) if wall else wc, "sign": spec["sign"],
+                "sign_colors": spec.get("sign_colors"), "roof": spec.get("roof")}
     ln, wd = spec["size"][0] * STUDS_PER_M, spec["size"][1] * STUDS_PER_M
     if "under" in spec:
         u, v = spec["under"]
@@ -251,7 +275,37 @@ def build_store(sid, canopies, sign, records):
         d = W / 2 + spec["behind"] * STUDS_PER_M + wd / 2
         x, z = cx0 + ez[0] * side * d, cz0 + ez[1] * side * d
         box = store_box(x, z, ln, wd, yaw, (cx0, cz0))
-    return {"box": box, "h": round(KIOSK_H_M * 3.0, 1), "model": None, "rc": None, "wc": None, "sign": spec["sign"]}
+    return {"box": box, "h": round(KIOSK_H_M * 3.0, 1), "model": None, "rc": None, "wc": None, "sign": spec["sign"],
+            "sign_colors": spec.get("sign_colors")}
+
+
+def sign_at_corner(canopies, road_a, road_b, named_roads):
+    """Pylon where the setback lines of two named streets cross, on the
+    station's side (nearest the canopies), clear of carriageways / sidewalks."""
+    from shapely.geometry import Point
+    from shapely.ops import unary_union
+    cx = sum(c["box"][0] for c in canopies) / len(canopies)
+    cz = sum(c["box"][1] for c in canopies) / len(canopies)
+    here = Point(cx, cz)
+    def pick(name):
+        return [(seg, half) for seg, half, n in named_roads
+                if name.lower() in n.lower() and seg.distance(here) < 400]
+    ra, rb = pick(road_a), pick(road_b)
+    if not ra or not rb:
+        return None
+    la = unary_union([seg.buffer(h + SIGN_SETBACK, cap_style=2) for seg, h in ra]).boundary
+    lb = unary_union([seg.buffer(h + SIGN_SETBACK, cap_style=2) for seg, h in rb]).boundary
+    blocked = unary_union([seg.buffer(h + 1.0, cap_style=2) for seg, h, _ in named_roads
+                           if seg.distance(here) < 400])
+    pts = la.intersection(lb)
+    pts = [g for g in getattr(pts, "geoms", [pts]) if g.geom_type == "Point" and not blocked.contains(g)]
+    if not pts:
+        return None
+    p = min(pts, key=lambda g: g.distance(here))
+    seg = min(ra, key=lambda r: r[0].distance(p))[0]
+    (x1, z1), (x2, z2) = seg.coords[0], seg.coords[-1]
+    bearing = math.degrees(math.atan2(x2 - x1, -(z2 - z1))) % 360
+    return [round(p.x, 1), round(p.y, 1), round(bearing, 1)]
 
 
 def sign_in_front_of_store(store, road_name, named_roads):
@@ -331,6 +385,12 @@ def main():
         placed = place_sign(canopies, roads, foot)
         if placed:
             sign = placed
+        if b["id"] in SIGN_FIXED:
+            sign = list(SIGN_FIXED[b["id"]])
+        if b["id"] in SIGN_AT_CORNER:
+            corner = sign_at_corner(canopies, *SIGN_AT_CORNER[b["id"]], NAMED_ROADS)
+            if corner:
+                sign = corner
         store = build_store(b["id"], canopies, sign, RECORDS)
         if store and b["id"] in SIGN_ON_ROAD_IN_FRONT_OF_STORE:
             fixed = sign_in_front_of_store(store, SIGN_ON_ROAD_IN_FRONT_OF_STORE[b["id"]], NAMED_ROADS)
@@ -359,11 +419,16 @@ def main():
         so = st["store"]
         store = "nil"
         if so:
-            store = "{box={%s},h=%s,model=%s,rc=%s,wc=%s,sign=%s}" % (
+            sc = so.get("sign_colors")
+            store = "{box={%s},h=%s,model=%s,rc=%s,wc=%s,sign=%s,signColors=%s,roof=%s}" % (
                 ",".join(str(v) for v in so["box"]), so["h"], lua_str(so["model"]) if so["model"] else "nil",
                 "0x%06x" % so["rc"] if so["rc"] is not None else "nil",
                 "0x%06x" % so["wc"] if so["wc"] is not None else "nil",
-                lua_str(so["sign"]) if so["sign"] else "nil")
+                lua_str(so["sign"]) if so["sign"] else "nil",
+                "{%s}" % ",".join("{%d,%d,%d}" % c for c in sc) if sc else "nil",
+                lua_str(so["roof"]) if so.get("roof") else "nil")
+        post = PYLON_POST.get(st["brand"])
+        price += ",post=%s" % ("{%d,%d,%d}" % post if post else "nil")
         lines.append("\t{id=%s,name=%s,brand=%s,address=%s,colors={%s},sign=%s,%s,canopies={%s},store=%s}," % (
             lua_str(st["id"]), lua_str(st["name"]), lua_str(st["brand"]), lua_str(st["address"]), col, sign,
             price, cans, store))

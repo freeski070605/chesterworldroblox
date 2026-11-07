@@ -214,7 +214,26 @@ local YIELD_KEYS = {
 	[Enum.KeyCode.DPadUp] = true, [Enum.KeyCode.DPadDown] = true, [Enum.KeyCode.DPadLeft] = true,
 	[Enum.KeyCode.DPadRight] = true, [Enum.KeyCode.ButtonR1] = true,
 }
+-- a prompt in reach right now (PromptShown is not reliable for prompts the
+-- client builds itself, e.g. the house decorator's front doors)
+local promptParams = OverlapParams.new()
+promptParams.MaxParts = 60
+local function promptInReach()
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	if not root then return false end
+	promptParams.FilterType = Enum.RaycastFilterType.Exclude
+	promptParams.FilterDescendantsInstances = { char }
+	for _, p in ipairs(Workspace:GetPartBoundsInRadius(root.Position, 10, promptParams)) do
+		for _, c in ipairs(p:GetChildren()) do
+			if c:IsA("ProximityPrompt") and c.Enabled then return true end
+		end
+	end
+	return false
+end
+
 local function gameplayOwns(code)
+	if (code == Enum.KeyCode.F or code == Enum.KeyCode.X or code == Enum.KeyCode.ButtonY) and promptInReach() then return true end
 	-- on foot, D-pad Up opens the EXIT 6 phone (Exit6Phone.client); in flight it is the speed tier
 	if code == Enum.KeyCode.DPadUp and not flying then return true end
 	return YIELD_KEYS[code] and (anyPrompt() or player:GetAttribute("Exit6Context") ~= nil)

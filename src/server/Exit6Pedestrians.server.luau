@@ -61,9 +61,20 @@ local function link(a, b, kind)
 	nodes[a].links[b] = kind
 	nodes[b].links[a] = kind
 end
+-- the tile folders' own <name> folders (never world:GetDescendants() - the
+-- city is over a million instances: a memory spike and a long server freeze)
+local function tileFolders(name)
+	local out = {}
+	for _, tile in ipairs(world:GetChildren()) do
+		local f = tile:FindFirstChild(name)
+		if f then table.insert(out, f) end
+	end
+	return out
+end
 local strips = 0
-for _, folder in ipairs(world:GetDescendants()) do
-	if folder.Name == "Sidewalks" and folder:IsA("Folder") then
+for _, folder in ipairs(tileFolders("Sidewalks")) do
+	task.wait()
+	do
 		for _, s in ipairs(folder:GetChildren()) do
 			if s:IsA("BasePart") and inRegion(s.Position) then
 				local cf, size = s.CFrame, s.Size

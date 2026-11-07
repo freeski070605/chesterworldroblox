@@ -191,6 +191,9 @@ WorldConfig.TESTER_USER_IDS = {}
 WorldConfig.REAL_BUILDINGS_REGION = { minX = 1900, maxX = 3500, minZ = 800, maxZ = 2300 }
 -- every home (lite house kit) and store in the city is a real building; the
 -- region above keeps the full-detail kit (modelled windows, back doors)
+-- (outside the region the homes' house kit is built on each client near them -
+-- Exit6HouseDecor.client - the server keeps the plain block: building the kit
+-- on the server city-wide disconnected Xbox, error 279, 2026-11-07)
 WorldConfig.REAL_BUILDINGS_ALL = true
 -- single buildings outside the region that are built real too (walk-in
 -- stores the gameplay needs): county OBJECTID -> true

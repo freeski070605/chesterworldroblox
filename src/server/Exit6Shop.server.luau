@@ -322,7 +322,9 @@ local function setup(model)
 	-- the cashier stands behind the counter, facing the door (anchor -Z)
 	local behind = counter.CFrame * CFrame.new(0, -counter.Size.Y / 2, counter.Size.Z / 2 + 2)
 	local face = CFrame.lookAt(behind.Position, behind.Position + anchor.CFrame.LookVector)
-	cashier(store, face, nextId)
+	-- the cashier is spawned while a player is nearby (see the loop below):
+	-- ~360 stores city-wide, so not 360 Humanoids at once
+	store.cashierCf, store.seed = face, nextId
 	local buy = prompt(register, "Buy", title, 0)
 	buy.Triggered:Connect(function(player)
 		if not ready(player) then return end
@@ -343,3 +345,33 @@ for _, tag in ipairs({ "Exit6GasStation", "Exit6Store" }) do
 	for _, m in ipairs(CollectionService:GetTagged(tag)) do task.spawn(setup, m) end
 	CollectionService:GetInstanceAddedSignal(tag):Connect(function(m) task.spawn(setup, m) end)
 end
+
+-- cashiers come and go with the players: a store within CASHIER_NEAR of anyone
+-- gets its cashier, one nobody has been near for a while loses it
+local CASHIER_NEAR, CASHIER_FAR = 220, 320
+task.spawn(function()
+	while true do
+		task.wait(2)
+		local roots = {}
+		for _, pl in ipairs(Players:GetPlayers()) do
+			local r = root(pl)
+			if r then table.insert(roots, r.Position) end
+		end
+		local n = 0
+		for _, store in pairs(stores) do
+			if store.cashierCf and store.model.Parent then
+				local p = store.counter.Position
+				local nearest = math.huge
+				for _, rp in ipairs(roots) do nearest = math.min(nearest, (rp - p).Magnitude) end
+				if nearest < CASHIER_NEAR and not (store.npc and store.npc.Parent) then
+					store.npc = cashier(store, store.cashierCf, store.seed)
+					n += 1
+					if n % 4 == 0 then task.wait() end
+				elseif nearest > CASHIER_FAR and store.npc then
+					store.npc:Destroy()
+					store.npc = nil
+				end
+			end
+		end
+	end
+end)

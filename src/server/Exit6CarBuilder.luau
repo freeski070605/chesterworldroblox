@@ -2,6 +2,7 @@
 -- The chassis is the only physical part; the body is welded, massless trim.
 -- Physics attributes for Exit6CarPhysics are written on the model.
 local Players = game:GetService("Players")
+local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Catalog = require(Shared:WaitForChild("Exit6Catalog"))
@@ -60,12 +61,28 @@ local function seatAt(model, chassis, class, name, offset)
 	return s
 end
 
+-- mesh bodies (Studio mesh generation, kept in the place file - not in Rojo):
+-- ServerStorage.Exit6CarMeshes.<body> is a Model normalised by
+-- tools/harness/car_mesh_templates.luau - pivot on the ground under the
+-- centre, front toward -Z - with parts Body, FrontLeftWheel, FrontRightWheel,
+-- RearLeftWheel, RearRightWheel and attributes Len, Wid, WheelBase,
+-- TrackHalf, Radius, SeatY. A body with a template uses it; otherwise the
+-- part-built body below.
+local function template(body)
+	local folder = ServerStorage:FindFirstChild("Exit6CarMeshes")
+	return folder and folder:FindFirstChild(body)
+end
+
 -- modelId: Catalog.Vehicles key. opts: { owner = Player, paint = Color3, fuel = gallons, display = bool }
 function Builder.Build(modelId, cf, opts)
 	opts = opts or {}
 	local spec = Catalog.Vehicles[modelId] or Catalog.Vehicles.sedan
 	local b = BODIES[spec.body] or BODIES.sedan
 	local len, wid = spec.len, spec.wid
+	local mesh = template(spec.body)
+	if mesh then
+		len, wid = mesh:GetAttribute("Len") or len, mesh:GetAttribute("Wid") or wid
+	end
 	local paint = opts.paint or Color3.fromRGB(148, 18, 28)
 	local model = Instance.new("Model")
 	model.Name = opts.owner and (opts.owner.Name .. "'s " .. spec.name) or spec.name
@@ -76,6 +93,12 @@ function Builder.Build(modelId, cf, opts)
 	model:SetAttribute("WheelMountY", -0.2)
 	model:SetAttribute("Rest", 1.4)
 	model:SetAttribute("Radius", 1.5)
+	if mesh then
+		-- the physics wheels sit where the mesh's wheels are
+		model:SetAttribute("WheelBase", mesh:GetAttribute("WheelBase"))
+		model:SetAttribute("TrackHalf", mesh:GetAttribute("TrackHalf"))
+		model:SetAttribute("Radius", mesh:GetAttribute("Radius"))
+	end
 	model:SetAttribute("TopSpeed", spec.topSpeed)
 	model:SetAttribute("EngineAccel", spec.accel)
 	model:SetAttribute("Tank", spec.tank)
@@ -95,9 +118,33 @@ function Builder.Build(modelId, cf, opts)
 
 	local half = len / 2
 	local bodyTop = -0.5 + b.bodyH
+	local cabFront = b.cabZ - b.cabLen / 2
+	if mesh then
+		-- the mesh body and wheels, welded to the chassis; the mesh pivot is on
+		-- the ground under the car's centre
+		local rest, radius = model:GetAttribute("Rest"), model:GetAttribute("Radius")
+		local ground = chassis.CFrame * CFrame.new(0, -(rest + radius - CarPhysics.Tuning.staticSag + 0.2), 0)
+		local copy = mesh:Clone()
+		copy:PivotTo(ground)
+		for _, p in ipairs(copy:GetDescendants()) do
+			if p:IsA("BasePart") then
+				p.Anchored = false
+				p.Massless = true
+				p.CanTouch = false
+				p.CanCollide = p.Name == "Body"
+				local w = Instance.new("WeldConstraint")
+				w.Part0, w.Part1 = chassis, p
+				w.Parent = p
+				p.Parent = model
+			end
+		end
+		copy:Destroy()
+		bodyTop = mesh:GetAttribute("SeatY") or 1.5
+		cabFront = -len * 0.2
+	else
 	weldPart(model, chassis, "Body", Vector3.new(wid, b.bodyH, len), CFrame.new(0, -0.5 + b.bodyH / 2, 0), paint, nil,
 		{ CanCollide = true })
-	local cabFront, cabBack = b.cabZ - b.cabLen / 2, b.cabZ + b.cabLen / 2
+	local cabBack = b.cabZ + b.cabLen / 2
 	if b.hood then
 		local hl = cabFront + half - 0.3
 		weldPart(model, chassis, "Hood", Vector3.new(wid - 0.3, 0.4, hl), CFrame.new(0, bodyTop + 0.15, -half + hl / 2 + 0.1)
@@ -145,9 +192,10 @@ function Builder.Build(modelId, cf, opts)
 		weldPart(model, chassis, "Rim", Vector3.new(1.25, 1.7, 1.7), CFrame.new(o.X + math.sign(o.X) * 0.37, y, o.Z), CHROME,
 			Enum.Material.Metal, { Shape = Enum.PartType.Cylinder })
 	end
+	end
 	if opts.display then return model end
 	-- seats: driver front-left, then passengers
-	local seatY = bodyTop - 0.1
+	local seatY = mesh and bodyTop or (bodyTop - 0.1)
 	local frontZ = cabFront + 2.6
 	local seat = seatAt(model, chassis, "VehicleSeat", "DriverSeat", CFrame.new(-(wid / 2 - 2.0), seatY, frontZ))
 	seatAt(model, chassis, "Seat", "PassengerSeat1", CFrame.new(wid / 2 - 2.0, seatY, frontZ))

@@ -1907,12 +1907,14 @@ local FACES = {
 	{ Enum.NormalId.Left, "z" }, { Enum.NormalId.Right, "z" },
 }
 
-local function applyFacade(block, styleKey, storey)
+-- onlyFaces: optional { [Enum.NormalId] = true } (the house kit skips the
+-- party walls between row units: ~40k textures city-wide)
+local function applyFacade(block, styleKey, storey, onlyFaces)
 	local facade = FACADES[FACADE_FOR_STYLE[styleKey] or ""]
 	if not facade then return end
 	local spans = { x = block.Size.X, z = block.Size.Z }
 	for _, face in ipairs(FACES) do
-		if spans[face[2]] >= facade.bay * 0.8 then
+		if spans[face[2]] >= facade.bay * 0.8 and (not onlyFaces or onlyFaces[face[1]]) then
 			local texture = Instance.new("Texture")
 			texture.Texture = facade.texture
 			texture.Face = face[1]
@@ -2220,6 +2222,7 @@ local function buildFootprintBuilding(parent, building, shapeData)
 	local built = 0
 	local signRect
 	local builtRects = {}
+	local kitRects, kitHomes = nil, false
 	-- real-building facades (RealBuildings.lua) inside WorldConfig.REAL_BUILDINGS_REGION
 	local realCtx
 	local region = WorldConfig.REAL_BUILDINGS_REGION
@@ -2311,7 +2314,18 @@ local function buildFootprintBuilding(parent, building, shapeData)
 				realShop = nil   -- a sliver section: too small to walk into (sign only)
 			end
 			local realHome = realCtx and not realShop and GROUND_FOR_STYLE[shapeData.style] == "residential"
+			-- outside the core the house kit is built on the clients near it
+			-- (Exit6HouseDecor.client); the server keeps the plain block and
+			-- leaves the description (Exit6Kit) - Xbox could not hold it city-wide
+			local decorHome = realHome and realCtx.lite
+			if decorHome then realHome = false end
 			if realHome then realCtx.homeBuilt = true end
+			if realCtx and realCtx.lite then
+				kitRects = kitRects or {}
+				table.insert(kitRects, string.format("%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%d", x, z, along, across, streetLevel, base,
+					wallTop, storey, decorHome and 1 or 0))
+				if decorHome then kitHomes = true end
+			end
 			if realShop or realHome then
 				local rr = { frame = frame, along = along, across = across, streetLevel = streetLevel, base = base,
 					wallTop = wallTop, storey = storey }
@@ -2426,6 +2440,12 @@ local function buildFootprintBuilding(parent, building, shapeData)
 			buildArchedFront(model, r, yaw, shapeData.lb)
 		end
 	end
+	if built > 0 and kitHomes and realCtx then
+		model:SetAttribute("Exit6Kit", string.format("%s|%s|%d|%.2f|%s|%s|%d,%d,%d|%.3f", tostring(realCtx.front or ""),
+			tostring(realCtx.corner or ""), realCtx.porch and 1 or 0, realCtx.porchDepth or 0, tostring(shapeData.style),
+			realCtx.material.Name, math.floor(realCtx.wall.R * 255 + 0.5), math.floor(realCtx.wall.G * 255 + 0.5),
+			math.floor(realCtx.wall.B * 255 + 0.5), shapeData.a) .. ";" .. table.concat(kitRects, ";"))
+	end
 	if built > 0 then
 		model.Parent = parent
 		return true
@@ -2494,9 +2514,15 @@ function TileBuilderV2.Build(tileModule)
 	buildIntersections(intersectionsFolder, markingsFolder, signsFolder, tileId)
 	local shapeModule = BuildingTiles and BuildingTiles:FindFirstChild(tileId)
 	local shapes = shapeModule and require(shapeModule)
+	-- yield on a time budget as well as a count: a live server must keep
+	-- answering the network while the city builds (Xbox error 279)
+	local sliceStart = os.clock()
 	for index, building in ipairs(tile.buildings or {}) do
 		buildBuilding(buildingsFolder, building, shapes)
-		if index % BUILDING_YIELD_EVERY == 0 then task.wait() end
+		if index % BUILDING_YIELD_EVERY == 0 or os.clock() - sliceStart > 0.015 then
+			task.wait()
+			sliceStart = os.clock()
+		end
 	end
 	return tileFolder
 end

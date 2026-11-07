@@ -15,7 +15,7 @@
 -- shop gets an Exit6StoreAnchor (local -Z = its door) in a model tagged
 -- Exit6Store, with the size / name attributes gameplay fits the interior from.
 local CollectionService = game:GetService("CollectionService")
-local HouseKit = require(script.Parent:WaitForChild("HouseKit"))
+local HouseKit = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("HouseKit"))
 
 local RealBuildings = {}
 

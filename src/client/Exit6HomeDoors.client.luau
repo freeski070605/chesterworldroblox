@@ -91,3 +91,21 @@ player:GetAttributeChangedSignal("Exit6Profile"):Connect(function()
 		if d:FindFirstChild("Exit6Enter") then refresh(d) end
 	end
 end)
+
+-- keep the doors right by you current (in / out, someone moved in): PromptShown
+-- is not reliable for the prompts on doors this client built itself
+local near = OverlapParams.new()
+near.MaxParts = 80
+task.spawn(function()
+	while true do
+		task.wait(0.5)
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if root then
+			near.FilterType = Enum.RaycastFilterType.Exclude
+			near.FilterDescendantsInstances = { player.Character }
+			for _, p in ipairs(workspace:GetPartBoundsInRadius(root.Position, 15, near)) do
+				if p:FindFirstChild("Exit6Enter") then refresh(p) end
+			end
+		end
+	end
+end)

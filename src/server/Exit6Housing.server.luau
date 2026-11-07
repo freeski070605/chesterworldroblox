@@ -19,7 +19,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Catalog = require(Shared:WaitForChild("Exit6Catalog"))
 local Profile = require(script.Parent:WaitForChild("Exit6Profile"))
 local Inventory = require(script.Parent:WaitForChild("Exit6Inventory"))
-local HouseKit = require(script.Parent:WaitForChild("World"):WaitForChild("HouseKit"))
+local HouseKit = require(Shared:WaitForChild("HouseKit"))
 local remotes = ReplicatedStorage:WaitForChild("Exit6Remotes")
 local function remote(class, name)
 	local r = Instance.new(class)
@@ -151,6 +151,70 @@ local function goThrough(player, door)
 	player.Character:PivotTo(isInside(door, root.Position) and doorstep(door) or inside(door))
 end
 
+-- ----------------------------------------------------------- client-decorated houses
+-- Outside the core the house kit exists only on the clients near each house
+-- (Exit6HouseDecor.client): the server has the plain block and the building's
+-- Exit6Kit description. The first time a home there is used (look inside /
+-- move in / wake up there), the server builds that one building for real -
+-- same inputs, same door ids - and the clients stop decorating it (KitServer).
+local OLD_HOME_PARTS = { Walls = true, GroundStorey = true, Foundation = true, Cornice = true, Roof = true }
+local OLD_PORCH = { PorchFloor = true, PorchRoof = true, PorchPost = true }
+local byBuilding = nil
+local function buildingModel(id)
+	if not byBuilding then
+		byBuilding = {}
+		local world = Workspace:FindFirstChild("ChesterWorld")
+		for _, tile in ipairs(world and world:GetChildren() or {}) do
+			local f = tile:FindFirstChild("Buildings")
+			for _, m in ipairs(f and f:GetChildren() or {}) do
+				if m:GetAttribute("Exit6Kit") then byBuilding[m:GetAttribute("ChesterBuildingId")] = m end
+			end
+			task.wait()
+		end
+	end
+	return byBuilding[id]
+end
+local function insideRect(r, p)
+	local l = r.frame:PointToObjectSpace(Vector3.new(p.X, 0, p.Z))
+	return math.abs(l.X) <= r.along / 2 + 0.5 and math.abs(l.Z) <= r.across / 2 + 0.5
+end
+local function materialise(buildingId)
+	local m = buildingModel(buildingId)
+	if not m or m:GetAttribute("KitServer") then return end
+	local ctx, homes = HouseKit.Decode(m:GetAttribute("Exit6Kit"))
+	-- the plain block of each home section, and the old porch
+	for _, c in ipairs(m:GetChildren()) do
+		if c:IsA("BasePart") then
+			if OLD_PORCH[c.Name] then
+				c:Destroy()
+			elseif OLD_HOME_PARTS[c.Name] then
+				for _, r in ipairs(homes) do
+					if insideRect(r, c.Position) then c:Destroy() break end
+				end
+			end
+		end
+	end
+	ctx.lite = true
+	ctx.buildingId = buildingId
+	ctx.applyFacade = HouseKit.ApplyFacade
+	ctx.stats = { frontDoors = 0, backDoors = 0, sideDoors = 0, rentals = 0 }
+	for _, r in ipairs(homes) do HouseKit.Build(m, r, ctx, HouseKit.H) end
+	-- register its doors now (not via the tag signal: no frame-ordering doubt)
+	for _, c in ipairs(m:GetChildren()) do
+		if c:IsA("BasePart") and c:GetAttribute("Exit6Rentable") and c:GetAttribute("Exit6HomeId") then
+			doors[c:GetAttribute("Exit6HomeId")] = c
+		end
+	end
+	m:SetAttribute("KitServer", true)
+end
+HouseKit.Materialise = materialise
+-- index the described buildings in the background once the city is up, so
+-- the first "look inside" out of the core doesn't wait for it
+task.spawn(function()
+	while not Workspace:GetAttribute("CW_StreetFurnitureComplete") do task.wait(2) end
+	buildingModel("")
+end)
+
 local function track(door)
 	local id = door:GetAttribute("Exit6HomeId")
 	if id and door:GetAttribute("Exit6Rentable") then doors[id] = door end
@@ -159,7 +223,13 @@ for _, d in ipairs(CollectionService:GetTagged("Exit6FrontDoor")) do track(d) en
 CollectionService:GetInstanceAddedSignal("Exit6FrontDoor"):Connect(track)
 
 HomeDoor.OnServerEvent:Connect(function(player, homeId, action)
-	local door = type(homeId) == "string" and doors[homeId]
+	if type(homeId) ~= "string" then return end
+	if not doors[homeId] then
+		-- a client-decorated house: build it for real (its doors get tracked)
+		materialise(string.match(homeId, "^(.-):%d+$") or "")
+		task.wait()
+	end
+	local door = doors[homeId]
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	if not door or not root or (root.Position - door.Position).Magnitude > DOOR_REACH then return end
 	if action == "movein" then
@@ -172,6 +242,10 @@ end)
 -- wake up at home
 local function spawnAtHome(player, char)
 	local p = Profile.Get(player)
+	if p and p.home and not doors[p.home.id] then
+		materialise(string.match(p.home.id, "^(.-):%d+$") or "")
+		task.wait()
+	end
 	local door = p and p.home and doors[p.home.id]
 	if not door then return end
 	local root = char:WaitForChild("HumanoidRootPart", 10)

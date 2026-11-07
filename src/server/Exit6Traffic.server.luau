@@ -54,9 +54,20 @@ end
 local function inRegion(p)
 	return p.X >= REGION.minX and p.X <= REGION.maxX and p.Z >= REGION.minZ and p.Z <= REGION.maxZ
 end
+-- the tile folders' own <name> folders (never world:GetDescendants() - the
+-- city is over a million instances: a memory spike and a long server freeze)
+local function tileFolders(name)
+	local out = {}
+	for _, tile in ipairs(world:GetChildren()) do
+		local f = tile:FindFirstChild(name)
+		if f then table.insert(out, f) end
+	end
+	return out
+end
 local ends = {}
-for _, f in ipairs(world:GetDescendants()) do
-	if f.Name == "Roads" and f:IsA("Folder") then
+for _, f in ipairs(tileFolders("Roads")) do
+	task.wait()
+	do
 		for _, p in ipairs(f:GetChildren()) do
 			if p:IsA("BasePart") and p:GetAttribute("ChesterStreet") and not p:GetAttribute("CW_HighwayProfiled")
 				and inRegion(p.Position) then

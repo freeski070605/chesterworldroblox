@@ -113,8 +113,15 @@ local SHOTS={
  -- close in: the city's atmosphere hazes anything ~500 studs off to grey
  {focus=BARRY,from=BARRY-ALONG*260+ACROSS*160+Vector3.new(0,10,0),to=BARRY+ALONG*260+ACROSS*160+Vector3.new(0,40,0),time=16},
  {focus=Vector3.new(2780,62,1505),from=Vector3.new(2690,64,1285),to=Vector3.new(2745,64,1390),time=11},
- {focus=Vector3.new(6150,40,1210),from=Vector3.new(6010,80,990),to=Vector3.new(6230,95,1000),time=13},
+ {focus=Vector3.new(6150,40,1210),from=Vector3.new(6010,80,990),to=Vector3.new(6230,95,1000),time=13,far=true},
 }
+-- Console (ten-foot UI): memory is tight - no far-off shot, and only the
+-- shots near spawn ask for streaming (the Barry model is Persistent). Pulling
+-- several distant city areas in at once crashed Xbox after the loading screen.
+local SPAWN=Vector3.new(2810,60,1518)
+if GuiService:IsTenFootInterface() then
+ for i=#SHOTS,1,-1 do if SHOTS[i].far then table.remove(SHOTS,i) end end
+end
 local cinematic=true
 local camera=Workspace.CurrentCamera
 task.spawn(function()
@@ -123,7 +130,9 @@ task.spawn(function()
  while cinematic do
   i=i%#SHOTS+1
   local shot=SHOTS[i]
-  pcall(function() player:RequestStreamAroundAsync(shot.focus,6) end)
+  if (shot.focus-SPAWN).Magnitude<600 then
+   pcall(function() player:RequestStreamAroundAsync(shot.focus,6) end)
+  end
   if not cinematic then break end
   camera.CameraType=Enum.CameraType.Scriptable
   local t0=os.clock()

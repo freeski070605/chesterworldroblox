@@ -32,6 +32,121 @@ local CollectionService = game:GetService("CollectionService")
 
 local HouseKit = {}
 
+-- geometry helpers (also used by the client decorator, Exit6HouseDecor.client:
+-- outside the 9th & Kerlin core the house kit is built on each client for the
+-- houses near it, not on the server - Xbox could not hold it city-wide)
+local DOOR_COLORS = {
+	Color3.fromRGB(92, 52, 38), Color3.fromRGB(46, 50, 56), Color3.fromRGB(122, 32, 34),
+	Color3.fromRGB(36, 70, 52), Color3.fromRGB(150, 130, 104), Color3.fromRGB(40, 56, 92),
+}
+local TRIM_C = Color3.fromRGB(232, 228, 216)
+local CONCRETE_C = Color3.fromRGB(176, 172, 164)
+local GLASS_C = Color3.fromRGB(150, 188, 205)
+local function hpart(parent, name, size, cframe, material, color)
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Anchored = true
+	p.Size = size
+	p.CFrame = cframe
+	p.Material = material or Enum.Material.SmoothPlastic
+	p.Color = color
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Parent = parent
+	return p
+end
+local function hfaceAxis(frame, bearingDeg)
+	local rad = math.rad(bearingDeg)
+	local dir = Vector3.new(math.sin(rad), 0, -math.cos(rad))
+	local best, bestDot
+	for _, n in ipairs({ Vector3.xAxis, -Vector3.xAxis, Vector3.zAxis, -Vector3.zAxis }) do
+		local d = frame:VectorToWorldSpace(n):Dot(dir)
+		if not bestDot or d > bestDot then best, bestDot = n, d end
+	end
+	return best
+end
+local function hfaceOf(r, n)
+	local half = (n.X ~= 0) and r.along / 2 or r.across / 2
+	local span = (n.X ~= 0) and r.across or r.along
+	local centre = r.frame * (n * half)
+	local normal = r.frame:VectorToWorldSpace(n)
+	return CFrame.lookAt(Vector3.new(centre.X, 0, centre.Z), Vector3.new(centre.X, 0, centre.Z) + normal), span, normal
+end
+local function hcovered(p, rects, self)
+	for _, o in ipairs(rects) do
+		if o ~= self then
+			local l = o.frame:PointToObjectSpace(Vector3.new(p.X, 0, p.Z))
+			if math.abs(l.X) < o.along / 2 - 0.1 and math.abs(l.Z) < o.across / 2 - 0.1 then return true end
+		end
+	end
+	return false
+end
+local function hdoor(parent, fcf, u, groundY, color, withStoop)
+	local lift = withStoop and 1.1 or 0.3
+	local function at(x, y, z) return fcf * CFrame.new(x, 0, z) + Vector3.new(0, y, 0) end
+	hpart(parent, "DoorTrim", Vector3.new(4.8, 8.9, 0.3), at(u, groundY + lift + 4.45, -0.12), Enum.Material.SmoothPlastic, TRIM_C)
+	local d = hpart(parent, "Door", Vector3.new(3.6, 7.3, 0.35), at(u, groundY + lift + 3.65, -0.22), Enum.Material.Wood, color)
+	local transom = hpart(parent, "Transom", Vector3.new(3.6, 0.9, 0.3), at(u, groundY + lift + 7.9, -0.2), Enum.Material.Glass, GLASS_C)
+	transom.Transparency = 0.3
+	hpart(parent, "DoorKnob", Vector3.new(0.3, 0.3, 0.3), at(u + 1.25, groundY + lift + 3.4, -0.45), Enum.Material.Metal,
+		Color3.fromRGB(196, 170, 96))
+	if withStoop then
+		hpart(parent, "Stoop", Vector3.new(5.4, 1.1, 3.0), at(u, groundY + 0.55, -1.5), Enum.Material.Concrete, CONCRETE_C)
+		hpart(parent, "StoopStep", Vector3.new(5.4, 0.55, 1.4), at(u, groundY + 0.275, -3.6), Enum.Material.Concrete, CONCRETE_C)
+	else
+		hpart(parent, "DoorPad", Vector3.new(4.6, 0.3, 2.2), at(u, groundY + 0.15, -1.1), Enum.Material.Concrete, CONCRETE_C)
+	end
+	return d
+end
+HouseKit.H = {
+	part = hpart, faceAxis = hfaceAxis, faceOf = hfaceOf, covered = hcovered, door = hdoor,
+	DOOR_COLORS = DOOR_COLORS, TRIM = TRIM_C, CONCRETE = CONCRETE_C, UNIT_STUDS = 19.2,
+}
+-- the residential window texture (TileBuilderV2 FACADES.residential)
+local RES_TEXTURE, RES_BAY = "rbxassetid://87121421598977", 8
+local FACE_SPAN = {
+	{ Enum.NormalId.Front, "x" }, { Enum.NormalId.Back, "x" }, { Enum.NormalId.Left, "z" }, { Enum.NormalId.Right, "z" },
+}
+function HouseKit.ApplyFacade(block, styleKey, storey, onlyFaces)
+	local spans = { x = block.Size.X, z = block.Size.Z }
+	for _, face in ipairs(FACE_SPAN) do
+		if spans[face[2]] >= RES_BAY * 0.8 and (not onlyFaces or onlyFaces[face[1]]) then
+			local t = Instance.new("Texture")
+			t.Texture = RES_TEXTURE
+			t.Face = face[1]
+			t.StudsPerTileU = RES_BAY
+			t.StudsPerTileV = storey
+			t.Parent = block
+		end
+	end
+end
+
+-- the packed per-building description the server leaves for the client
+-- decorator: "front|corner|porch|pd|style|material|r,g,b|yaw" then one
+-- ";x,z,along,across,streetLevel,base,wallTop,storey,home" per rect
+function HouseKit.Decode(s)
+	local parts = string.split(s, ";")
+	local h = string.split(parts[1], "|")
+	local col = string.split(h[7], ",")
+	local ok, mat = pcall(function() return Enum.Material[h[6]] end)
+	local yaw = CFrame.Angles(0, math.rad(tonumber(h[8]) or 0), 0)
+	local rects, homes = {}, {}
+	for i = 2, #parts do
+		local v = string.split(parts[i], ",")
+		local r = { frame = CFrame.new(tonumber(v[1]), 0, tonumber(v[2])) * yaw, along = tonumber(v[3]), across = tonumber(v[4]),
+			streetLevel = tonumber(v[5]), base = tonumber(v[6]), wallTop = tonumber(v[7]), storey = tonumber(v[8]) }
+		r.x, r.z = tonumber(v[1]), tonumber(v[2])
+		table.insert(rects, r)
+		if v[9] == "1" then table.insert(homes, r) end
+	end
+	return {
+		front = tonumber(h[1]), corner = tonumber(h[2]), porch = h[3] == "1", porchDepth = tonumber(h[4]),
+		style = h[5], material = ok and mat or Enum.Material.Brick,
+		wall = Color3.fromRGB(tonumber(col[1]) or 150, tonumber(col[2]) or 80, tonumber(col[3]) or 60),
+		rects = rects,
+	}, homes
+end
+
 local SIDING = {
 	Color3.fromRGB(236, 236, 230), Color3.fromRGB(176, 178, 176), Color3.fromRGB(216, 202, 172),
 	Color3.fromRGB(226, 208, 146), Color3.fromRGB(124, 140, 154), Color3.fromRGB(154, 166, 144),
@@ -202,19 +317,24 @@ function HouseKit.Hollow(door)
 		end
 		return nil
 	end
-	local ref = door:FindFirstChild("KitSlice")
-	if not ref or not ref.Value or not door:GetAttribute("KitFcf") then return nil end
-	ref.Value:Destroy()
-	ref:Destroy()
+	local slice
+	local id = door:GetAttribute("Exit6HomeId")
+	for _, c in ipairs(door.Parent and door.Parent:GetChildren() or {}) do
+		if c:GetAttribute("Exit6Unit") == id then slice = c break end
+	end
+	if not slice or not door:GetAttribute("KitFcf") then return nil end
+	slice:Destroy()
 	door:SetAttribute("KitHollow", true)
-	local ok, mat = pcall(function() return Enum.Material[door:GetAttribute("KitMat")] end)
+	local k = string.split(door:GetAttribute("Kit") or "", "|")
+	if #k < 12 then return nil end
+	local ok, mat = pcall(function() return Enum.Material[k[11]] end)
 	local stash = buildInterior(door.Parent, {
-		fcf = door:GetAttribute("KitFcf"), u = door:GetAttribute("KitU"), w = door:GetAttribute("KitW"),
-		depth = door:GetAttribute("Exit6HomeDepth"), floorY = door:GetAttribute("KitFloorY"),
-		groundTop = door:GetAttribute("KitGroundTop"), wallTop = door:GetAttribute("KitWallTop"), base = door:GetAttribute("KitBase"),
-		doorU = door:GetAttribute("KitDoorU"), winU = door:GetAttribute("KitWinU"), side = door:GetAttribute("KitSide"),
-		hu = door:GetAttribute("KitSeed"), mat = ok and mat or Enum.Material.Brick, col = door:GetAttribute("KitCol"),
-		lite = door:GetAttribute("KitLite"), style = door:GetAttribute("Exit6HomeStyle"),
+		fcf = door:GetAttribute("KitFcf"), u = tonumber(k[1]), w = tonumber(k[2]),
+		depth = door:GetAttribute("Exit6HomeDepth"), floorY = tonumber(k[3]),
+		groundTop = tonumber(k[4]), wallTop = tonumber(k[5]), base = tonumber(k[6]),
+		doorU = tonumber(k[7]), winU = tonumber(k[8]), side = tonumber(k[9]),
+		hu = tonumber(k[10]), mat = ok and mat or Enum.Material.Brick, col = door:GetAttribute("KitCol"),
+		lite = k[12] == "1", style = door:GetAttribute("Exit6HomeStyle"),
 	})
 	if stash then
 		stash:SetAttribute("Exit6Stash", true)
@@ -347,7 +467,14 @@ function HouseKit.Build(model, r, ctx, H)
 		local sliceCf = fcf * CFrame.new(u, 0, depth / 2)
 		local block = solid("Walls", Vector3.new(w, wallH, depth), sliceCf + Vector3.new(0, (r.wallTop + r.base) / 2, 0), mat, col)
 		block:SetAttribute("GroundY", floorY)
-		if lite then ctx.applyFacade(block, ctx.style, storeyH) end
+		if lite then
+			-- window textures on the street and back faces; a row's end units also
+			-- on their open side (Left = slice -X = unit 1, Right = the last unit)
+			local faces = { [Enum.NormalId.Front] = true, [Enum.NormalId.Back] = true }
+			if units == 1 or i == 1 then faces[Enum.NormalId.Left] = true end
+			if units == 1 or i == units then faces[Enum.NormalId.Right] = true end
+			ctx.applyFacade(block, ctx.style, storeyH, faces)
+		end
 
 		-- front: door, ground window, upper windows
 		local doorColor = H.DOOR_COLORS[(hu % #H.DOOR_COLORS) + 1]
@@ -356,7 +483,6 @@ function HouseKit.Build(model, r, ctx, H)
 			-- door + trim (+ a stoop without a porch)
 			local lift = hasPorch and 0.3 or 1.1
 			local gy = r.streetLevel + 0.4
-			solid("DoorTrim", Vector3.new(4.8, 8.9, 0.3), at(fcf, doorU, gy + lift + 4.45, -0.12), Enum.Material.SmoothPlastic, H.TRIM)
 			d = solid("Door", Vector3.new(3.6, 7.3, 0.35), at(fcf, doorU, gy + lift + 3.65, -0.22), Enum.Material.Wood, doorColor)
 			if not hasPorch then
 				solid("Stoop", Vector3.new(5.4, 1.1, 3.0), at(fcf, doorU, gy + 0.55, -1.5), Enum.Material.Concrete, H.CONCRETE)
@@ -364,7 +490,6 @@ function HouseKit.Build(model, r, ctx, H)
 		else
 			d = H.door(model, fcf, doorU, r.streetLevel + 0.4, doorColor, not hasPorch)
 		end
-		CollectionService:AddTag(d, "Exit6FrontDoor")
 		ctx.homeDoors = (ctx.homeDoors or 0) + 1
 		d:SetAttribute("Exit6HomeId", tostring(ctx.buildingId) .. ":" .. ctx.homeDoors)
 		d:SetAttribute("Exit6HomeStyle", ctx.style)
@@ -387,26 +512,19 @@ function HouseKit.Build(model, r, ctx, H)
 			-- for rent; how to rebuild this unit's ground floor (HouseKit.Hollow)
 			d:SetAttribute("Exit6Rentable", true)
 			d:SetAttribute("Exit6HomeDepth", depth)
+			-- packed: 3 attributes a door, not 14 (~20k doors city-wide)
 			d:SetAttribute("KitFcf", fcf)
-			d:SetAttribute("KitU", u)
-			d:SetAttribute("KitW", w)
-			d:SetAttribute("KitFloorY", floorY)
-			d:SetAttribute("KitGroundTop", groundTop)
-			d:SetAttribute("KitWallTop", r.wallTop)
-			d:SetAttribute("KitBase", r.base)
-			d:SetAttribute("KitDoorU", doorU)
-			d:SetAttribute("KitWinU", winU)
-			d:SetAttribute("KitSide", side)
-			d:SetAttribute("KitSeed", hu)
-			d:SetAttribute("KitMat", mat.Name)
 			d:SetAttribute("KitCol", col)
-			d:SetAttribute("KitLite", lite)
-			local ref = Instance.new("ObjectValue")
-			ref.Name = "KitSlice"
-			ref.Value = block
-			ref.Parent = d
+			d:SetAttribute("Kit", string.format("%.2f|%.2f|%.2f|%.2f|%.2f|%.2f|%.2f|%.2f|%d|%d|%s|%d",
+				u, w, floorY, groundTop, r.wallTop, r.base, doorU, winU, side, hu, mat.Name, lite and 1 or 0))
+			-- the slice is found again by this mark (no ObjectValue per door; the
+			-- name stays "Walls" - HighwayInfrastructure trims buildings by it)
+			block:SetAttribute("Exit6Unit", d:GetAttribute("Exit6HomeId"))
 			stats.rentals = (stats.rentals or 0) + 1
 		end
+		-- tagged last, once its attributes are set: a listener that runs at the
+		-- moment of tagging (live servers) must already see the home id
+		CollectionService:AddTag(d, "Exit6FrontDoor")
 
 		-- porch (per unit) or the stoop the door already has
 		if hasPorch then
@@ -422,7 +540,7 @@ function HouseKit.Build(model, r, ctx, H)
 				solid("PorchFascia", Vector3.new(w + 0.1, 0.9, 0.3), at(fcf, u, roofY - 0.3, -porchDepth - 0.1), Enum.Material.SmoothPlastic, trim)
 			end
 			for _, s in ipairs({ -1, 1 }) do
-				if s == -1 or i == units then
+				if (s == -1 and (not lite or i == 1)) or (s == 1 and i == units) then
 					local post = solid("PorchPost", Vector3.new(0.7, roofY - pf, 0.7), at(fcf, u + s * (w / 2 - 0.45), (roofY + pf) / 2, -porchDepth + 0.5),
 						Enum.Material.SmoothPlastic, trim)
 					post.CanCollide = false
@@ -464,7 +582,7 @@ function HouseKit.Build(model, r, ctx, H)
 				if not lite then
 					solid("ParapetBand", Vector3.new(w, 0.6, 0.9), at(fcf, u, py - 1.2, -0.25), Enum.Material.Concrete, STONE)
 				end
-				local merlons = lite and 1 or math.max(3, math.floor(w / 3.2))
+				local merlons = lite and 0 or math.max(3, math.floor(w / 3.2))
 				for m = 1, merlons do
 					local mu = u - w / 2 + (m - 0.5) * (w / merlons)
 					local centreBoost = (m == math.ceil(merlons / 2)) and 1.6 or 0

@@ -122,7 +122,25 @@ local function call(player, modelId)
 	local right = Vector3.new(-spot.axis.Z, 0, spot.axis.X)
 	local side = (root.Position - spot.pos):Dot(right) >= 0 and 1 or -1
 	local facing = spot.axis * side
-	local pos = spot.pos + right * side * math.max(0, spot.width / 2 - 5) + Vector3.new(0, 3.2, 0)
+	-- slide along the kerb to a spot with nothing standing in the car's way
+	-- (a signal pole, a bench, a wall); road-level parts don't count
+	local spec = Catalog.Vehicles[modelId]
+	local blockParams = OverlapParams.new()
+	blockParams.FilterType = Enum.RaycastFilterType.Exclude
+	blockParams.FilterDescendantsInstances = { Workspace.Terrain, player.Character, folder }
+	local function clear(at)
+		local cf = CFrame.lookAt(at, at + facing)
+		for _, b in ipairs(Workspace:GetPartBoundsInBox(cf, Vector3.new(spec.wid + 1, 5, spec.len + 1), blockParams)) do
+			if b.Position.Y + b.Size.Y / 2 > spot.pos.Y + 1.2 and b.CanCollide then return false end
+		end
+		return true
+	end
+	local base = spot.pos + right * side * math.max(0, spot.width / 2 - 5)
+	local pos = base + Vector3.new(0, 3.2, 0)
+	for _, t in ipairs({ 0, 12, -12, 24, -24, 36, -36, 48, -48 }) do
+		local at = base + spot.axis * t + Vector3.new(0, 3.2, 0)
+		if clear(at) then pos = at break end
+	end
 	local car = Builder.Build(modelId, CFrame.lookAt(pos, pos + facing),
 		{ owner = player, paint = paintFor(player, modelId), fuel = prof.vehicles[modelId].fuel })
 	car.Parent = folder
@@ -272,8 +290,17 @@ end
 local function findLot(near)
 	local region = require(Shared:WaitForChild("WorldConfig")).REAL_BUILDINGS_REGION
 	local cands = {}
-	for _, p in ipairs(world and world:GetDescendants() or {}) do
-		if p:IsA("BasePart") and p.Parent and p.Parent.Name == "Roads" and p:GetAttribute("ChesterStreet")
+	-- the tiles' Roads folders only (never world:GetDescendants(): a million instances)
+	local roads = {}
+	for _, tile in ipairs(world and world:GetChildren() or {}) do
+		local f = tile:FindFirstChild("Roads")
+		if f then
+			task.wait()
+			for _, p in ipairs(f:GetChildren()) do table.insert(roads, p) end
+		end
+	end
+	for _, p in ipairs(roads) do
+		if p:IsA("BasePart") and p:GetAttribute("ChesterStreet")
 			and not p:GetAttribute("CW_HighwayProfiled") then
 			local pos = p.Position
 			if pos.X > region.minX and pos.X < region.maxX and pos.Z > region.minZ and pos.Z < region.maxZ then
@@ -333,8 +360,9 @@ local function buildDealership()
 	m.Name = DEALER_NAME
 	-- lot: asphalt, painted bays, kerb lights
 	block(m, "Lot", Vector3.new(LOT.X, 0.6, LOT.Z), lotCf * CFrame.new(0, 0.3, 0), Color3.fromRGB(58, 58, 62), Enum.Material.Asphalt)
-	for i = -3, 3 do
-		block(m, "BayLine", Vector3.new(0.4, 0.05, 14), lotCf * CFrame.new(i * 9, 0.62, -LOT.Z / 2 + 10), Color3.fromRGB(230, 230, 226))
+	-- five 13-stud bays along the front (the mesh cars are up to ~10 wide)
+	for i = 0, 5 do
+		block(m, "BayLine", Vector3.new(0.4, 0.05, 16), lotCf * CFrame.new(-32.5 + i * 13, 0.62, -LOT.Z / 2 + 10), Color3.fromRGB(230, 230, 226))
 	end
 	-- sales office at the back of the lot
 	local ow, od, oh = 26, 16, 12
@@ -393,7 +421,7 @@ local function buildDealership()
 	local shown = { "car_hatch", "car_pickup", "car_suv", "car_coupe", "car_van" }
 	for i, itemId in ipairs(shown) do
 		local item = Catalog.Items[itemId]
-		local x = -22.5 + (i - 1) * 9   -- between the painted bay lines
+		local x = -26 + (i - 1) * 13   -- between the painted bay lines
 		-- nose to the street (lot -Z)
 		local cf = lotCf * CFrame.new(x, 3.0, -LOT.Z / 2 + 10)
 		local car = Builder.Build(item.model, cf, { display = true, paint = PAINT[(i * 3) % #PAINT + 1] })

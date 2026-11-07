@@ -2109,6 +2109,37 @@ local function buildArchedFront(model, rect, yaw, bearing)
 	end
 end
 
+-- a business's own sign on its section of the building (tools/storefronts/
+-- add_store_identity.py: Overture places -> ss={{name, rect, bearing, bg, text}})
+local function buildShopSign(model, rect, yaw, name, bearing, bg, fg)
+	local frame = CFrame.new(rect.x, rect.bandY, rect.z) * yaw
+	local best = faceToward(frame, bearing)
+	local depth = (best.X ~= 0) and rect.along or rect.across
+	local span = (best.X ~= 0) and rect.across or rect.along
+	if span < 6 then return end
+	local width = math.clamp(span * 0.85, 6, 36)
+	local centre = frame * CFrame.new(best * (depth / 2 + 0.35))
+	local look = CFrame.lookAt(centre.Position, centre.Position + frame:VectorToWorldSpace(best))
+	local board = newPart(model, "ShopSign", Vector3.new(width, 2.6, 0.5), look, Enum.Material.SmoothPlastic, hexColor(bg))
+	board.CanCollide = false
+	board:SetAttribute("ShopName", name)
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 24
+	gui.LightInfluence = 0.4
+	gui.Parent = board
+	local text = Instance.new("TextLabel")
+	text.Size = UDim2.fromScale(0.94, 0.86)
+	text.Position = UDim2.fromScale(0.03, 0.07)
+	text.BackgroundTransparency = 1
+	text.Text = string.upper(name)
+	text.TextColor3 = hexColor(fg)
+	text.Font = Enum.Font.GothamBlack
+	text.TextScaled = true
+	text.Parent = gui
+end
+
 local function buildStoreSign(model, shapeData, rect, yaw)
 	local frame = CFrame.new(rect.x, rect.bandY, rect.z) * yaw
 	local best = faceToward(frame, shapeData.sb)
@@ -2187,7 +2218,7 @@ local function buildFootprintBuilding(parent, building, shapeData)
 	local built = 0
 	local signRect
 	local builtRects = {}
-	for _, rect in ipairs(shapeData.r) do
+	for rectIndex, rect in ipairs(shapeData.r) do
 		local x, z = sourceToStuds(rect[1], rect[2])
 		local along, across = math.max(rect[3] * S, 1), math.max(rect[4] * S, 1)
 		local frame = CFrame.new(x, 0, z) * yaw
@@ -2259,7 +2290,7 @@ local function buildFootprintBuilding(parent, building, shapeData)
 			end
 			built += 1
 			local area = along * across
-			local info = { x = x, z = z, along = along, across = across, area = area,
+			local info = { index = rectIndex - 1, x = x, z = z, along = along, across = across, area = area,
 				bandY = math.min(streetLevel + math.max(storey, 12) - 1.4, wallTop - 1.6),
 				streetLevel = streetLevel, porchTop = math.min(streetLevel + storey, wallTop - 1),
 				wallTop = wallTop, storey = storey }
@@ -2285,6 +2316,19 @@ local function buildFootprintBuilding(parent, building, shapeData)
 			end
 		end
 		buildStoreSign(model, shapeData, best, yaw)
+	end
+	if built > 0 and shapeData.ss then
+		local names = {}
+		for _, shop in ipairs(shapeData.ss) do
+			for _, r in ipairs(builtRects) do
+				if r.index == shop[2] then
+					buildShopSign(model, r, yaw, shop[1], shop[3], shop[4], shop[5])
+					table.insert(names, shop[1])
+					break
+				end
+			end
+		end
+		if #names > 0 then model:SetAttribute("Shops", table.concat(names, " | ")) end
 	end
 	if built > 0 and shapeData.pb and shapeData.pd and signRect then
 		buildPorch(model, shapeData, signRect, yaw)

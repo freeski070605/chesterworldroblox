@@ -2,19 +2,16 @@
   "name": "ChesterWorld",
   "tree": {
     "$className": "DataModel",
-
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"
       }
     },
-
     "ServerScriptService": {
       "Server": {
         "$path": "src/server"
       }
     },
-
     "StarterPlayer": {
       "StarterPlayerScripts": {
         "Client": {
@@ -22,11 +19,13 @@
         }
       }
     },
-
     "Workspace": {
       "$properties": {
         "StreamingEnabled": true
       }
+    },
+    "ReplicatedFirst": {
+      "$path": "src/loading"
     }
   }
 }

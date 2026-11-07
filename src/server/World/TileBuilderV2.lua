@@ -7,6 +7,8 @@ local Registry = require(Shared:WaitForChild("HighwayStructureRegistry"))
 
 local HighwayProfile = require(script.Parent:WaitForChild("HighwayProfile"))
 local RailProfile = require(script.Parent:WaitForChild("RailProfile"))
+local RealBuildings = require(script.Parent:WaitForChild("RealBuildings"))
+RealBuildings.stats = { frontDoors = 0, backDoors = 0, sideDoors = 0, storefronts = 0, shops = 0, homes = 0, stores = 0 }
 
 local TileBuilderV2 = {}
 
@@ -2218,6 +2220,57 @@ local function buildFootprintBuilding(parent, building, shapeData)
 	local built = 0
 	local signRect
 	local builtRects = {}
+	-- real-building facades (RealBuildings.lua) inside WorldConfig.REAL_BUILDINGS_REGION
+	local realCtx
+	local region = WorldConfig.REAL_BUILDINGS_REGION
+	if region and not landmark and shapeData.r[1] then
+		local fx, fz = sourceToStuds(shapeData.r[1][1], shapeData.r[1][2])
+		if fx >= region.minX and fx <= region.maxX and fz >= region.minZ and fz <= region.maxZ then
+			local rects = {}
+			for _, rc in ipairs(shapeData.r) do
+				local rx, rz = sourceToStuds(rc[1], rc[2])
+				table.insert(rects, { frame = CFrame.new(rx, 0, rz) * yaw, along = math.max(rc[3] * S, 1),
+					across = math.max(rc[4] * S, 1), x = rx, z = rz })
+			end
+			local shops = {}
+			local sbIndex
+			for _, sh in ipairs(shapeData.ss or {}) do
+				shops[sh[2]] = { name = sh[1], front = sh[3], corner = shapeData.fb2, placeId = sh[6], signBg = hexColor(sh[4]) }
+			end
+			if shapeData.sb and shapeData.name then
+				-- the verified store: the section reaching furthest toward its street front
+				local rad = math.rad(shapeData.sb)
+				local frontDir = Vector3.new(math.sin(rad), 0, -math.cos(rad))
+				local best, bestScore
+				for i, rr in ipairs(rects) do
+					if not shops[i - 1] then
+						local n = faceToward(rr.frame, shapeData.sb)
+						local extent = (n.X ~= 0) and rr.along / 2 or rr.across / 2
+						local score = Vector3.new(rr.x, 0, rr.z):Dot(frontDir) + extent
+						if not best or score > bestScore then best, bestScore = i - 1, score end
+					end
+				end
+				if best then
+					-- (fb: the face of the building nearest its street, from
+					-- tools/add_building_fronts.py; sb is only a direction)
+					shops[best] = { name = shapeData.name, front = shapeData.fb or shapeData.sb, corner = shapeData.fb2,
+						placeId = "survey", signBg = shapeData.sc and hexColor(shapeData.sc) or nil }
+					sbIndex = best
+				end
+			end
+			if shapeData.gs and next(shops) == nil and shapeData.fb then
+				-- a main-street shopfront ground floor with no named business
+				local big, bigArea = 0, -1
+				for i, rr in ipairs(rects) do
+					if rr.along * rr.across > bigArea then big, bigArea = i - 1, rr.along * rr.across end
+				end
+				shops[big] = { front = shapeData.fb, corner = shapeData.fb2 }
+			end
+			realCtx = { sbIndex = sbIndex, rects = rects, shops = shops, front = shapeData.fb, corner = shapeData.fb2,
+				porch = shapeData.pb ~= nil, style = shapeData.style, material = material, wall = wall,
+				seed = seed, buildingId = tostring(building.id), applyFacade = applyFacade, stats = RealBuildings.stats }
+		end
+	end
 	for rectIndex, rect in ipairs(shapeData.r) do
 		local x, z = sourceToStuds(rect[1], rect[2])
 		local along, across = math.max(rect[3] * S, 1), math.max(rect[4] * S, 1)
@@ -2246,7 +2299,22 @@ local function buildFootprintBuilding(parent, building, shapeData)
 			end
 			local streetLevel = centreGround - 0.4
 			local groundTop = streetLevel + (groundKind == "storefront" and math.max(storey, 12) or storey)
-			if groundKind and wallTop - groundTop >= 4 and math.min(along, across) >= 10 then
+			local realShop = realCtx and realCtx.shops[rectIndex - 1]
+			if realShop and math.min(along, across) < 12 then
+				realShop = nil   -- a sliver section: too small to walk into (sign only)
+			end
+			local realHome = realCtx and not realShop and GROUND_FOR_STYLE[shapeData.style] == "residential"
+			if realShop or realHome then
+				local rr = { frame = frame, along = along, across = across, streetLevel = streetLevel, base = base,
+					wallTop = wallTop, storey = storey }
+				if realShop then
+					RealBuildings.Store(model, rr, realCtx, realShop)
+					RealBuildings.stats.stores += 1
+				else
+					RealBuildings.Home(model, rr, realCtx)
+					RealBuildings.stats.homes += 1
+				end
+			elseif groundKind and wallTop - groundTop >= 4 and math.min(along, across) >= 10 then
 				-- ground storey (doors / shopfronts) is exactly one texture tile
 				-- tall from street level; the floors above keep the windows
 				local ground = newPart(model, "GroundStorey", Vector3.new(along, groundTop - streetLevel, across),
@@ -2300,7 +2368,17 @@ local function buildFootprintBuilding(parent, building, shapeData)
 			end
 		end
 	end
-	if built > 0 and shapeData.sb and shapeData.name and signRect then
+	if built > 0 and shapeData.sb and shapeData.name and signRect and realCtx and realCtx.sbIndex then
+		-- real buildings: the verified sign goes on the store's own section, on
+		-- its entrance face
+		for _, r in ipairs(builtRects) do
+			if r.index == realCtx.sbIndex then
+				local view = setmetatable({ sb = realCtx.shops[realCtx.sbIndex].front }, { __index = shapeData })
+				buildStoreSign(model, view, r, yaw)
+				break
+			end
+		end
+	elseif built > 0 and shapeData.sb and shapeData.name and signRect then
 		-- the sign goes on the block that reaches furthest toward the street front
 		local rad = math.rad(shapeData.sb)
 		local front = Vector3.new(math.sin(rad), 0, -math.cos(rad))

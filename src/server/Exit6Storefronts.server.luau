@@ -92,7 +92,11 @@ local function build(model)
  local cooler=make("DrinkCooler",Vector3.new(6,7,2),-8,3.5,-9,Color3.fromRGB(43,76,92),Enum.Material.Glass)
  local register=make("CashRegister",Vector3.new(2,1,1.5),-5,4,5,Color3.fromRGB(35,35,40))
  local lastJob={}
- prompt(register,"Work shift (+$35)",brandName,function(player)
+ -- the shift job is the gas stations' (tag Exit6GasStation); every other
+ -- ChesterWorld store (tag Exit6Store, RealBuildings.lua) gets the interior
+ -- and the drink cooler
+ local isStation=CollectionService:HasTag(model,"Exit6GasStation")
+ if isStation then prompt(register,"Work shift (+$35)",brandName,function(player)
   local stats=player:FindFirstChild("leaderstats")
   local cash=stats and stats:FindFirstChild("Chester Cash")
   local rep=stats and stats:FindFirstChild("Reputation")
@@ -105,7 +109,7 @@ local function build(model)
   lastJob[player.UserId]=now
   cash.Value+=35;rep.Value+=1
   notify(player,"Shift complete! +$35, +1 REP")
- end)
+ end) end
  prompt(cooler,"Buy drink ($5)",brandName.." Market",function(player)
   local stats=player:FindFirstChild("leaderstats")
   local cash=stats and stats:FindFirstChild("Chester Cash")
@@ -115,7 +119,9 @@ local function build(model)
   notify(player,"Purchased a drink (-$5)")
  end)
  model.Destroying:Connect(function() stations[model]=nil end)
- print("[EXIT6] Storefront installed at",model:GetFullName())
+ if isStation then print("[EXIT6] Storefront installed at",model:GetFullName()) end
 end
 for _,m in ipairs(CollectionService:GetTagged("Exit6GasStation")) do build(m) end
 CollectionService:GetInstanceAddedSignal("Exit6GasStation"):Connect(build)
+for _,m in ipairs(CollectionService:GetTagged("Exit6Store")) do task.spawn(build,m) end
+CollectionService:GetInstanceAddedSignal("Exit6Store"):Connect(build)

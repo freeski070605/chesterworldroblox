@@ -184,4 +184,10 @@ WorldConfig.SIGN_TEXT_COLOR = Color3.fromRGB(255, 255, 255)
 WorldConfig.TESTER_FLIGHT_ALL = true
 WorldConfig.TESTER_USER_IDS = {}
 
+-- Real-building facades (src/server/World/RealBuildings.lua): homes with a
+-- front / back / side door instead of doors on every wall, walk-in stores with
+-- the entrance on their address street. Studs; nil = everywhere off. First
+-- region: 9th & Kerlin / 9th & Concord, for review before going citywide.
+WorldConfig.REAL_BUILDINGS_REGION = { minX = 1900, maxX = 3500, minZ = 800, maxZ = 2300 }
+
 return WorldConfig

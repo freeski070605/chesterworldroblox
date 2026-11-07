@@ -18,6 +18,7 @@ local remotes = ReplicatedStorage:WaitForChild("Exit6Remotes")
 local ShopOpen = remotes:WaitForChild("ShopOpen")
 local Purchase = remotes:WaitForChild("Purchase")
 local UseItem = remotes:WaitForChild("UseItem")
+local QuitJob = remotes:WaitForChild("QuitJob")
 
 local INK = Color3.fromRGB(18, 21, 27)
 local CARD = Color3.fromRGB(37, 44, 56)
@@ -193,14 +194,23 @@ drawPhone = function()
 		if n == 0 then row(phoneList, 1, "Empty - buy something at a store", "") end
 	else
 		local j = jobInfo()
-		if j then
+		if j and j.type == "delivery" then
+			row(phoneList, 1, "Delivery: " .. j.store, "$" .. (j.pay or 0))
+			row(phoneList, 2, "To " .. tostring(j.address), "")
+			row(phoneList, 3, "Follow the orange line", "")
+		elseif j then
 			row(phoneList, 1, "Stock shift: " .. j.store, "")
 			row(phoneList, 2, "Crates stocked", j.done .. "/" .. j.total)
 			row(phoneList, 3, j.carrying and "Carry it to a shelf" or "Grab a crate (back room)", "")
 		else
-			row(phoneList, 1, "No shift", "")
-			row(phoneList, 2, "Gas stations & markets are hiring", "")
-			row(phoneList, 3, "Talk at the counter: F / X", "")
+			row(phoneList, 1, "No job", "")
+			row(phoneList, 2, "Gas stations & markets: stock shifts", "")
+			row(phoneList, 3, "Takeout spots: food deliveries", "")
+			row(phoneList, 4, "Ask at the counter: F / X", "")
+		end
+		if j then
+			local quit = row(phoneList, 9, "Quit job", "", function() QuitJob:FireServer() end)
+			quit.BackgroundColor3 = Color3.fromRGB(70, 36, 36)
 		end
 	end
 end
@@ -258,8 +268,8 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ------------------------------------------------------------------ job HUD
-local hud = new("Frame", { Name = "JobHUD", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 12),
-	Size = UDim2.fromOffset(360, 56), BackgroundColor3 = INK, BackgroundTransparency = 0.15, Visible = false }, gui)
+local hud = new("Frame", { Name = "JobHUD", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 116),
+	Size = UDim2.fromOffset(380, 56), BackgroundColor3 = INK, BackgroundTransparency = 0.15, Visible = false }, gui)
 round(hud, 10)
 local hudTop = new("TextLabel", { Position = UDim2.fromOffset(14, 4), Size = UDim2.new(1, -28, 0, 24), BackgroundTransparency = 1,
 	Font = Enum.Font.GothamBold, TextSize = 17, TextColor3 = TEXT, TextXAlignment = Enum.TextXAlignment.Left }, hud)
@@ -272,7 +282,61 @@ RunService.RenderStepped:Connect(function()
 	hud.Visible = job ~= nil
 	if not job then return end
 	local left = math.max(0, math.floor(job.deadline - Workspace:GetServerTimeNow()))
-	hudTop.Text = string.format("STOCK SHIFT  %s   %d/%d", job.store, job.done, job.total)
-	hudBottom.Text = string.format("%s   %d:%02d", job.carrying and "Carry the crate to a shelf" or "Grab a crate from the back room",
-		left // 60, left % 60)
+	if job.type == "delivery" then
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		local t = job.target
+		local d = (root and t) and math.floor((root.Position - Vector3.new(t[1], t[2], t[3])).Magnitude) or 0
+		hudTop.Text = string.format("DELIVERY  %s   $%d", job.store, job.pay or 0)
+		hudBottom.Text = string.format("To %s  -  %d studs   %d:%02d", tostring(job.address), d, left // 60, left % 60)
+	else
+		hudTop.Text = string.format("STOCK SHIFT  %s   %d/%d", job.store, job.done, job.total)
+		hudBottom.Text = string.format("%s   %d:%02d", job.carrying and "Carry the crate to a shelf" or "Grab a crate from the back room",
+			left // 60, left % 60)
+	end
 end)
+
+-- ------------------------------------------------------------------ delivery waypoint
+-- a local marker, line and "Deliver" prompt at the drop-off door: only the
+-- courier sees them; the server checks the courier is there (Exit6Delivery)
+local marker = nil
+local function clearMarker()
+	if marker then marker:Destroy() marker = nil end
+end
+local function showMarker()
+	clearMarker()
+	if not job or job.type ~= "delivery" or type(job.target) ~= "table" then return end
+	local t = Vector3.new(job.target[1], job.target[2], job.target[3])
+	marker = new("Part", { Name = "Exit6DropOff", Anchored = true, CanCollide = false, CanQuery = false, CanTouch = false,
+		Transparency = 1, Size = Vector3.new(1, 1, 1), CFrame = CFrame.new(t + Vector3.new(0, 1.5, 0)) }, Workspace)
+	local ring = new("Part", { Name = "Ring", Anchored = true, CanCollide = false, CanQuery = false, CanTouch = false,
+		Shape = Enum.PartType.Cylinder, Material = Enum.Material.Neon, Color = ACCENT, Transparency = 0.35,
+		Size = Vector3.new(0.2, 7, 7), CFrame = CFrame.new(t - Vector3.new(0, 1.4, 0)) * CFrame.Angles(0, 0, math.rad(90)) }, marker)
+	local bb = new("BillboardGui", { Size = UDim2.fromOffset(170, 44), StudsOffset = Vector3.new(0, 6, 0), AlwaysOnTop = true,
+		LightInfluence = 0, MaxDistance = 100000 }, marker)
+	new("TextLabel", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = INK, BackgroundTransparency = 0.2, TextColor3 = ACCENT,
+		Font = Enum.Font.GothamBlack, TextSize = 18, Text = "DROP-OFF" }, bb)
+	local a1 = new("Attachment", {}, marker)
+	local prompt = new("ProximityPrompt", { ActionText = "Deliver order", ObjectText = job.store, HoldDuration = 0.4,
+		MaxActivationDistance = 10, RequiresLineOfSight = false }, marker)
+	prompt.Triggered:Connect(function() remotes:WaitForChild("Deliver"):FireServer() end)
+	local function link()
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if not root or not marker then return end
+		local a0 = root:FindFirstChild("Exit6WaypointAttach") or new("Attachment", { Name = "Exit6WaypointAttach" }, root)
+		new("Beam", { Attachment0 = a0, Attachment1 = a1, Color = ColorSequence.new(ACCENT), Width0 = 0.6, Width1 = 0.6,
+			FaceCamera = true, LightEmission = 0.6, Transparency = NumberSequence.new(0.25), Segments = 1 }, marker)
+	end
+	link()
+end
+local lastTarget = nil
+local function onJob()
+	job = jobInfo()
+	local key = job and job.type == "delivery" and table.concat(job.target or {}, ",") or nil
+	if key ~= lastTarget then
+		lastTarget = key
+		showMarker()
+	end
+end
+player:GetAttributeChangedSignal("Exit6Job"):Connect(onJob)
+player.CharacterAdded:Connect(function() lastTarget = nil onJob() end)
+onJob()

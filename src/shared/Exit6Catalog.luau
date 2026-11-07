@@ -73,4 +73,20 @@ Catalog.StockShift = {
 }
 Catalog.JobKinds = { gas = true, market = true }
 
+-- food delivery (takeout stores): carry an order to a real front door
+-- (RealBuildings tags each home's front door Exit6FrontDoor)
+Catalog.Delivery = {
+	minStuds = 150,       -- nearest a drop-off may be
+	maxStuds = 900,       -- farthest
+	basePay = 12,
+	payPerStud = 0.04,    -- ~ $36 for a 600-stud run
+	secondsPerStud = 0.14, -- on foot at sprint, with slack
+	minSeconds = 60,
+	tipSeconds = 0.5,     -- tip while under this fraction of the limit
+	tip = 8,
+	reputation = 1,
+	cooldown = 45,
+}
+Catalog.DeliveryKinds = { food = true, pizza = true, chinese = true }
+
 return Catalog

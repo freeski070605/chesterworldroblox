@@ -78,7 +78,7 @@ local function door(parent, fcf, u, groundY, color, withStoop)
 	local lift = withStoop and 1.1 or 0.3
 	local function at(x, y, z) return fcf * CFrame.new(x, 0, z) + Vector3.new(0, y, 0) end
 	part(parent, "DoorTrim", Vector3.new(4.8, 8.9, 0.3), at(u, groundY + lift + 4.45, -0.12), Enum.Material.SmoothPlastic, TRIM)
-	part(parent, "Door", Vector3.new(3.6, 7.3, 0.35), at(u, groundY + lift + 3.65, -0.22), Enum.Material.Wood, color)
+	local d = part(parent, "Door", Vector3.new(3.6, 7.3, 0.35), at(u, groundY + lift + 3.65, -0.22), Enum.Material.Wood, color)
 	local transom = part(parent, "Transom", Vector3.new(3.6, 0.9, 0.3), at(u, groundY + lift + 7.9, -0.2), Enum.Material.Glass, GLASS)
 	transom.Transparency = 0.3
 	part(parent, "DoorKnob", Vector3.new(0.3, 0.3, 0.3), at(u + 1.25, groundY + lift + 3.4, -0.45), Enum.Material.Metal,
@@ -89,6 +89,7 @@ local function door(parent, fcf, u, groundY, color, withStoop)
 	else
 		part(parent, "DoorPad", Vector3.new(4.6, 0.3, 2.2), at(u, groundY + 0.15, -1.1), Enum.Material.Concrete, CONCRETE)
 	end
+	return d
 end
 
 -- Home: windows all round (applyFacade), doors on the front / back / side.
@@ -124,7 +125,9 @@ function RealBuildings.Home(model, r, ctx)
 			if exposed(fcf, span, u) then
 				-- every unit of a row has its own door colour
 				local unitColor = DOOR_COLORS[((ctx.seed + i * 7) % #DOOR_COLORS) + 1]
-				door(model, fcf, u, r.streetLevel + 0.4, units > 1 and unitColor or doorColor, not ctx.porch)
+				local d = door(model, fcf, u, r.streetLevel + 0.4, units > 1 and unitColor or doorColor, not ctx.porch)
+				-- the address a delivery goes to (Exit6Delivery.server)
+				CollectionService:AddTag(d, "Exit6FrontDoor")
 				ctx.stats.frontDoors += 1
 			end
 		end

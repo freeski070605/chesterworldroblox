@@ -146,12 +146,12 @@ local function publishJob(player)
 		return
 	end
 	player:SetAttribute("Exit6Job", HttpService:JSONEncode({
-		store = job.store.title, done = job.done, total = S.crates, carrying = job.carrying,
+		type = "stock", store = job.store.title, done = job.done, total = S.crates, carrying = job.carrying,
 		deadline = job.deadline,
 	}))
 end
 
-local function endJob(player, success)
+local function endJob(player, success, why)
 	local job = jobs[player]
 	if not job then return end
 	jobs[player] = nil
@@ -169,7 +169,7 @@ local function endJob(player, success)
 		notify(player, string.format("Shift done at %s: +$%d%s, +%d REP", job.store.title, S.basePay + bonus,
 			bonus > 0 and (" (incl. $" .. bonus .. " speed bonus)") or "", S.reputation))
 	else
-		notify(player, "Shift failed - the shelves weren't stocked in time")
+		notify(player, why or "Shift failed - the shelves weren't stocked in time")
 	end
 end
 
@@ -213,7 +213,8 @@ local function spawnCrate(player)
 end
 
 local function startJob(player, store)
-	if jobs[player] then notify(player, "You're already on a shift") return end
+	-- one job at a time across the job scripts (Exit6Delivery publishes Exit6Job too)
+	if jobs[player] or player:GetAttribute("Exit6Job") then notify(player, "Finish your current job first") return end
 	local since = lastShift[player.UserId] and os.clock() - lastShift[player.UserId]
 	if since and since < S.cooldown then
 		notify(player, "Next shift available in " .. math.ceil(S.cooldown - since) .. "s")
@@ -245,6 +246,12 @@ local function startJob(player, store)
 		if jobs[player] == job then endJob(player, false) end
 	end)
 end
+
+-- phone: Job > Quit
+local QuitJob = remote("RemoteEvent", "QuitJob")
+QuitJob.OnServerEvent:Connect(function(player)
+	if jobs[player] then endJob(player, false, "You quit the shift") end
+end)
 
 Players.PlayerRemoving:Connect(function(player)
 	if jobs[player] then
@@ -285,6 +292,7 @@ local function setup(model)
 		backRoom = anchor.CFrame * CFrame.new(math.clamp(w / 2 - 3, 2, 12), 1.1, math.clamp(d / 2 - 3, 2, 14)),
 	}
 	stores[id] = store
+	model:SetAttribute("Exit6StoreKind", store.kind)
 	-- the cashier stands behind the counter, facing the door (anchor -Z)
 	local behind = counter.CFrame * CFrame.new(0, -counter.Size.Y / 2, counter.Size.Z / 2 + 2)
 	local face = CFrame.lookAt(behind.Position, behind.Position + anchor.CFrame.LookVector)

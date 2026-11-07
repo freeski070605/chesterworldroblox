@@ -537,6 +537,9 @@ do
 	if lm then
 		local model = Instance.new("Model")
 		model.Name = "Commodore Barry Bridge"
+		-- the city's visual staple: always streamed to every client (the skyline
+		-- from anywhere, and the EXIT 6 menu flythrough), ~3.4k parts
+		model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 		local b = lm.box
 		local yawAxis = CFrame.Angles(0, math.rad(b[5]), 0).RightVector
 		local centre = Vector3.new(b[1], 0, b[2])

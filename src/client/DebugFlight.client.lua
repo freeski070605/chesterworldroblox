@@ -195,6 +195,9 @@ end
 
 UserInputService.InputBegan:Connect(function(input, processed)
 	if UserInputService:GetFocusedTextBox() then return end
+	-- the EXIT 6 main menu owns the controller / keyboard until Play
+	local playerGui = player:FindFirstChild("PlayerGui")
+	if playerGui and playerGui:FindFirstChild("Exit6MainMenu") then return end
 	local code = input.KeyCode
 	if isGamepad(input) then
 		if not usingGamepad then usingGamepad = true refreshHelp() end

@@ -193,8 +193,32 @@ local function isGamepad(input)
 	return input.UserInputType.Name:sub(1, 7) == "Gamepad"
 end
 
+-- EXIT 6 gameplay owns some of the same buttons (F / X at a counter prompt,
+-- ButtonY / D-pad / X near another player or in a rumble): flight yields
+-- while a ProximityPrompt is showing or Exit6Rumble marks Exit6Context
+local promptsShown = {}
+local ProximityPromptService = game:GetService("ProximityPromptService")
+ProximityPromptService.PromptShown:Connect(function(prompt) promptsShown[prompt] = true end)
+ProximityPromptService.PromptHidden:Connect(function(prompt) promptsShown[prompt] = nil end)
+local function anyPrompt()
+	for prompt in pairs(promptsShown) do
+		if prompt.Parent and prompt.Enabled then return true end
+		promptsShown[prompt] = nil
+	end
+	return false
+end
+local YIELD_KEYS = {
+	[Enum.KeyCode.F] = true, [Enum.KeyCode.X] = true, [Enum.KeyCode.ButtonY] = true,
+	[Enum.KeyCode.DPadUp] = true, [Enum.KeyCode.DPadDown] = true, [Enum.KeyCode.DPadLeft] = true,
+	[Enum.KeyCode.DPadRight] = true,
+}
+local function gameplayOwns(code)
+	return YIELD_KEYS[code] and (anyPrompt() or player:GetAttribute("Exit6Context") ~= nil)
+end
+
 UserInputService.InputBegan:Connect(function(input, processed)
 	if UserInputService:GetFocusedTextBox() then return end
+	if gameplayOwns(input.KeyCode) then return end
 	-- the EXIT 6 main menu owns the controller / keyboard until Play
 	local playerGui = player:FindFirstChild("PlayerGui")
 	if playerGui and playerGui:FindFirstChild("Exit6MainMenu") then return end

@@ -96,6 +96,13 @@ local function build(model)
  -- ChesterWorld store (tag Exit6Store, RealBuildings.lua) gets the interior
  -- and the drink cooler
  local isStation=CollectionService:HasTag(model,"Exit6GasStation")
+ local Config=require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Exit6Config"))
+ if Config.ShopSystem then
+  -- Exit6Shop.server runs the counter (cashier, menu, stock shift)
+  model:SetAttribute("Exit6InteriorReady",true)
+  if isStation then print("[EXIT6] Storefront installed at",model:GetFullName()) end
+  return
+ end
  if isStation then prompt(register,"Work shift (+$35)",brandName,function(player)
   local stats=player:FindFirstChild("leaderstats")
   local cash=stats and stats:FindFirstChild("Chester Cash")

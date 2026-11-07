@@ -1,0 +1,311 @@
+-- EXIT 6 stores: cashier NPCs, the counter menu, purchases, and the stock-clerk
+-- shift. Runs on every store the world exposes (CollectionService tags
+-- Exit6GasStation - GasStationBuilder - and Exit6Store - RealBuildings), once
+-- Exit6Storefronts has fitted the interior (attribute Exit6InteriorReady).
+-- Everything that moves money or reputation is decided here, on the server.
+local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local HttpService = game:GetService("HttpService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Catalog = require(Shared:WaitForChild("Exit6Catalog"))
+local Config = require(Shared:WaitForChild("Exit6Config"))
+local Inventory = require(script.Parent:WaitForChild("Exit6Inventory"))
+if not Config.ShopSystem then return end
+
+-- remotes
+local remotes = Instance.new("Folder")
+remotes.Name = "Exit6Remotes"
+remotes.Parent = ReplicatedStorage
+local function remote(class, name)
+	local r = Instance.new(class)
+	r.Name = name
+	r.Parent = remotes
+	return r
+end
+local ShopOpen = remote("RemoteEvent", "ShopOpen")
+local Purchase = remote("RemoteFunction", "Purchase")
+local UseItem = remote("RemoteFunction", "UseItem")
+
+local stores = {}        -- storeId -> { model, kind, title, counter (BasePart), menu }
+local nextId = 0
+local REACH = 18          -- studs from the counter to buy
+
+local function notify(player, text)
+	player:SetAttribute("Exit6Notice", text)
+	player:SetAttribute("Exit6NoticeId", (player:GetAttribute("Exit6NoticeId") or 0) + 1)
+end
+local function stats(player)
+	local ls = player:FindFirstChild("leaderstats")
+	return ls and ls:FindFirstChild("Chester Cash"), ls and ls:FindFirstChild("Reputation")
+end
+local function root(player)
+	local c = player.Character
+	return c and c:FindFirstChild("HumanoidRootPart")
+end
+local function ready(player)
+	return player:GetAttribute("Exit6DataReady") == true
+end
+local function prompt(parent, action, object, hold)
+	local p = Instance.new("ProximityPrompt")
+	p.ActionText = action
+	p.ObjectText = object
+	p.MaxActivationDistance = 10
+	p.HoldDuration = hold or 0
+	p.RequiresLineOfSight = false
+	p.Parent = parent
+	return p
+end
+
+-- cashier NPC: an R15 figure behind the counter, facing the door
+local SKIN = { Color3.fromRGB(86, 58, 44), Color3.fromRGB(120, 84, 62), Color3.fromRGB(156, 112, 84),
+	Color3.fromRGB(196, 150, 116), Color3.fromRGB(66, 44, 34) }
+local SHIRT = { Color3.fromRGB(180, 30, 40), Color3.fromRGB(30, 60, 140), Color3.fromRGB(40, 110, 60),
+	Color3.fromRGB(40, 40, 44), Color3.fromRGB(230, 230, 226) }
+local function cashier(store, cf, seed)
+	local desc = Instance.new("HumanoidDescription")
+	local skin = SKIN[seed % #SKIN + 1]
+	desc.HeadColor, desc.LeftArmColor, desc.RightArmColor = skin, skin, skin
+	desc.LeftLegColor, desc.RightLegColor = Color3.fromRGB(40, 40, 50), Color3.fromRGB(40, 40, 50)
+	desc.TorsoColor = SHIRT[(seed * 3) % #SHIRT + 1]
+	local ok, npc = pcall(function()
+		return Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
+	end)
+	if not ok or not npc then return nil end
+	npc.Name = "Cashier"
+	local hum = npc:FindFirstChildOfClass("Humanoid")
+	hum.DisplayName = "Cashier"
+	hum.NameDisplayDistance = 30
+	hum.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+	npc:PivotTo(cf + Vector3.new(0, 2.9, 0))
+	for _, p in ipairs(npc:GetDescendants()) do
+		if p:IsA("BasePart") then p.Anchored = true end
+	end
+	npc:SetAttribute("Exit6NPC", "cashier")
+	npc.Parent = store.model
+	return npc
+end
+
+-- ---------------------------------------------------------------- purchases
+local function menuFor(store)
+	local list = {}
+	for _, id in ipairs(Catalog.Menus[store.kind] or Catalog.Menus.market) do
+		local item = Catalog.Items[id]
+		table.insert(list, { id = id, name = item.name, price = item.price })
+	end
+	return list
+end
+
+local function purchase(player, storeId, itemId)
+	local store = stores[storeId]
+	local item = Catalog.Items[itemId]
+	if not store or not item or not ready(player) then return false, "Can't buy that here" end
+	local onMenu = false
+	for _, id in ipairs(Catalog.Menus[store.kind] or {}) do
+		if id == itemId then onMenu = true break end
+	end
+	if not onMenu then return false, "Not sold here" end
+	local r = root(player)
+	if not r or (r.Position - store.counter.Position).Magnitude > REACH then return false, "Walk up to the counter" end
+	local cash = stats(player)
+	if not cash or cash.Value < item.price then return false, "Not enough Chester Cash" end
+	if item.kind ~= "service" and not Inventory.Add(player, itemId, 1) then return false, "Your bag is full" end
+	cash.Value -= item.price
+	if item.kind == "service" then
+		notify(player, item.name .. " done (-$" .. item.price .. ")")
+	else
+		notify(player, "Bought " .. item.name .. " (-$" .. item.price .. ")")
+	end
+	return true
+end
+Purchase.OnServerInvoke = function(player, storeId, itemId)
+	local ok, why = purchase(player, storeId, itemId)
+	if not ok and why then notify(player, why) end
+	return ok, why
+end
+
+UseItem.OnServerInvoke = function(player, itemId)
+	local item = Catalog.Items[itemId]
+	if not item or not Inventory.Remove(player, itemId, 1) then return false end
+	local verb = (item.kind == "drink") and "Drank" or ((item.kind == "food" or item.kind == "snack") and "Ate" or "Used")
+	notify(player, verb .. " " .. item.name)
+	return true
+end
+
+-- ---------------------------------------------------------------- stock shift
+local jobs = {}           -- player -> job
+local lastShift = {}      -- userId -> os.clock of the last finished / failed shift
+local S = Catalog.StockShift
+
+local function publishJob(player)
+	local job = jobs[player]
+	if not job then
+		player:SetAttribute("Exit6Job", nil)
+		return
+	end
+	player:SetAttribute("Exit6Job", HttpService:JSONEncode({
+		store = job.store.title, done = job.done, total = S.crates, carrying = job.carrying,
+		deadline = job.deadline,
+	}))
+end
+
+local function endJob(player, success)
+	local job = jobs[player]
+	if not job then return end
+	jobs[player] = nil
+	lastShift[player.UserId] = os.clock()
+	if job.crate then job.crate:Destroy() end
+	if job.carry then job.carry:Destroy() end
+	for _, p in ipairs(job.shelfPrompts) do p:Destroy() end
+	publishJob(player)
+	if success then
+		local cash, rep = stats(player)
+		local left = math.max(0, job.deadline - Workspace:GetServerTimeNow())
+		local bonus = math.floor(S.speedBonus * math.clamp(left / (S.timeLimit / 2), 0, 1) + 0.5)
+		if cash then cash.Value += S.basePay + bonus end
+		if rep then rep.Value += S.reputation end
+		notify(player, string.format("Shift done at %s: +$%d%s, +%d REP", job.store.title, S.basePay + bonus,
+			bonus > 0 and (" (incl. $" .. bonus .. " speed bonus)") or "", S.reputation))
+	else
+		notify(player, "Shift failed - the shelves weren't stocked in time")
+	end
+end
+
+local function spawnCrate(player)
+	local job = jobs[player]
+	local store = job.store
+	local crate = Instance.new("Part")
+	crate.Name = "StockCrate"
+	crate.Size = Vector3.new(2.6, 2, 2)
+	crate.Color = Color3.fromRGB(160, 120, 74)
+	crate.Material = Enum.Material.Wood
+	crate.Anchored = true
+	crate.CFrame = store.backRoom
+	crate.Parent = store.model
+	local p = prompt(crate, "Pick up crate", "Stock room", 0.4)
+	p.Triggered:Connect(function(who)
+		if who ~= player or jobs[player] ~= job or job.carrying then return end
+		job.carrying = true
+		crate:Destroy()
+		job.crate = nil
+		-- carry it in front of the player
+		local r = root(player)
+		if r then
+			local box = Instance.new("Part")
+			box.Name = "CarriedCrate"
+			box.Size = Vector3.new(2.2, 1.6, 1.6)
+			box.Color = crate.Color
+			box.Material = Enum.Material.Wood
+			box.CanCollide = false
+			box.Massless = true
+			box.CFrame = r.CFrame * CFrame.new(0, 0, -1.8)
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0, weld.Part1 = r, box
+			weld.Parent = box
+			box.Parent = player.Character
+			job.carry = box
+		end
+		publishJob(player)
+	end)
+	job.crate = crate
+end
+
+local function startJob(player, store)
+	if jobs[player] then notify(player, "You're already on a shift") return end
+	local since = lastShift[player.UserId] and os.clock() - lastShift[player.UserId]
+	if since and since < S.cooldown then
+		notify(player, "Next shift available in " .. math.ceil(S.cooldown - since) .. "s")
+		return
+	end
+	local job = { store = store, done = 0, carrying = false, shelfPrompts = {},
+		deadline = Workspace:GetServerTimeNow() + S.timeLimit }
+	jobs[player] = job
+	for _, shelf in ipairs(store.shelves) do
+		local p = prompt(shelf, "Stock shelf", "Shelf", 0.6)
+		p.Triggered:Connect(function(who)
+			if who ~= player or jobs[player] ~= job or not job.carrying then return end
+			job.carrying = false
+			if job.carry then job.carry:Destroy() job.carry = nil end
+			job.done += 1
+			if job.done >= S.crates then
+				endJob(player, true)
+			else
+				spawnCrate(player)
+				publishJob(player)
+			end
+		end)
+		table.insert(job.shelfPrompts, p)
+	end
+	spawnCrate(player)
+	publishJob(player)
+	notify(player, "Stock shift started: carry " .. S.crates .. " crates from the back room to the shelves")
+	task.delay(S.timeLimit, function()
+		if jobs[player] == job then endJob(player, false) end
+	end)
+end
+
+Players.PlayerRemoving:Connect(function(player)
+	if jobs[player] then
+		local job = jobs[player]
+		jobs[player] = nil
+		if job.crate then job.crate:Destroy() end
+		for _, p in ipairs(job.shelfPrompts) do p:Destroy() end
+	end
+end)
+
+-- ---------------------------------------------------------------- stores
+local function setup(model)
+	if model:GetAttribute("Exit6StoreId") then return end
+	local t0 = os.clock()
+	while model.Parent and model:GetAttribute("Exit6InteriorReady") ~= true and os.clock() - t0 < 120 do
+		task.wait(0.5)
+	end
+	local interior = model:FindFirstChild("Exit6Storefront")
+	local anchor = model:FindFirstChild("Exit6StoreAnchor", true)
+	if not interior or not anchor then return end
+	local counter = interior:FindFirstChild("Counter")
+	local register = interior:FindFirstChild("CashRegister")
+	if not counter or not register then return end
+	nextId += 1
+	local id = "store" .. nextId
+	model:SetAttribute("Exit6StoreId", id)
+	local isGas = CollectionService:HasTag(model, "Exit6GasStation")
+	local title = model:GetAttribute("ShopName") or model:GetAttribute("BrandName") or model.Name
+	local w = model:GetAttribute("Exit6StoreWidth") or 26
+	local d = model:GetAttribute("Exit6StoreDepth") or 22
+	local shelves = {}
+	for _, p in ipairs(interior:GetChildren()) do
+		if p.Name == "MerchandiseShelf" then table.insert(shelves, p) end
+	end
+	local store = {
+		model = model, title = title, kind = Catalog.KindFor(title, isGas), counter = counter, shelves = shelves,
+		-- back room: the far corner from the door
+		backRoom = anchor.CFrame * CFrame.new(math.clamp(w / 2 - 3, 2, 12), 1.1, math.clamp(d / 2 - 3, 2, 14)),
+	}
+	stores[id] = store
+	-- the cashier stands behind the counter, facing the door (anchor -Z)
+	local behind = counter.CFrame * CFrame.new(0, -counter.Size.Y / 2, counter.Size.Z / 2 + 2)
+	local face = CFrame.lookAt(behind.Position, behind.Position + anchor.CFrame.LookVector)
+	cashier(store, face, nextId)
+	local buy = prompt(register, "Buy", title, 0)
+	buy.Triggered:Connect(function(player)
+		if not ready(player) then return end
+		ShopOpen:FireClient(player, { storeId = id, title = title, kind = store.kind, items = menuFor(store),
+			pos = counter.Position })
+	end)
+	if Catalog.JobKinds[store.kind] and #shelves > 0 then
+		local job = prompt(counter, "Start stock shift", title, 0.5)
+		job.KeyboardKeyCode = Enum.KeyCode.F
+		job.GamepadKeyCode = Enum.KeyCode.ButtonX
+		job.Triggered:Connect(function(player)
+			if ready(player) then startJob(player, store) end
+		end)
+	end
+end
+
+for _, tag in ipairs({ "Exit6GasStation", "Exit6Store" }) do
+	for _, m in ipairs(CollectionService:GetTagged(tag)) do task.spawn(setup, m) end
+	CollectionService:GetInstanceAddedSignal(tag):Connect(function(m) task.spawn(setup, m) end)
+end

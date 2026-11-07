@@ -6,6 +6,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Exit6Config"))
 local store = DataStoreService:GetDataStore(Config.DataStoreName)
+-- the bag is saved with cash / reputation (one save manager for the player)
+local Inventory = require(script.Parent:WaitForChild("Exit6Inventory"))
 local sessions = {}
 local function key(player) return "player_" .. player.UserId end
 local function save(player)
@@ -14,12 +16,14 @@ local function save(player)
  local stats = player:FindFirstChild("leaderstats")
  local cash = stats and stats:FindFirstChild("Chester Cash")
  local rep = stats and stats:FindFirstChild("Reputation")
- local snapshot = {cash = cash and cash.Value or data.cash, reputation = rep and rep.Value or data.reputation}
+ local snapshot = {cash = cash and cash.Value or data.cash, reputation = rep and rep.Value or data.reputation,
+  inventory = Inventory.Export(player)}
  local ok, err = pcall(function()
   store:UpdateAsync(key(player), function(old)
    old = type(old) == "table" and old or {}
    old.cash = snapshot.cash
    old.reputation = snapshot.reputation
+   if snapshot.inventory then old.inventory = snapshot.inventory end
    return old
   end)
  end)
@@ -43,6 +47,7 @@ Players.PlayerAdded:Connect(function(player)
   return
  end
  sessions[player] = data
+ Inventory.Import(player, ok and type(loaded) == "table" and loaded.inventory or nil)
  local stats = Instance.new("Folder")
  stats.Name = "leaderstats"
  stats.Parent = player
@@ -59,6 +64,7 @@ end)
 Players.PlayerRemoving:Connect(function(player)
  save(player)
  sessions[player] = nil
+ Inventory.Forget(player)
 end)
 game:BindToClose(function()
  for _, player in ipairs(Players:GetPlayers()) do save(player) end

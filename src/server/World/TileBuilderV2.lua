@@ -2243,7 +2243,8 @@ local function buildFootprintBuilding(parent, building, shapeData)
 				local frontDir = Vector3.new(math.sin(rad), 0, -math.cos(rad))
 				local best, bestScore
 				for i, rr in ipairs(rects) do
-					if not shops[i - 1] then
+					-- (not a sliver section: 5 Points is the strip's east-end store)
+					if not shops[i - 1] and math.min(rr.along, rr.across) >= 12 then
 						local n = faceToward(rr.frame, shapeData.sb)
 						local extent = (n.X ~= 0) and rr.along / 2 or rr.across / 2
 						local score = Vector3.new(rr.x, 0, rr.z):Dot(frontDir) + extent

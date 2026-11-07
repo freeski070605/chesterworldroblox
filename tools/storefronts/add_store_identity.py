@@ -92,10 +92,16 @@ RANK = {"food": 9, "market": 9, "pharmacy": 8, "discount": 8, "beauty": 7, "bar"
 # Staple shops verified on Street View that Overture rates low or places off
 # the building (9th & Concord, 2026-11-07): name, category, building id, a
 # point on the shop (studs) to pick the building section, address street
+# (the point may be a section index instead)
 CURATED = [
     ("Boost Mobile", "phone", "93584", (2944, 1671), "Concord"),
+    # the strip's middle store is J & S (owner's local knowledge, 2026-11-07);
+    # Overture's "Lee Seafood" listing is out of date - see SUPPRESS
+    ("J & S", "food", "93584", 2, "Concord"),
     ("D's Laundromat", "laundry", "48391", None, "Kerlin"),
 ]
+# Overture listings that are out of date (name or business changed)
+SUPPRESS = {"lee seafood"}
 # Buildings whose shops all open onto one street regardless of their mailing
 # address (Street View): the 805 Concord Ave strip faces its parking lot on
 # Concord, though Lee Seafood is listed at 823 Kerlin
@@ -184,6 +190,9 @@ def main(check=False):
         key = CATEGORY.get(r.basic_category or "")
         if not name or not key or (r.confidence or 0) < MIN_CONF:
             continue
+        if name.lower() in SUPPRESS:
+            stats["suppressed"] += 1
+            continue
         if r.operating_status and r.operating_status not in ("open",):
             stats["closed"] += 1
             continue
@@ -213,6 +222,8 @@ def main(check=False):
             continue
         if pt is None:
             k = 0
+        elif isinstance(pt, int):
+            k = pt
         else:
             sx, sz = to_source(*pt)
             k = min(secs, key=lambda kk: polys[index_of[(bid, kk)]].distance(Point(sx, sz)))

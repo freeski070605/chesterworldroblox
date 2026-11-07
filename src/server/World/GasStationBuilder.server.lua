@@ -262,10 +262,6 @@ local function buildStore(model, st, fascia, accent, textColor, frame, width, de
 	make("Floor", Vector3.new(width, 0.6, depth), 0, 0.3, 0, Color3.fromRGB(196, 198, 200), Enum.Material.Marble)
 	make("Foundation", Vector3.new(width + 0.4, 3, depth + 0.4), 0, -1.2, 0, Color3.fromRGB(150, 146, 140),
 		Enum.Material.Concrete)
-	make("BackWall", Vector3.new(width, h, 0.8), 0, h / 2, D2 - 0.4, wall, Enum.Material.Brick)
-	for _, side in ipairs({ -1, 1 }) do
-		make("SideWall", Vector3.new(0.8, h, depth), side * (W2 - 0.4), h / 2, 0, wall, Enum.Material.Brick)
-	end
 	if s.roof == "gable" then
 		-- ridge along the shopfront, shingles down to the front and back walls
 		local rise = math.clamp(depth * 0.28, 4, 12)
@@ -287,56 +283,87 @@ local function buildStore(model, st, fascia, accent, textColor, frame, width, de
 	else
 		make("Roof", Vector3.new(width + 0.6, 0.8, depth + 0.6), 0, h + 0.4, 0, roof, Enum.Material.Slate)
 	end
-	-- shopfront: glass either side of a centred door, brick piers, fascia over it
-	local fasciaH = math.clamp(h * 0.22, 2.4, 4.5)
-	local glassTop = h - fasciaH
-	local door = math.min(7, width * 0.3)
-	local pane = (width - door) / 2 - 1.2
-	for _, side in ipairs({ -1, 1 }) do
-		local g = make("Shopfront", Vector3.new(pane, glassTop - 1.2, 0.3), side * (door / 2 + pane / 2), 0.6 + (glassTop - 1.2) / 2,
-			-D2 + 0.4, Color3.fromRGB(150, 190, 210), Enum.Material.Glass)
-		g.Transparency = 0.35
-		g.Reflectance = 0.15
-		make("Pier", Vector3.new(1.2, glassTop, 0.9), side * (W2 - 0.6), glassTop / 2, -D2 + 0.4, wall, Enum.Material.Brick)
-		make("DoorFrame", Vector3.new(0.4, glassTop - 0.6, 0.6), side * door / 2, (glassTop - 0.6) / 2 + 0.6, -D2 + 0.4,
-			fascia, Enum.Material.Metal)
+	-- each face of the shop is a plain wall or a shopfront (front = toward the
+	-- pumps; extra shopfronts from GasStations.lua, e.g. US Gas's check cashing
+	-- office on its 9th St side). Face frames: local -Z = outward.
+	local FACES = {
+		front = { 0, -D2, 0, width }, back = { 0, D2, math.pi, width },
+		left = { -W2, 0, math.pi / 2, depth }, right = { W2, 0, -math.pi / 2, depth },
+	}
+	local shopfronts = { front = { sign = s.sign, signColors = s.signColors, main = true } }
+	for _, e in ipairs(s.extra or {}) do
+		shopfronts[e.face] = { sign = e.sign, signColors = e.signColors }
 	end
-	make("Sill", Vector3.new(width, 0.6, 0.9), 0, 0.6, -D2 + 0.4, wall, Enum.Material.Brick)
-	-- fascia: the shop's own name on the brand colour, or the fuel brand art
-	-- a shop with its own livery (US Gas: the blue check cashing sign)
-	local signBg, signAccent, signText = fascia, accent, textColor
-	if s.signColors then
-		signBg, signAccent, signText = rgb(s.signColors[1]), rgb(s.signColors[2]), rgb(s.signColors[3])
-	end
-	local board = make("ShopFascia", Vector3.new(width, fasciaH, 0.9), 0, glassTop + fasciaH / 2, -D2 + 0.3, signBg)
-	if s.sign then
-		local gui = Instance.new("SurfaceGui")
-		gui.Face = Enum.NormalId.Front
-		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-		gui.PixelsPerStud = 16
-		gui.LightInfluence = 0.25
-		gui.Parent = board
-		if s.sign == "A-PLUS" then
-			-- Sunoco's A-Plus badge centred on the blue band (Street View)
-			local badge = box(gui, UDim2.fromScale(0.5, 0.12), UDim2.fromScale(0.26, 0.76), Color3.fromRGB(250, 250, 248))
-			badge.AnchorPoint = Vector2.new(0.5, 0)
-			local corner = Instance.new("UICorner")
-			corner.CornerRadius = UDim.new(0.2, 0)
-			corner.Parent = badge
-			text(badge, "A", UDim2.fromScale(0.04, 0.05), UDim2.fromScale(0.3, 0.9), Color3.fromRGB(226, 32, 40), Enum.Font.GothamBlack)
-			text(badge, "Plus", UDim2.fromScale(0.34, 0.15), UDim2.fromScale(0.62, 0.7), Color3.fromRGB(236, 120, 30), Enum.Font.GothamBold)
-			box(gui, UDim2.fromScale(0, 0.9), UDim2.fromScale(1, 0.1), signAccent)
+	local function signBoard(board, spec, signBg, signAccent, signText)
+		if spec.sign then
+			local gui = Instance.new("SurfaceGui")
+			gui.Face = Enum.NormalId.Front
+			gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+			gui.PixelsPerStud = 16
+			gui.LightInfluence = 0.25
+			gui.Parent = board
+			if spec.sign == "A-PLUS" then
+				-- Sunoco's A-Plus badge centred on the blue band (Street View)
+				local badge = box(gui, UDim2.fromScale(0.5, 0.12), UDim2.fromScale(0.26, 0.76), Color3.fromRGB(250, 250, 248))
+				badge.AnchorPoint = Vector2.new(0.5, 0)
+				local corner = Instance.new("UICorner")
+				corner.CornerRadius = UDim.new(0.2, 0)
+				corner.Parent = badge
+				text(badge, "A", UDim2.fromScale(0.04, 0.05), UDim2.fromScale(0.3, 0.9), Color3.fromRGB(226, 32, 40), Enum.Font.GothamBlack)
+				text(badge, "Plus", UDim2.fromScale(0.34, 0.15), UDim2.fromScale(0.62, 0.7), Color3.fromRGB(236, 120, 30), Enum.Font.GothamBold)
+				box(gui, UDim2.fromScale(0, 0.9), UDim2.fromScale(1, 0.1), signAccent)
+			else
+				box(gui, UDim2.fromScale(0, 0.82), UDim2.fromScale(1, 0.18), signAccent)
+				text(gui, spec.sign, UDim2.fromScale(0.05, 0.1), UDim2.fromScale(0.9, 0.68), signText, Enum.Font.GothamBlack)
+			end
 		else
-			box(gui, UDim2.fromScale(0, 0.82), UDim2.fromScale(1, 0.18), signAccent)
-			text(gui, s.sign, UDim2.fromScale(0.05, 0.1), UDim2.fromScale(0.9, 0.68), signText, Enum.Font.GothamBlack)
+			artPanel(board, st, { Enum.NormalId.Front }, fascia, accent, textColor, 16)
 		end
-	else
-		artPanel(board, st, { Enum.NormalId.Front }, fascia, accent, textColor, 16)
 	end
-	make("AccentStripe", Vector3.new(width, 0.5, 1.0), 0, glassTop - 0.1, -D2 + 0.3, accent)
-	local mat = make("DoorMat", Vector3.new(door - 1, 0.1, 3), 0, 0.65, -D2 - 1.2, Color3.fromRGB(40, 40, 44),
-		Enum.Material.Fabric)
-	mat.CanCollide = false
+	local fasciaH = math.clamp(h * 0.22, 2.4, 4.5)
+	local glassTop = math.min(h - fasciaH, 12)
+	for faceName, f in pairs(FACES) do
+		local fx, fz, rot, len = f[1], f[2], f[3], f[4]
+		local fcf = frame * CFrame.new(fx, 0, fz) * CFrame.Angles(0, rot, 0)
+		local function mk(name, size, x, y, z, color, material)
+			return part(shop, name, size, fcf * CFrame.new(x, y, z), material or Enum.Material.SmoothPlastic, color)
+		end
+		local spec = shopfronts[faceName]
+		if not spec then
+			mk("Wall", Vector3.new(len, h, 0.8), 0, h / 2, 0.4, wall, Enum.Material.Brick)
+		else
+			-- glass either side of a centred door, piers, the shop's fascia above
+			local half = len / 2
+			local door = math.min(7, len * 0.3)
+			local pane = math.max((len - door) / 2 - 1.2, 1)
+			for _, side in ipairs({ -1, 1 }) do
+				local g = mk("Shopfront", Vector3.new(pane, glassTop - 1.2, 0.3), side * (door / 2 + pane / 2),
+					0.6 + (glassTop - 1.2) / 2, 0.4, Color3.fromRGB(150, 190, 210), Enum.Material.Glass)
+				g.Transparency = 0.35
+				g.Reflectance = 0.15
+				mk("Pier", Vector3.new(1.2, glassTop, 0.9), side * (half - 0.6), glassTop / 2, 0.4, wall, Enum.Material.Brick)
+				mk("DoorFrame", Vector3.new(0.4, glassTop - 0.6, 0.6), side * door / 2, (glassTop - 0.6) / 2 + 0.6, 0.4,
+					fascia, Enum.Material.Metal)
+			end
+			mk("Sill", Vector3.new(len, 0.6, 0.9), 0, 0.6, 0.4, wall, Enum.Material.Brick)
+			-- wall above the fascia up to the roof on a tall building
+			local signTop = glassTop + fasciaH
+			if h - signTop > 0.5 then
+				mk("Wall", Vector3.new(len, h - signTop, 0.8), 0, signTop + (h - signTop) / 2, 0.4, wall, Enum.Material.Brick)
+			end
+			local signBg, signAccent, signText = fascia, accent, textColor
+			if spec.signColors then
+				signBg, signAccent, signText = rgb(spec.signColors[1]), rgb(spec.signColors[2]), rgb(spec.signColors[3])
+			end
+			local board = mk(spec.main and "ShopFascia" or "ShopFasciaExtra", Vector3.new(len, fasciaH, 0.9), 0,
+				glassTop + fasciaH / 2, 0.3, signBg)
+			signBoard(board, spec, signBg, signAccent, signText)
+			mk("AccentStripe", Vector3.new(len, 0.5, 1.0), 0, glassTop - 0.1, 0.3, signAccent)
+			local mat = mk("DoorMat", Vector3.new(door - 1, 0.1, 3), 0, 0.65, -1.2, Color3.fromRGB(40, 40, 44),
+				Enum.Material.Fabric)
+			mat.CanCollide = false
+		end
+	end
 	-- EXIT 6 fits the interior at the shop floor, facing the door (-Z)
 	local anchor = part(model, "Exit6StoreAnchor", Vector3.new(2, 0.2, 2), frame * CFrame.new(0, 0.7, 0),
 		Enum.Material.SmoothPlastic, Color3.new(1, 1, 1))
@@ -459,6 +486,23 @@ for _, st in ipairs(Stations) do
 		model.Parent = root
 		built += 1
 		if shopFrame then buildStore(model, st, fascia, accent, textColor, shopFrame, shopWidth, shopDepth) end
+		-- county footprints in the lot that are really low sheds / booths
+		for _, shed in ipairs(st.sheds or {}) do
+			local county = buildingsById[shed.model]
+			if county and county.Parent then county:Destroy() end
+			local b = shed.box
+			local gy = groundY(b[1], b[2])
+			if gy then
+				local L, W, hS = math.max(b[3], 9), math.max(b[4], 7), 9
+				local cf = CFrame.new(b[1], gy, b[2]) * CFrame.Angles(0, math.rad(b[5]), 0)
+				part(model, "Shed", Vector3.new(L, hS, W), cf * CFrame.new(0, hS / 2, 0), Enum.Material.SmoothPlastic,
+					Color3.fromRGB(236, 236, 232))
+				part(model, "ShedRoof", Vector3.new(L + 0.6, 0.5, W + 0.6), cf * CFrame.new(0, hS + 0.25, 0),
+					Enum.Material.Metal, Color3.fromRGB(150, 152, 156))
+				part(model, "ShedDoor", Vector3.new(3, 7, 0.2), cf * CFrame.new(0, 3.5, -W / 2 - 0.1),
+					Enum.Material.Metal, Color3.fromRGB(120, 124, 128))
+			end
+		end
 	end
 end
 print(("[ChesterWorld GasStations] built=%d canopyBoxesReplaced=%d exit6Stores=%d parts=%d"):format(built, removed, stores, count))

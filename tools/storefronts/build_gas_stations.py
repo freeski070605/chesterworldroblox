@@ -72,19 +72,29 @@ STORES = {
     # blue band with the A-Plus badge (Street View 2024)
     "cw_687c501096": {"footprint": ("191030", 0), "sign": "A-PLUS", "roof": "gable",
                       "wall": (236, 236, 232), "roofColor": (104, 106, 112)},
-    # US Gas: the white building at the canopy's east end is the check cashing
-    # office (blue sign on Street View) that doubles as the station's shop
-    "cw_fefc0bb360": {"footprint": ("50221", 1), "sign": "CHECK CASHING",
-                      "sign_colors": ((28, 70, 160), (240, 190, 40), (255, 255, 255))},
+    # US Gas: the white building at the canopy's east end - the US Gas shop
+    # faces the pumps; the check cashing office is a second shopfront on the
+    # face looking at the 9th & Kerlin corner (blue sign, Street View from there)
+    "cw_fefc0bb360": {"footprint": ("50221", 1), "sign": None,
+                      "extra": [{"toward_point": (2790.0, 1520.0), "sign": "CHECK CASHING",
+                                 "sign_colors": ((28, 70, 160), (240, 190, 40), (255, 255, 255))}]},
     "cw_28a6741d42": {"footprint": ("40026", 1), "sign": "A-PLUS"},         # Sunoco 2200 Edgmont
     "cw_1ab25071e5": {"footprint": ("122402", "nearest"), "sign": "FOOD MART / DELI"},  # Sunoco 2nd St
     "cw_5f192ec41c": {"under": ("sw_end", 0.0), "size": (9.0, 4.6), "sign": "MINI-MART"},  # Lukoil
     "cw_442801b4e3": {"under": (0.0, 0.0), "size": (7.0, 4.0), "sign": None},  # Sunoco Township Line
     "cw_98a00d067e": {"behind": 4.0, "size": (6.5, 5.0), "sign": None},     # Chester Gas kiosk
-    # cw_ab912b6f80 Eagle Fuel: no shop of its own (the "Ave Mart" beside it is
-    # another business) - no EXIT 6 store
+    # Eagle Fuel: the EAGLE SAVE MART - red brick, red fascia with the eagle,
+    # behind the canopies (Street View left approach); the row of county
+    # rectangles 3-7 of 133692
+    "cw_ab912b6f80": {"footprint": ("133692", [3, 4, 5, 6, 7]), "sign": "EAGLE SAVE MART",
+                      "sign_colors": ((200, 30, 40), (28, 48, 118), (255, 255, 255)),
+                      "wall": (150, 72, 58)},
 }
 KIOSK_H_M = 3.4
+# county footprints in a station lot that are really low sheds / booths
+# (Street View: the white shed by the dumpster in the US Gas lot, county 92299,
+# was extruded as a two-storey brick tower)
+SHEDS = {"cw_fefc0bb360": ["92299"]}
 # Pylon spot fixes from Street View (9th & Kerlin captures, 2024): the pylon
 # stands at the lot corner where the two named streets meet.
 SIGN_AT_CORNER = {
@@ -248,7 +258,21 @@ def build_store(sid, canopies, sign, records):
         studs = [((x - 6347.889) * S, -(z - 7201.973) * S, rl * S, rw * S) for x, z, rl, rw in rects]
         if which == "nearest":
             which = min(range(len(studs)), key=lambda i: math.hypot(studs[i][0] - ccx, studs[i][1] - ccz))
-        x, z, rl, rw = studs[which]
+        if isinstance(which, list):
+            # union of several rectangles, in the building's own frame
+            bx, bz = yaw_axes(a)
+            lo_u = lo_v = float("inf")
+            hi_u = hi_v = float("-inf")
+            for i in which:
+                rx, rz, rl, rw = studs[i]
+                u, v = rx * bx[0] + rz * bx[1], rx * bz[0] + rz * bz[1]
+                lo_u, hi_u = min(lo_u, u - rl / 2), max(hi_u, u + rl / 2)
+                lo_v, hi_v = min(lo_v, v - rw / 2), max(hi_v, v + rw / 2)
+            cu, cv = (lo_u + hi_u) / 2, (lo_v + hi_v) / 2
+            x, z = cu * bx[0] + cv * bz[0], cu * bx[1] + cv * bz[1]
+            rl, rw = hi_u - lo_u, hi_v - lo_v
+        else:
+            x, z, rl, rw = studs[which]
         box = store_box(x, z, rl, rw, a, (ccx, ccz))
         wall, roofc = spec.get("wall"), spec.get("roofColor")
         return {"box": box, "h": round(max(h * S, 10.0), 1), "model": bid,
@@ -306,6 +330,33 @@ def sign_at_corner(canopies, road_a, road_b, named_roads):
     (x1, z1), (x2, z2) = seg.coords[0], seg.coords[-1]
     bearing = math.degrees(math.atan2(x2 - x1, -(z2 - z1))) % 360
     return [round(p.x, 1), round(p.y, 1), round(bearing, 1)]
+
+
+def store_extras(sid, store, named_roads):
+    """Extra shopfronts: the face of the shop box (left / right / back) that
+    looks at the named street."""
+    from shapely.geometry import Point
+    out = []
+    cx, cz, width, depth, yaw = store["box"]
+    ex, ez = yaw_axes(yaw)
+    here = Point(cx, cz)
+    for e in STORES.get(sid, {}).get("extra", []):
+        if "toward_point" in e:
+            dx, dz = e["toward_point"][0] - cx, e["toward_point"][1] - cz
+        else:
+            segs = [seg for seg, _, n in named_roads if e["toward"].lower() in n.lower() and seg.distance(here) < 500]
+            if not segs:
+                continue
+            seg = min(segs, key=lambda g: g.distance(here))
+            q = seg.interpolate(seg.project(here))
+            dx, dz = q.x - cx, q.y - cz
+        lx, lz = dx * ex[0] + dz * ex[1], dx * ez[0] + dz * ez[1]
+        if abs(lx) > abs(lz):
+            face = "right" if lx > 0 else "left"
+        else:
+            face = "back" if lz > 0 else ("right" if lx > 0 else "left")
+        out.append({"face": face, "sign": e["sign"], "sign_colors": e.get("sign_colors")})
+    return out
 
 
 def sign_in_front_of_store(store, road_name, named_roads):
@@ -392,6 +443,14 @@ def main():
             if corner:
                 sign = corner
         store = build_store(b["id"], canopies, sign, RECORDS)
+        if store:
+            store["extra"] = store_extras(b["id"], store, NAMED_ROADS)
+        sheds = []
+        for sid in SHEDS.get(b["id"], []):
+            a, h, rects, rc, wc = RECORDS[sid]
+            for x, z, rl, rw in rects:
+                sheds.append({"box": [round((x - 6347.889) * 3, 1), round(-(z - 7201.973) * 3, 1),
+                                      round(rl * 3, 1), round(rw * 3, 1), round(a, 1)], "model": sid})
         if store and b["id"] in SIGN_ON_ROAD_IN_FRONT_OF_STORE:
             fixed = sign_in_front_of_store(store, SIGN_ON_ROAD_IN_FRONT_OF_STORE[b["id"]], NAMED_ROADS)
             if fixed:
@@ -401,7 +460,7 @@ def main():
         stations.append({"id": b["id"], "name": name, "brand": brand or name, "canopies": canopies,
                          "sign": sign, "colors": BRANDS.get(brand, DEFAULT_BRAND), "address": b.get("address", ""),
                          "panel": style[0], "led": style[1], "grades": style[2], "prices": prices,
-                         "placed": bool(placed), "store": store})
+                         "placed": bool(placed), "store": store, "sheds": sheds})
     lines = ["-- Generated by tools/storefronts/build_gas_stations.py from the street-imagery-verified",
              "-- storefront inventory (Data/10_StorefrontPanoramas). Studs. box = {cx, cz, length, width, yaw}.",
              "-- replaces = county footprint id that is really the canopy (GasStationBuilder removes it).",
@@ -427,6 +486,15 @@ def main():
                 lua_str(so["sign"]) if so["sign"] else "nil",
                 "{%s}" % ",".join("{%d,%d,%d}" % c for c in sc) if sc else "nil",
                 lua_str(so["roof"]) if so.get("roof") else "nil")
+            if so.get("extra"):
+                store = store[:-1] + ",extra={%s}}" % ",".join(
+                    "{face=%s,sign=%s,signColors=%s}" % (
+                        lua_str(e["face"]), lua_str(e["sign"]),
+                        "{%s}" % ",".join("{%d,%d,%d}" % c for c in e["sign_colors"]) if e.get("sign_colors") else "nil")
+                    for e in so["extra"])
+        if st["sheds"]:
+            store += ",sheds={%s}" % ",".join("{box={%s},model=%s}" % (",".join(str(v) for v in sh["box"]), lua_str(sh["model"]))
+                                             for sh in st["sheds"])
         post = PYLON_POST.get(st["brand"])
         price += ",post=%s" % ("{%d,%d,%d}" % post if post else "nil")
         lines.append("\t{id=%s,name=%s,brand=%s,address=%s,colors={%s},sign=%s,%s,canopies={%s},store=%s}," % (

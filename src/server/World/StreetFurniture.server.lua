@@ -189,6 +189,29 @@ local function bladeSign(n, armA, armB)
 	blades += 1
 end
 
+-- carriageway / junction paving only (not sidewalks): no pole stands in the road
+local carriageFolders = {}
+for _, f in ipairs(surfaceFolders) do
+	if f.Name ~= "Sidewalks" then table.insert(carriageFolders, f) end
+end
+local carriageParams = RaycastParams.new()
+carriageParams.FilterType = Enum.RaycastFilterType.Include
+carriageParams.FilterDescendantsInstances = carriageFolders
+local function inCarriageway(p, y)
+	local hit = Workspace:Raycast(Vector3.new(p.X, y + 3, p.Z), Vector3.new(0, -6, 0), carriageParams)
+	return hit ~= nil and hit.Instance:GetAttribute("CW_Rail") ~= true
+end
+-- step a pole spot out from the kerb (along `out`) until it is off the road;
+-- nil when no spot within reach is clear
+local function kerbSpot(p, out)
+	for _, extra in ipairs({ 0, 2.5, 5.5, 8.5 }) do
+		local q = p + out * extra
+		local y = surfaceY(q.X, q.Z)
+		if y and not inCarriageway(q, y) then return q, y end
+	end
+	return nil
+end
+
 local function stopSign(n, arm)
 	-- approaching traffic travels toward the node, against arm.dir
 	local travel = -arm.dir
@@ -196,9 +219,8 @@ local function stopSign(n, arm)
 	for _, o in ipairs(n.arms) do
 		if o ~= arm then others = math.max(others, o.seg.half) end
 	end
-	local p = n.p + arm.dir * (others + 5) + rightOf(travel) * (arm.seg.half + 2.2)
-	local y = surfaceY(p.X, p.Z)
-	if not y then return end
+	local p, y = kerbSpot(n.p + arm.dir * (others + 5) + rightOf(travel) * (arm.seg.half + 2.2), rightOf(travel))
+	if not p then return end
 	local H = 7.4
 	part(root, "StopSignPole", Vector3.new(0.3, H, 0.3), CFrame.new(p.X, y + H / 2, p.Z), Enum.Material.Metal, POLE)
 	local face = CFrame.lookAt(Vector3.new(p.X, y + H + 0.9, p.Z), Vector3.new(p.X, y + H + 0.9, p.Z) + arm.dir)
@@ -214,9 +236,13 @@ local function signal(n, arm, go)
 	for _, o in ipairs(n.arms) do
 		if o ~= arm then others = math.max(others, o.seg.half) end
 	end
-	local base = n.p + arm.dir * (others + 4) + rightOf(travel) * (arm.seg.half + 2.5)
-	local y = surfaceY(base.X, base.Z)
-	if not y then return end
+	-- (a signal is kept at its kerb spot even on wide junction paving)
+	local base0 = n.p + arm.dir * (others + 4) + rightOf(travel) * (arm.seg.half + 2.5)
+	local base, y = kerbSpot(base0, rightOf(travel))
+	if not base then
+		base, y = base0, surfaceY(base0.X, base0.Z)
+		if not y then return end
+	end
 	local H = 15
 	part(root, "SignalPole", Vector3.new(0.6, H, 0.6), CFrame.new(base.X, y + H / 2, base.Z), Enum.Material.Metal, POLE)
 	-- mast arm out over the approach lanes, head facing the traffic
@@ -255,15 +281,27 @@ for _, n in pairs(nodes) do
 	if controlOf(n) then
 		local k = math.floor(n.p.X / 100) .. ":" .. math.floor(n.p.Z / 100)
 		signalGrid[k] = signalGrid[k] or {}
-		table.insert(signalGrid[k], n.p)
+		local names = {}
+		for _, arm in ipairs(n.arms) do names[arm.seg.name] = true end
+		table.insert(signalGrid[k], { p = n.p, names = names })
 	end
 end
-local function nearSignal(p, d)
+-- within d of a signalled node, or within `shared` of one that has one of
+-- `names` among its arms (the 9th / Kerlin / Concord junction is several nodes)
+local function nearSignal(p, d, names, shared)
 	local gx, gz = math.floor(p.X / 100), math.floor(p.Z / 100)
-	for ix = gx - 1, gx + 1 do
-		for iz = gz - 1, gz + 1 do
+	for ix = gx - 2, gx + 2 do
+		for iz = gz - 2, gz + 2 do
 			for _, q in ipairs(signalGrid[ix .. ":" .. iz] or {}) do
-				if q ~= p and (q - p).Magnitude < d then return true end
+				if q.p ~= p then
+					local dist = (q.p - p).Magnitude
+					if dist < d then return true end
+					if names and shared and dist < shared then
+						for name in pairs(names) do
+							if q.names[name] then return true end
+						end
+					end
+				end
 			end
 		end
 	end
@@ -317,7 +355,11 @@ for _, n in pairs(nodes) do
 		end
 		local mains = 0
 		for _ in pairs(mainNames) do mains += 1 end
-		if mains < 2 and nearSignal(n.p, 70) then
+		-- a big signalled junction is several county nodes (9th / Kerlin /
+		-- Concord): a node with a main-road arm near a signal belongs to it
+		local armNames = {}
+		for _, arm in ipairs(n.arms) do armNames[arm.seg.name] = true end
+		if mains < 2 and nearSignal(n.p, 70, armNames, 160) then
 			-- part of a signalled intersection: no stop signs
 		elseif mains >= 2 then
 			local axis = n.arms[1].dir

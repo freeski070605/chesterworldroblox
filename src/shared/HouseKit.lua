@@ -381,6 +381,32 @@ function HouseKit.Build(model, r, ctx, H)
 	local fcf, span = nil, 0
 	if nFront then fcf, span = H.faceOf(r, nFront) end
 	local frontExposed = nFront and span >= 7 and not H.covered((fcf * CFrame.new(0, 0, -2.5)).Position, ctx.rects, r)
+	-- Some county footprint sections face another section of the same building.
+	-- Their recorded frontage then yields no doors. Try exposed alternative faces,
+	-- but only when a street frontage bearing is known; never invent a street
+	-- entrance for an unaddressed rear addition or detached garage.
+	if ctx.front and not frontExposed then
+		local bearing = math.rad(ctx.front)
+		local towardStreet = Vector3.new(math.sin(bearing), 0, -math.cos(bearing))
+		local bestNormal, bestFace, bestSpan, bestScore
+		for _, normal in ipairs({ Vector3.xAxis, -Vector3.xAxis, Vector3.zAxis, -Vector3.zAxis }) do
+			local candidate, candidateSpan, outward = H.faceOf(r, normal)
+			if candidateSpan >= 10 and not H.covered((candidate * CFrame.new(0, 0, -2.5)).Position, ctx.rects, r) then
+				local alignment = outward:Dot(towardStreet)
+				-- Prefer the street-facing half-plane; do not create doors on
+				-- a rear-facing side simply to increase the rental count.
+				if alignment >= -0.05 then
+					local score = alignment * 100 + candidateSpan
+					if not bestScore or score > bestScore then
+						bestNormal, bestFace, bestSpan, bestScore = normal, candidate, candidateSpan, score
+					end
+				end
+			end
+		end
+		if bestNormal then
+			nFront, fcf, span, frontExposed = bestNormal, bestFace, bestSpan, true
+		end
+	end
 	local depth = nFront and ((nFront.X ~= 0) and r.along or r.across) or math.min(r.along, r.across)
 
 	local h0 = hash(ctx.buildingId, math.floor(r.frame.X) .. ":" .. math.floor(r.frame.Z))

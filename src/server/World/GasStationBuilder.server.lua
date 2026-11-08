@@ -82,8 +82,8 @@ end
 -- A short sloping rectangular surface, with the ends flush to their respective
 -- surfaces. Only create it where a real road is close enough and the slope is safe.
 local function driveway(model, frame, halfX, halfZ, side)
-	local forward = (side == "front" and -frame.LookVector)
-		or (side == "back" and frame.LookVector)
+	local forward = (side == "front" and frame.LookVector)
+		or (side == "back" and -frame.LookVector)
 		or (side == "right" and frame.RightVector)
 		or (-frame.RightVector)
 	local edge = (side == "front" and frame * Vector3.new(0, 0, -halfZ))

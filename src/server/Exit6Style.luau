@@ -161,6 +161,20 @@ local function buildHat(char, itemId)
 	end
 end
 
+-- Lightweight garment details are welded to the body rather than recolouring
+-- every item into an indistinguishable block. No marketplace asset IDs needed.
+local function bodyDetail(char, folder, partName, name, size, offset, color, material)
+ local body=char:FindFirstChild(partName)
+ if not body or not body:IsA("BasePart") then return end
+ local p=Instance.new("Part")
+ p.Name=name;p.Size=size;p.Anchored=false;p.Massless=true
+ p.CanCollide=false;p.CanTouch=false;p.CanQuery=false
+ p.Material=material or Enum.Material.Fabric;p.Color=color
+ p.CFrame=body.CFrame*offset
+ local w=Instance.new("WeldConstraint")
+ w.Part0=body;w.Part1=p;w.Parent=p;p.Parent=folder
+end
+
 local function buildTop(char, itemId)
 	local item = itemId and Catalog.Items[itemId]
 	setClassic(char, "Shirt", item ~= nil)
@@ -170,6 +184,25 @@ local function buildTop(char, itemId)
 	setColor(char, SLEEVE_PARTS, item and item.hood and c3(item.color) or nil)
 	local old = char:FindFirstChild("Exit6Hood")
 	if old then old:Destroy() end
+ local oldFit=char:FindFirstChild("Exit6TopDetails")
+ if oldFit then oldFit:Destroy() end
+ if item then
+  local f=Instance.new("Folder");f.Name="Exit6TopDetails";f.Parent=char
+  local torso=char:FindFirstChild("UpperTorso")
+  if torso then
+   if item.puffer then
+    bodyDetail(char,f,"UpperTorso","PufferFront",Vector3.new(torso.Size.X*1.08,torso.Size.Y*0.92,0.26),
+     CFrame.new(0,0,-torso.Size.Z*0.52),c3(item.color))
+    for i=-1,1 do
+     bodyDetail(char,f,"UpperTorso","QuiltSeam",Vector3.new(torso.Size.X*1.08,0.055,0.3),
+      CFrame.new(0,i*torso.Size.Y*0.25,-torso.Size.Z*0.54),Color3.fromRGB(75,77,82))
+    end
+   elseif item.accent then
+    bodyDetail(char,f,"UpperTorso","JacketZip",Vector3.new(0.065,torso.Size.Y*0.8,0.09),
+     CFrame.new(0,0,-torso.Size.Z*0.55),c3(item.accent))
+   end
+  end
+ end
 	if item and item.hood and char:FindFirstChild("Head") then
 		local f = Instance.new("Folder")
 		f.Name = "Exit6Hood"
@@ -185,6 +218,25 @@ local function buildBottom(char, itemId)
 	setClassic(char, "Pants", item ~= nil)
 	for _, a in ipairs(accessoriesOf(char, function(t) return BOTTOM_WRAPS[t] == true end)) do hideAccessory(a, item ~= nil) end
 	setColor(char, BOTTOM_PARTS, item and c3(item.color) or nil)
+ local old=char:FindFirstChild("Exit6BottomDetails")
+ if old then old:Destroy() end
+ if item and (item.stacked or item.accent) then
+  local f=Instance.new("Folder");f.Name="Exit6BottomDetails";f.Parent=char
+  for _,legName in ipairs({"LeftLowerLeg","RightLowerLeg"}) do
+   local leg=char:FindFirstChild(legName)
+   if leg then
+    if item.stacked then
+     for i=1,3 do
+      bodyDetail(char,f,legName,"DenimFold",Vector3.new(leg.Size.X*1.06,0.08,leg.Size.Z*1.06),
+       CFrame.new(0,-leg.Size.Y*0.3+(i-1)*0.18,0),Color3.fromRGB(65,76,96))
+     end
+    elseif item.accent then
+     bodyDetail(char,f,legName,"TrackStripe",Vector3.new(0.075,leg.Size.Y*0.9,0.09),
+      CFrame.new(legName=="LeftLowerLeg" and -leg.Size.X*0.51 or leg.Size.X*0.51,0,0),c3(item.accent))
+    end
+   end
+  end
+ end
 end
 
 function Style.Apply(player)

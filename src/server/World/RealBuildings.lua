@@ -123,6 +123,7 @@ function RealBuildings.Store(model, r, ctx, shop)
 	part(model, "ShopCeiling", Vector3.new(r.along, 0.6, r.across), r.frame + Vector3.new(0, groundTop - 0.3, 0),
 		Enum.Material.SmoothPlastic, Color3.fromRGB(236, 234, 228))
 	local nFront = faceAxis(r.frame, shop.front)
+	local entryDoor
 	local fronts = { [tostring(nFront)] = true }
 	if shop.corner then
 		local nc = faceAxis(r.frame, shop.corner)
@@ -162,6 +163,7 @@ function RealBuildings.Store(model, r, ctx, shop)
 				at(0, (glassTop + y0) / 2, 0.55), Enum.Material.Glass, GLASS)
 			glassDoor.Transparency = 0.55
 			glassDoor.CanCollide = false
+			if not entryDoor then entryDoor = glassDoor end
 			local mat = part(model, "DoorMat", Vector3.new(doorW - 0.6, 0.1, 2.4), at(0, y0 + 0.05, -1.4),
 				Enum.Material.Fabric, Color3.fromRGB(40, 40, 44))
 			mat.CanCollide = false
@@ -173,7 +175,23 @@ function RealBuildings.Store(model, r, ctx, shop)
 		end
 	end
 	-- anchor for the interior (gameplay: Exit6Storefronts), local -Z = the door
-	if not shop.name then return end   -- an unnamed shopfront: shell only
+	if not shop.name then
+		-- Citywide unnamed storefronts: use the existing doorway as a lightweight
+		-- interactive counter. No extra physical geometry or cashier NPCs.
+		if entryDoor then
+			local simple = Instance.new("Model")
+			simple.Name = "Shop_Local_" .. ctx.buildingId
+			simple:SetAttribute("ShopName", "Neighborhood Market")
+			simple:SetAttribute("ChesterBuildingId", ctx.buildingId)
+			simple.Parent = model
+			local doorRef = Instance.new("ObjectValue")
+			doorRef.Name = "Exit6ShopDoor"
+			doorRef.Value = entryDoor
+			doorRef.Parent = simple
+			CollectionService:AddTag(simple, "Exit6SimpleStore")
+		end
+		return
+	end
 	local shopModel = Instance.new("Model")
 	shopModel.Name = "Shop_" .. shop.name
 	shopModel.Parent = model

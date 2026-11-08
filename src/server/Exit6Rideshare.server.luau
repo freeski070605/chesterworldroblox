@@ -137,10 +137,12 @@ StartRide.OnServerInvoke = function(player)
 	local limit = math.max(R.minSeconds, math.floor(((pickup - from).Magnitude + dist) * R.secondsPerStud * 1.6))
 	local now = Workspace:GetServerTimeNow()
 	local job = {
-		stage = "pickup", pickup = pickup, dropoff = dropoff, deadline = now + limit,
+		stage = "pickup", car = car, pickup = pickup, dropoff = dropoff, deadline = now + limit,
 		pay = math.floor(R.basePay + dist * R.payPerStud + 0.5),
 		pickupStreet = streetNear(pickup), dropStreet = streetNear(dropoff),
 	}
+	-- One nearby visual rider per job; the ride can still function if avatar
+	-- creation is throttled by Roblox.
 	job.rider = rider(pickup, pickupDoor.Position)
 	jobs[player] = job
 	publish(player)
@@ -156,7 +158,9 @@ task.spawn(function()
 		for player, job in pairs(jobs) do
 			local car = myCar(player)
 			local chassis = car and car.PrimaryPart
-			if chassis and chassis.Parent and chassis.AssemblyLinearVelocity.Magnitude < 6 then
+			-- Jobs are bound to the car used at dispatch. Switching vehicles
+			-- cannot teleport the passenger or complete a fare.
+			if chassis and chassis.Parent and car == job.car and chassis.AssemblyLinearVelocity.Magnitude < 6 then
 				local target = job.stage == "pickup" and job.pickup or job.dropoff
 				local flat = (chassis.Position - target) * Vector3.new(1, 0, 1)
 				if flat.Magnitude < STOP_REACH then

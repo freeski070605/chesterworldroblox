@@ -29,7 +29,7 @@ end
 local function myCar(player)
 	local folder = Workspace:FindFirstChild("Exit6Vehicles")
 	for _, m in ipairs(folder and folder:GetChildren() or {}) do
-		if m:GetAttribute("Owner") == player.UserId and m:GetAttribute("Driver") == player.UserId then return m end
+		if m:IsA("Model") and m.PrimaryPart and m:GetAttribute("Owner") == player.UserId and m:GetAttribute("Driver") == player.UserId then return m end
 	end
 	return nil
 end
@@ -81,11 +81,12 @@ local function rider(at, facing)
 	desc.HeadColor, desc.LeftArmColor, desc.RightArmColor = skin, skin, skin
 	desc.TorsoColor = Color3.fromRGB(rng:NextInteger(20, 220), rng:NextInteger(20, 220), rng:NextInteger(20, 220))
 	local ok, npc = pcall(function() return Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15) end)
-	if not ok then return nil end
+	if not ok or not npc then return nil end
 	npc.Name = "Rider"
 	for _, p in ipairs(npc:GetDescendants()) do if p:IsA("BasePart") then p.Anchored = true end end
 	npc:PivotTo(CFrame.lookAt(at + Vector3.new(0, 2.9, 0), facing + Vector3.new(0, 2.9, 0)))
 	local hum = npc:FindFirstChildOfClass("Humanoid")
+	if not hum then npc:Destroy() return nil end
 	hum.DisplayName = "Your rider"
 	npc:SetAttribute("Exit6NPC", "rider")
 	npc.Parent = Workspace
@@ -93,6 +94,7 @@ local function rider(at, facing)
 end
 
 StartRide.OnServerInvoke = function(player)
+	if player:GetAttribute("Exit6DataReady") ~= true then return false end
 	if jobs[player] or player:GetAttribute("Exit6Job") then notify(player, "Finish your current job first") return false end
 	local car = myCar(player)
 	if not car then notify(player, "Get in your car first (phone > Car)") return false end
@@ -105,14 +107,18 @@ StartRide.OnServerInvoke = function(player)
 	local pickupDoor, dropDoor
 	for _ = 1, 600 do
 		local d = doors[rng:NextInteger(1, #doors)]
-		local dist = (d.Position - from).Magnitude
-		if dist > 80 and dist < 700 then pickupDoor = d break end
+		if d:IsA("BasePart") and d.Parent then
+			local dist = (d.Position - from).Magnitude
+			if dist > 80 and dist < 700 then pickupDoor = d break end
+		end
 	end
 	if not pickupDoor then notify(player, "No riders around here") return false end
 	for _ = 1, 600 do
 		local d = doors[rng:NextInteger(1, #doors)]
-		local dist = (d.Position - pickupDoor.Position).Magnitude
-		if dist >= R.minStuds and dist <= R.maxStuds then dropDoor = d break end
+		if d:IsA("BasePart") and d.Parent and d ~= pickupDoor then
+			local dist = (d.Position - pickupDoor.Position).Magnitude
+			if dist >= R.minStuds and dist <= R.maxStuds then dropDoor = d break end
+		end
 	end
 	if not dropDoor then notify(player, "No riders around here") return false end
 	local pickup, dropoff = doorstep(pickupDoor), doorstep(dropDoor)
@@ -139,7 +145,7 @@ task.spawn(function()
 		for player, job in pairs(jobs) do
 			local car = myCar(player)
 			local chassis = car and car.PrimaryPart
-			if chassis and chassis.AssemblyLinearVelocity.Magnitude < 6 then
+			if chassis and chassis.Parent and chassis.AssemblyLinearVelocity.Magnitude < 6 then
 				local target = job.stage == "pickup" and job.pickup or job.dropoff
 				local flat = (chassis.Position - target) * Vector3.new(1, 0, 1)
 				if flat.Magnitude < STOP_REACH then
@@ -159,6 +165,13 @@ end)
 QuitJob.OnServerEvent:Connect(function(player)
 	if jobs[player] then finish(player, false, "You cancelled the ride") end
 end)
+local function watch(player)
+	player.CharacterRemoving:Connect(function()
+		if jobs[player] then finish(player, false, "Ride cancelled when you left the vehicle") end
+	end)
+end
+Players.PlayerAdded:Connect(watch)
+for _, player in ipairs(Players:GetPlayers()) do watch(player) end
 Players.PlayerRemoving:Connect(function(player)
 	local job = jobs[player]
 	if job and job.rider then job.rider:Destroy() end

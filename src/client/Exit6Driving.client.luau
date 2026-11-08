@@ -71,7 +71,7 @@ local cashCodeIndex, lastCodeInput = 1, 0
 UserInputService.InputBegan:Connect(function(input, processed)
  if input.UserInputType ~= Enum.UserInputType.Gamepad1 then return end
  local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
- if not hum or hum.SeatPart or player:GetAttribute("Exit6CashCodeRedeemed") then return end
+ if not hum or hum.SeatPart then return end
  if os.clock() - lastCodeInput > 6 then cashCodeIndex = 1 end
  lastCodeInput = os.clock()
  if input.KeyCode == cashCode[cashCodeIndex] then

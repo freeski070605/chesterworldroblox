@@ -1,0 +1,122 @@
+[
+  {
+    "id": "sharp_low_taper",
+    "category": "hair",
+    "version": 1,
+    "status": "candidate_unverified",
+    "vertices": 482,
+    "triangles": 870,
+    "material": "dark_hair",
+    "pivot": "R15 Head center; front -Z"
+  },
+  {
+    "id": "mid_skin_fade",
+    "category": "hair",
+    "version": 1,
+    "status": "candidate_unverified",
+    "vertices": 482,
+    "triangles": 870,
+    "material": "dark_hair",
+    "pivot": "R15 Head center; front -Z"
+  },
+  {
+    "id": "high_top_fade",
+    "category": "hair",
+    "version": 1,
+    "status": "candidate_unverified",
+    "vertices": 578,
+    "triangles": 1028,
+    "material": "dark_hair",
+    "pivot": "R15 Head center; front -Z"
+  },
+  {
+    "id": "waves_360",
+    "category": "hair",
+    "version": 1,
+    "status": "candidate_unverified",
+    "vertices": 1462,
+    "triangles": 2790,
+    "material": "dark_hair",
+    "pivot": "R15 Head center; front -Z"
+  },
+  {
+    "id": "starter_locs",
+    "category": "hair",
+    "version": 1,
+    "status": "candidate_unverified",
+    "vertices": 1679,
+    "triangles": 2998,
+    "material": "dark_hair",
+    "pivot": "R15 Head center; front -Z"
+  },
+  {
+    "id": "medium_locs",
+    "category": "hair",
+    "version": 1,
+    "status": "candidate_unverified",
+    "vertices": 1868,
+    "triangles": 3334,
+    "material": "dark_hair",
+    "pivot": "R15 Head center; front -Z"
+  },
+  {
+    "id": "shoulder_locs",
+    "category": "hair",
+    "version": 1,
+    "status": "candidate_unverified",
+    "vertices": 2057,
+    "triangles": 3670,
+    "material": "dark_hair",
+    "pivot": "R15 Head center; front -Z"
+  },
+  {
+    "id": "two_strand_twists",
+    "category": "hair",
+    "version": 1,
+    "status": "candidate_unverified",
+    "vertices": 2282,
+    "triangles": 4070,
+    "material": "dark_hair",
+    "pivot": "R15 Head center; front -Z"
+  },
+  {
+    "id": "cornrows",
+    "category": "hair",
+    "version": 1,
+    "status": "candidate_unverified",
+    "vertices": 4235,
+    "triangles": 7638,
+    "material": "dark_hair",
+    "pivot": "R15 Head center; front -Z"
+  },
+  {
+    "id": "box_braids",
+    "category": "hair",
+    "version": 1,
+    "status": "candidate_unverified",
+    "vertices": 4262,
+    "triangles": 7590,
+    "material": "dark_hair",
+    "pivot": "R15 Head center; front -Z"
+  },
+  {
+    "id": "afro_taper",
+    "category": "hair",
+    "version": 1,
+    "status": "candidate_unverified",
+    "vertices": 2022,
+    "triangles": 2410,
+    "material": "dark_hair",
+    "pivot": "R15 Head center; front -Z"
+  },
+  {
+    "id": "braided_ponytail",
+    "category": "hair",
+    "version": 1,
+    "status": "candidate_unverified",
+    "vertices": 3317,
+    "triangles": 5910,
+    "material": "dark_hair",
+    "pivot": "R15 Head center; front -Z"
+  }
+]

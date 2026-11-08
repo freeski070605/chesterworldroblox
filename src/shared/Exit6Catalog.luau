@@ -70,9 +70,10 @@ Catalog.Menus = {
 	gas = { "chips", "soda", "iced_tea", "water", "hoagie" },
 	phone = { "phone_case", "charger", "prepaid_card" },
 	laundry = { "detergent", "wash_load", "soda" },
-	barber = { "edge_up", "cut_fade", "cut_waves", "cut_twists", "cut_afro", "cut_braids", "cut_bald", "cut_own" },
-	clothing = { "tee_white", "tee_black", "tee_red", "hoodie_grey", "hoodie_navy", "jersey_blue", "jeans_blue",
-		"jeans_black", "sweats_grey", "cargo_khaki", "beanie_black", "cap_red", "cap_navy", "durag_black", "fit_own" },
+	-- Legacy part-built looks remain in Items so old profiles restore, but are
+	-- withheld from new sales until mesh/cage assets pass Studio visual QA.
+	barber = { "cut_bald", "cut_own" },
+	clothing = { "fit_own" },
 	dealer = { "car_hatch", "car_van", "car_pickup", "car_suv", "car_coupe" },
 }
 

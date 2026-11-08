@@ -65,10 +65,10 @@ ROAD_SEARCH.MaxParts = 150
 local ROAD_RAY = RaycastParams.new()
 ROAD_RAY.FilterType = Enum.RaycastFilterType.Include
 local function roadTopAt(point)
-	local nearby = Workspace:GetPartBoundsInRadius(point, 28, ROAD_SEARCH)
+	local nearby = Workspace:GetPartBoundsInRadius(point, 16, ROAD_SEARCH)
 	local candidates = {}
 	for _, p in ipairs(nearby) do
-		if p:IsA("BasePart") and type(p:GetAttribute("ChesterStreet")) == "string"
+		if p:IsA("BasePart") and p:GetAttribute("ChesterStreet") ~= nil
 			and p.Parent and p.Parent.Name == "Roads" and not p:GetAttribute("CW_HighwayProfiled") then
 			table.insert(candidates, p)
 		end
@@ -79,8 +79,8 @@ local function roadTopAt(point)
 	return hit and hit.Position.Y or nil
 end
 
--- A short sloping rectangular surface, with the ends flush to their respective
--- surfaces. Only create it where a real road is close enough and the slope is safe.
+-- Search for a gentle approach instead of using the first road hit, which
+-- frequently produces a sharp five-stud ramp at sloped Chester lots.
 local function driveway(model, frame, halfX, halfZ, side)
 	local forward = (side == "front" and frame.LookVector)
 		or (side == "back" and -frame.LookVector)
@@ -90,34 +90,39 @@ local function driveway(model, frame, halfX, halfZ, side)
 		or (side == "back" and frame * Vector3.new(0, 0, halfZ))
 		or (side == "right" and frame * Vector3.new(halfX, 0, 0))
 		or (frame * Vector3.new(-halfX, 0, 0))
-	local roadY, run
-	for d = 5, 24, 3 do
-		local sample = edge + forward * d
-		roadY = roadTopAt(sample)
-		if roadY then run = d break end
+	local slabTop = frame.Position.Y + 0.5
+	local best, closest
+	for d = 5, 48, 3 do
+		local y = roadTopAt(edge + forward * d)
+		if y then
+			local delta = y - slabTop
+			local grade = math.abs(delta) / d
+			local candidate = { y = y, run = d, delta = delta, grade = grade }
+			if not closest or d < closest.run then closest = candidate end
+			if grade <= 0.12 and (not best or d < best.run) then best = candidate end
+		end
 	end
-	if not run then drivewayStats.noRoad += 1 return end
-	local slabTop = frame.Position.Y + 0.5 -- forecourt centre +0.2, thickness 0.6
-	local delta = roadY - slabTop
-	if math.abs(delta) < 0.25 then return end -- already nearly flush
-	if math.abs(delta) / run > 0.15 then
+	if not closest then drivewayStats.noRoad += 1 return end
+	if not best then
 		drivewayStats.skippedSteep += 1
-		warn(("[EXIT6 Gas Driveway] %s: %.1f stud step over %.1f studs; needs terrain/road regrade")
-			:format(model.Name, delta, run))
+		warn(("[EXIT6 Gas Driveway] %s %s: nearest road step %.1f studs; no gentle approach found")
+			:format(model.Name, side, closest.delta))
 		return
 	end
+	if math.abs(best.delta) < 0.25 then return end
+	local run, delta = best.run, best.delta
 	local tangent = Vector3.new(forward.X, 0, forward.Z).Unit
 	local slopeForward = (tangent * run + Vector3.new(0, delta, 0)).Unit
 	local right = slopeForward:Cross(Vector3.yAxis).Unit
 	local up = right:Cross(slopeForward).Unit
-	local center = edge + tangent * (run / 2) + Vector3.new(0, (slabTop + roadY) / 2 - frame.Position.Y - 0.18, 0)
+	local center = edge + tangent * (run / 2)
+		+ Vector3.new(0, (slabTop + best.y) / 2 - frame.Position.Y - 0.18, 0)
 	local width = math.min((side == "front" or side == "back") and halfX * 1.2 or halfZ * 1.2, 30)
 	local ramp = part(model, "DrivewayTransition", Vector3.new(width, 0.36, run + 0.7),
 		CFrame.fromMatrix(center, right, up, -slopeForward), Enum.Material.Concrete, CONCRETE)
 	ramp:SetAttribute("Exit6Driveway", true)
 	drivewayStats.built += 1
 end
-
 
 local function label(p, text, faces, color)
 	for _, face in ipairs(faces) do

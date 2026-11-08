@@ -101,6 +101,26 @@ local function buildHair(char, style)
 				CFrame.new(math.cos(a) * s.X * 0.36, top + s.Y * 0.26, math.sin(a) * s.Z * 0.36) * CFrame.Angles(0, 0, math.rad(90))
 					* CFrame.Angles(math.cos(a) * 0.35, 0, math.sin(a) * 0.35), HAIR)
 		end
+	elseif style == "high_top" then
+  headPart(char,f,Enum.PartType.Block,Vector3.new(s.X*0.92,s.Y*0.9,s.Z*0.91),
+   CFrame.new(0,s.Y*0.55,0),HAIR,Enum.Material.Fabric)
+  headPart(char,f,Enum.PartType.Block,Vector3.new(s.X*0.94,s.Y*0.12,s.Z*0.94),
+   CFrame.new(0,s.Y*0.14,0),HAIR)
+ elseif style == "loc_short" or style == "loc_long" or style == "box_braids" then
+  local long=style=="loc_long"
+  local braided=style=="box_braids"
+  headPart(char,f,Enum.PartType.Ball,Vector3.new(s.X*1.05,s.Y*0.5,s.Z*1.05),
+   CFrame.new(0,top+s.Y*0.12,0),HAIR,Enum.Material.Fabric)
+  local count=braided and 14 or (long and 16 or 12)
+  for i=1,count do
+   local a=(i-1)/count*math.pi*2
+   local x=math.cos(a)*s.X*0.42
+   local z=math.sin(a)*s.Z*0.42
+   local len=(long and s.Y*0.9 or (braided and s.Y*0.75 or s.Y*0.42))
+   local thickness=braided and s.X*0.075 or s.X*0.11
+   headPart(char,f,Enum.PartType.Cylinder,Vector3.new(len,thickness,thickness),
+    CFrame.new(x,top+s.Y*0.14-len*0.5,z),HAIR,Enum.Material.Fabric)
+  end
 	elseif style == "braids" then
 		headPart(char, f, Enum.PartType.Ball, Vector3.new(s.X * 1.03, s.Y * 0.62, s.Z * 1.03), CFrame.new(0, top, 0.02), HAIR)
 		for i = -2, 2 do

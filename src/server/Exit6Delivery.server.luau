@@ -119,8 +119,10 @@ local function start(player, model, counter)
 	local from = counter.Position
 	local picks = {}
 	for _, door in ipairs(CollectionService:GetTagged("Exit6FrontDoor")) do
-		local d = (door.Position - from).Magnitude
-		if door:IsA("BasePart") and door.Parent and d >= D.minStuds and d <= D.maxStuds then table.insert(picks, door) end
+		if door:IsA("BasePart") and door.Parent then
+			local d = (door.Position - from).Magnitude
+			if d >= D.minStuds and d <= D.maxStuds then table.insert(picks, door) end
+		end
 	end
 	if #picks == 0 then notify(player, "No orders right now") return end
 	local door = picks[rng:NextInteger(1, #picks)]
@@ -183,7 +185,7 @@ local function setup(model)
 		local ref = model:FindFirstChild("Exit6ShopDoor")
 		counter = ref and ref.Value
 	end
-	if not counter or counter:FindFirstChild("DeliveryPrompt") then return end
+	if not counter or not counter.Parent or counter:FindFirstChild("DeliveryPrompt") then return end
 	local p = Instance.new("ProximityPrompt")
 	p.Name = "DeliveryPrompt"
 	p.ActionText = "Take delivery order"
@@ -195,7 +197,7 @@ local function setup(model)
 	p.RequiresLineOfSight = false
 	p.Parent = counter
 	p.Triggered:Connect(function(player)
-		if player:GetAttribute("Exit6DataReady") == true then start(player, model, counter) end
+		if model.Parent and player:GetAttribute("Exit6DataReady") == true then start(player, model, counter) end
 	end)
 end
 for _, tag in ipairs({"Exit6Store","Exit6SimpleStore"}) do

@@ -3,8 +3,9 @@
 -- steps Exit6CarPhysics every frame from the VehicleSeat input:
 --   W / S or Up / Down, R2 / L2 (gamepad)   gas / brake-reverse
 --   A / D or Left / Right, left stick       steer
---   Shift / ButtonX                         handbrake
---   Space / ButtonA                         get out
+--   Shift / ButtonB                         handbrake
+--   X / ButtonX                             exit at driver door
+--   Space / ButtonA                         Roblox fallback exit
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -69,6 +70,7 @@ local function stop()
 	gui.Enabled = false
 	handbrake = false
 	ContextActionService:UnbindAction("Exit6Handbrake")
+	ContextActionService:UnbindAction("Exit6CarExit")
 end
 
 local function start(seat)
@@ -79,7 +81,36 @@ local function start(seat)
 		if state == Enum.UserInputState.Begin then handbrake = true
 		elseif state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then handbrake = false end
 		return Enum.ContextActionResult.Sink
-	end, false, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonX)
+	end, false, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonB)
+	ContextActionService:BindAction("Exit6CarExit", function(_, state)
+		if state ~= Enum.UserInputState.Begin then return Enum.ContextActionResult.Sink end
+		local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		local chassis = car.PrimaryPart
+		if not hum or not root or not chassis or hum.SeatPart ~= seat then return Enum.ContextActionResult.Sink end
+		local side = -chassis.CFrame.RightVector
+		local origin = chassis.Position + side * (chassis.Size.X / 2 + 3.5) + Vector3.new(0, 9, 0)
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { car, player.Character }
+		local ground = workspace:Raycast(origin, Vector3.new(0, -24, 0), params)
+		if not ground or ground.Normal.Y < 0.65 then return Enum.ContextActionResult.Sink end
+		local target = ground.Position + Vector3.new(0, 3, 0)
+		local check = OverlapParams.new()
+		check.FilterType = Enum.RaycastFilterType.Exclude
+		check.FilterDescendantsInstances = { car, player.Character }
+		for _, obstacle in ipairs(workspace:GetPartBoundsInBox(CFrame.new(target), Vector3.new(2.5, 5, 2.5), check)) do
+			if obstacle.CanCollide and obstacle.Position.Y + obstacle.Size.Y / 2 > ground.Position.Y + 0.5 then
+				return Enum.ContextActionResult.Sink
+			end
+		end
+		hum.Sit = false
+		hum.Jump = false
+		task.defer(function()
+			if root.Parent and hum.Health > 0 then root.CFrame = CFrame.new(target, target + chassis.CFrame.LookVector) end
+		end)
+		return Enum.ContextActionResult.Sink
+	end, false, Enum.KeyCode.X, Enum.KeyCode.ButtonX)
 	conn = RunService.PreSimulation:Connect(function(dt)
 		if not car.Parent or seat.Occupant == nil then stop() return end
 		local speed = CarPhysics.Step(car, dt, {

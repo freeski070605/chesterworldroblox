@@ -83,10 +83,19 @@ local function build(model)
  mat.CanCollide=false
  end
  make("Counter",Vector3.new(10,3.2,3),-5,1.8,5,Color3.fromRGB(76,55,40),Enum.Material.Wood)
- for _,x in ipairs({2,8}) do
-  make("MerchandiseShelf",Vector3.new(3,5,9),x,2.75,-1,Color3.fromRGB(55,62,70),Enum.Material.Metal)
-  for _,z in ipairs({-4,-1,2}) do
-   make("Stock",Vector3.new(2.5,1.1,1.6),x,3.1,z,Color3.fromRGB(195,88,42))
+ -- Narrow city shops need an open aisle from the front door to the register.
+ -- Fitting two shelving runs in a small footprint blocks that route; one
+ -- shorter run also reduces parts in the busiest downtown tiles.
+ local storeWidth=model:GetAttribute("Exit6StoreWidth") or 26
+ local storeDepth=model:GetAttribute("Exit6StoreDepth") or 22
+ local shelfXs=(inBuilding and storeWidth<21) and {6.5} or {2,8}
+ local shelfLength=(inBuilding and storeDepth<19) and 5.5 or 9
+ for _,x in ipairs(shelfXs) do
+  make("MerchandiseShelf",Vector3.new(3,5,shelfLength),x,2.75,-1,Color3.fromRGB(55,62,70),Enum.Material.Metal)
+  local stockZs=shelfLength<9 and {-2,1} or {-4,-1,2}
+  for _,z in ipairs(stockZs) do
+   local stock=make("Stock",Vector3.new(2.5,1.1,1.6),x,3.1,z,Color3.fromRGB(195,88,42))
+   stock.CanCollide=false
   end
  end
  local cooler=make("DrinkCooler",Vector3.new(6,7,2),-8,3.5,-9,Color3.fromRGB(43,76,92),Enum.Material.Glass)

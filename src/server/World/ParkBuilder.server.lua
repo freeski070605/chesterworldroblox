@@ -289,6 +289,13 @@ for _, item in ipairs(Parks.features) do
 		model.Name = key
 		builder(model, frame, item.box[3], item.box[4], item)
 		model.Parent = featureFolder
+		if key == "basketball" then
+			-- street basketball (Exit6Basketball.server) plays on these
+			model:SetAttribute("CourtLength", item.box[3])
+			model:SetAttribute("CourtWidth", item.box[4])
+			model.WorldPivot = frame
+			game:GetService("CollectionService"):AddTag(model, "Exit6Court")
+		end
 		built[key] = (built[key] or 0) + 1
 	else
 		skipped += 1

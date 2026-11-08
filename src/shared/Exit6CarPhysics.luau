@@ -24,6 +24,10 @@ CarPhysics.Tuning = {
 }
 local T = CarPhysics.Tuning
 
+-- unstick: gas held, barely moving, wheels down -> a small hop forward
+local stuckSince = setmetatable({}, { __mode = "k" })
+local lastHop = setmetatable({}, { __mode = "k" })
+
 local params = RaycastParams.new()
 params.FilterType = Enum.RaycastFilterType.Exclude
 params.IgnoreWater = false
@@ -137,6 +141,18 @@ function CarPhysics.Step(model, dt, input)
 		else
 			compression[i] = 0
 		end
+	end
+	-- stuck on a kerb / seam with the gas down: hop it over
+	if math.abs(throttle) > 0.5 and math.abs(speed) < 1.5 and grounded >= 2 and not noFuel then
+		local now = os.clock()
+		stuckSince[model] = stuckSince[model] or now
+		if now - stuckSince[model] > 1.0 and (not lastHop[model] or now - lastHop[model] > 1.5) then
+			lastHop[model] = now
+			stuckSince[model] = nil
+			chassis:ApplyImpulse((Vector3.yAxis * 32 + look * 14 * math.sign(throttle)) * mass)
+		end
+	else
+		stuckSince[model] = nil
 	end
 	-- air drag
 	if vel.Magnitude > 1 then

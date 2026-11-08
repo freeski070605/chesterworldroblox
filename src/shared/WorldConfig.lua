@@ -13,7 +13,8 @@ WorldConfig.WORLD_CENTER_Z_M = WorldPlacement.CENTER_Z_M
 WorldConfig.ROAD_THICKNESS_STUDS = 0.45
 WorldConfig.ROAD_SURFACE_OFFSET_STUDS = 0.30
 
-WorldConfig.SIDEWALK_HEIGHT_STUDS = 0.65
+-- 0.65 made a ~0.8 stud kerb that pinned cars (2026-11-07): 0.4 still reads as a kerb
+WorldConfig.SIDEWALK_HEIGHT_STUDS = 0.4
 WorldConfig.SIDEWALK_WIDTH_STUDS = 5.0
 WorldConfig.SIDEWALK_GAP_STUDS = 0.10
 

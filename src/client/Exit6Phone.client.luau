@@ -153,10 +153,10 @@ phoneList.Position = UDim2.fromOffset(12, 102)
 phoneList.Size = UDim2.new(1, -24, 1, -142)
 local drawPhone
 local tabButtons = {}
-local TABS = { { "wallet", "Wallet" }, { "bag", "Bag" }, { "job", "Job" }, { "car", "Car" }, { "home", "Home" }, { "biz", "Biz" } }
+local TABS = { { "wallet", "Wallet" }, { "bag", "Bag" }, { "job", "Job" }, { "car", "Car" }, { "home", "Home" }, { "biz", "Biz" }, { "music", "Music" } }
 for i, t in ipairs(TABS) do
 	local b = new("TextButton", { Name = t[1], Position = UDim2.new((i - 1) / #TABS, 2, 0, 0), Size = UDim2.new(1 / #TABS, -4, 1, 0),
-		BackgroundColor3 = CARD, Text = t[2], Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = TEXT }, tabs)
+		BackgroundColor3 = CARD, Text = t[2], Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = TEXT }, tabs)
 	round(b, 6)
 	b.Activated:Connect(function() tab = t[1] drawPhone() end)
 	tabButtons[t[1]] = b
@@ -209,7 +209,7 @@ end
 
 -- a local HOME marker (phone > Home > Show my home)
 local homeMarker = nil
-local function markHome(pos)
+local function markHome(pos, label)
 	if homeMarker then homeMarker:Destroy() homeMarker = nil end
 	if typeof(pos) ~= "Vector3" then return end
 	local marker = new("Part", { Name = "Exit6HomeMarker", Anchored = true, CanCollide = false, CanQuery = false, CanTouch = false,
@@ -218,7 +218,7 @@ local function markHome(pos)
 	local bb = new("BillboardGui", { Size = UDim2.fromOffset(120, 40), StudsOffset = Vector3.new(0, 7, 0), AlwaysOnTop = true,
 		LightInfluence = 0, MaxDistance = 100000 }, marker)
 	new("TextLabel", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = INK, BackgroundTransparency = 0.2, TextColor3 = ACCENT,
-		Font = Enum.Font.GothamBlack, TextSize = 18, Text = "HOME" }, bb)
+		Font = Enum.Font.GothamBlack, TextSize = 18, Text = label or "HOME" }, bb)
 	task.delay(90, function() if homeMarker == marker then markHome(nil) end end)
 end
 
@@ -336,8 +336,28 @@ drawPhone = function()
 			row(phoneList, 1, "No place yet", "")
 			row(phoneList, 2, "Show homes for rent nearby", "", act(markRentals))
 			row(phoneList, 3, "Every house in Chester is for rent", "")
-			row(phoneList, 4, "At a front door: E move in, F / X look", "")
+			row(phoneList, 4, "At a door: Y / E move in, X / F look", "")
 		end
+	elseif tab == "music" then
+		local m = prof.music or {}
+		row(phoneList, 1, string.format("Pen %d  Flow %d  Beats %d", m.pen or 0, m.flow or 0, m.beats or 0), "")
+		row(phoneList, 2, "Fans", tostring(m.fans or 0))
+		local n = 2
+		for i, t in ipairs(m.tracks or {}) do
+			n += 1
+			if t.rel then
+				row(phoneList, n, string.format("%s  (q%d)", t.name, t.q), t.streams .. " plays")
+			else
+				row(phoneList, n, "Release \"" .. t.name .. "\"  (q" .. t.q .. ")", "", act(function()
+					remoteNamed("MusicAction"):InvokeServer("release", i)
+				end))
+			end
+		end
+		if n == 2 then row(phoneList, 3, "No tracks yet", "") end
+		row(phoneList, 50, "Find Exit 6 Sound (studio)", "", act(function()
+			local at = Workspace:GetAttribute("Exit6StudioAt")
+			if typeof(at) == "Vector3" then markHome(at, "STUDIO") end
+		end))
 	elseif tab == "biz" then
 		local n = 0
 		local here = nearestStore(30)

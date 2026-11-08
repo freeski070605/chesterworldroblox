@@ -126,12 +126,15 @@ function Builder.Build(modelId, cf, opts)
 		local ground = chassis.CFrame * CFrame.new(0, -(rest + radius - CarPhysics.Tuning.staticSag + 0.2), 0)
 		local copy = mesh:Clone()
 		copy:PivotTo(ground)
+		local _, extent = copy:GetBoundingBox()
 		for _, p in ipairs(copy:GetDescendants()) do
 			if p:IsA("BasePart") then
 				p.Anchored = false
 				p.Massless = true
 				p.CanTouch = false
-				p.CanCollide = p.Name == "Body"
+				-- the mesh is looks only: its low bumpers caught every kerb
+				-- and road seam. The hull below does the colliding.
+				p.CanCollide = false
 				local w = Instance.new("WeldConstraint")
 				w.Part0, w.Part1 = chassis, p
 				w.Parent = p
@@ -139,6 +142,12 @@ function Builder.Build(modelId, cf, opts)
 			end
 		end
 		copy:Destroy()
+		-- collision hull: a box from 1.3 studs above the road to near the roof,
+		-- so the body clears kerbs (~0.5) and seams; the wheels ride over them
+		local rideH = rest + radius - CarPhysics.Tuning.staticSag + 0.2
+		local bottom, top = -rideH + 1.3, -rideH + extent.Y * 0.9
+		weldPart(model, chassis, "Hull", Vector3.new(wid - 0.4, math.max(1, top - bottom), len - 1.0),
+			CFrame.new(0, (bottom + top) / 2, 0), Color3.new(1, 1, 1), nil, { Transparency = 1, CanCollide = true })
 		bodyTop = mesh:GetAttribute("SeatY") or 1.5
 		cabFront = -len * 0.2
 	else

@@ -2,7 +2,7 @@
 -- streamed in around the player (every house in the city is for rent; ~19k
 -- doors would be too many server prompts). Actions go to Exit6Housing.server
 -- through the HomeDoor remote, which checks the player is at that door.
---   E          Move in ($)              (nobody lives there, you have no home yet)
+--   E / Y      Move in ($)              (nobody lives there, you have no home yet)
 --   F / X      Look inside / Go inside / Go outside
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -59,6 +59,8 @@ local function setup(door)
 	local id = door:GetAttribute("Exit6HomeId")
 	local move = Instance.new("ProximityPrompt")
 	move.Name = "Exit6MoveIn"
+	-- its own controller button: two prompts on X show only one at a time
+	move.GamepadKeyCode = Enum.KeyCode.ButtonY
 	move.HoldDuration = 0.6
 	move.MaxActivationDistance = 8
 	move.RequiresLineOfSight = false

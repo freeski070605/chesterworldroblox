@@ -159,28 +159,37 @@ end
 -- same inputs, same door ids - and the clients stop decorating it (KitServer).
 local OLD_HOME_PARTS = { Walls = true, GroundStorey = true, Foundation = true, Cornice = true, Roof = true }
 local OLD_PORCH = { PorchFloor = true, PorchRoof = true, PorchPost = true }
-local byBuilding = nil
+-- the building model by its county id: a house is named by its id, so look it
+-- up by name in each tile's Buildings folder (fast, no index to wait for);
+-- a named building falls back to a scan of the folders' attributes
+local found = {}
 local function buildingModel(id)
-	if not byBuilding then
-		byBuilding = {}
-		local world = Workspace:FindFirstChild("ChesterWorld")
-		for _, tile in ipairs(world and world:GetChildren() or {}) do
-			local f = tile:FindFirstChild("Buildings")
-			for _, m in ipairs(f and f:GetChildren() or {}) do
-				if m:GetAttribute("Exit6Kit") then byBuilding[m:GetAttribute("ChesterBuildingId")] = m end
-			end
-			task.wait()
+	local m = found[id]
+	if m and m.Parent then return m end
+	local world = Workspace:FindFirstChild("ChesterWorld")
+	for _, tile in ipairs(world and world:GetChildren() or {}) do
+		local f = tile:FindFirstChild("Buildings")
+		local c = f and f:FindFirstChild(id)
+		if c and c:GetAttribute("ChesterBuildingId") == id then found[id] = c return c end
+	end
+	for _, tile in ipairs(world and world:GetChildren() or {}) do
+		local f = tile:FindFirstChild("Buildings")
+		for _, c in ipairs(f and f:GetChildren() or {}) do
+			if c:GetAttribute("ChesterBuildingId") == id then found[id] = c return c end
 		end
 	end
-	return byBuilding[id]
+	return nil
 end
 local function insideRect(r, p)
 	local l = r.frame:PointToObjectSpace(Vector3.new(p.X, 0, p.Z))
 	return math.abs(l.X) <= r.along / 2 + 0.5 and math.abs(l.Z) <= r.across / 2 + 0.5
 end
+-- returns the building model (or nil, why)
 local function materialise(buildingId)
 	local m = buildingModel(buildingId)
-	if not m or m:GetAttribute("KitServer") then return end
+	if not m then return nil, "house not found (" .. tostring(buildingId) .. ")" end
+	if m:GetAttribute("KitServer") then return m end
+	if not m:GetAttribute("Exit6Kit") then return nil, "not a home" end
 	local ctx, homes = HouseKit.Decode(m:GetAttribute("Exit6Kit"))
 	-- the plain block of each home section, and the old porch
 	for _, c in ipairs(m:GetChildren()) do
@@ -198,7 +207,10 @@ local function materialise(buildingId)
 	ctx.buildingId = buildingId
 	ctx.applyFacade = HouseKit.ApplyFacade
 	ctx.stats = { frontDoors = 0, backDoors = 0, sideDoors = 0, rentals = 0 }
-	for _, r in ipairs(homes) do HouseKit.Build(m, r, ctx, HouseKit.H) end
+	for _, r in ipairs(homes) do
+		local ok, err = pcall(HouseKit.Build, m, r, ctx, HouseKit.H)
+		if not ok then warn("[EXIT6 Housing] build", buildingId, err) end
+	end
 	-- register its doors now (not via the tag signal: no frame-ordering doubt)
 	for _, c in ipairs(m:GetChildren()) do
 		if c:IsA("BasePart") and c:GetAttribute("Exit6Rentable") and c:GetAttribute("Exit6HomeId") then
@@ -206,14 +218,22 @@ local function materialise(buildingId)
 		end
 	end
 	m:SetAttribute("KitServer", true)
+	return m
 end
 HouseKit.Materialise = materialise
--- index the described buildings in the background once the city is up, so
--- the first "look inside" out of the core doesn't wait for it
-task.spawn(function()
-	while not Workspace:GetAttribute("CW_StreetFurnitureComplete") do task.wait(2) end
-	buildingModel("")
-end)
+-- a home's door: registered, or found in its (just built) building
+local function doorFor(homeId)
+	if doors[homeId] and doors[homeId].Parent then return doors[homeId] end
+	local m, why = materialise(string.match(homeId, "^(.-):%d+$") or "")
+	if not m then return nil, why end
+	for _, c in ipairs(m:GetChildren()) do
+		if c:IsA("BasePart") and c:GetAttribute("Exit6HomeId") == homeId then
+			doors[homeId] = c
+			return c
+		end
+	end
+	return nil, "no door " .. homeId
+end
 
 local function track(door)
 	local id = door:GetAttribute("Exit6HomeId")
@@ -224,14 +244,19 @@ CollectionService:GetInstanceAddedSignal("Exit6FrontDoor"):Connect(track)
 
 HomeDoor.OnServerEvent:Connect(function(player, homeId, action)
 	if type(homeId) ~= "string" then return end
-	if not doors[homeId] then
-		-- a client-decorated house: build it for real (its doors get tracked)
-		materialise(string.match(homeId, "^(.-):%d+$") or "")
-		task.wait()
-	end
-	local door = doors[homeId]
+	-- a client-decorated house is built for real here (doorFor)
+	local door, why = doorFor(homeId)
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-	if not door or not root or (root.Position - door.Position).Magnitude > DOOR_REACH then return end
+	if not door then
+		warn("[EXIT6 Housing]", player.Name, homeId, why)
+		notify(player, "Can't open this house right now")
+		return
+	end
+	if not root then return end
+	if (root.Position - door.Position).Magnitude > DOOR_REACH then
+		notify(player, "Get closer to the door")
+		return
+	end
 	if action == "movein" then
 		moveIn(player, door)
 	elseif action == "enter" then
@@ -242,11 +267,7 @@ end)
 -- wake up at home
 local function spawnAtHome(player, char)
 	local p = Profile.Get(player)
-	if p and p.home and not doors[p.home.id] then
-		materialise(string.match(p.home.id, "^(.-):%d+$") or "")
-		task.wait()
-	end
-	local door = p and p.home and doors[p.home.id]
+	local door = p and p.home and doorFor(p.home.id)
 	if not door then return end
 	local root = char:WaitForChild("HumanoidRootPart", 10)
 	if root then
@@ -274,7 +295,7 @@ Players.PlayerRemoving:Connect(function() task.defer(markAll) end)
 HomeAction.OnServerInvoke = function(player, action, itemId)
 	local p = Profile.Get(player)
 	if not p or not p.home then return false end
-	local door = doors[p.home.id]
+	local door = doorFor(p.home.id)
 	if action == "where" then
 		return door and doorstep(door).Position or nil
 	elseif action == "moveout" then

@@ -337,6 +337,9 @@ do
 		for _, m in ipairs(models) do m:Destroy() end
 		local frame = CFrame.new(cx, y, cz) * axis
 		local L, W = 330, 210
+		-- the pitch, for the EXIT 6 penalty shootout (Exit6Activities.server)
+		Workspace:SetAttribute("Exit6SubaruPitch", frame)
+		Workspace:SetAttribute("Exit6SubaruPitchL", L)
 		-- level the bowl: clear terrain above pitch level (cuts are allowed)
 		Workspace.Terrain:FillBlock(frame * CFrame.new(0, 40, 0), Vector3.new(L + 250, 80, W + 230), Enum.Material.Air)
 		part(model, "Plaza", Vector3.new(L + 260, 1, W + 240), frame * CFrame.new(0, -0.3, 0), Enum.Material.Concrete, rgb(196, 192, 184))

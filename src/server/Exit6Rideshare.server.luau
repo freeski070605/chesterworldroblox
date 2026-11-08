@@ -102,25 +102,36 @@ StartRide.OnServerInvoke = function(player)
 	if since and since < R.cooldown then notify(player, "No riders nearby - try again in " .. math.ceil(R.cooldown - since) .. "s") return false end
 	local from = car.PrimaryPart.Position
 	local doors = CollectionService:GetTagged("Exit6FrontDoor")
-	if #doors < 10 then notify(player, "No riders around here") return false end
-	-- a pickup not too far, a drop-off a fair drive from it
-	local pickupDoor, dropDoor
-	for _ = 1, 600 do
-		local d = doors[rng:NextInteger(1, #doors)]
+	if #doors < 2 then notify(player, "No riders around here") return false end
+	-- A single bounded scan is cheaper and more reliable than 1,200 random
+	-- retries, especially when only a few streamed-in doors are usable.
+	local pickups = {}
+	for _, d in ipairs(doors) do
 		if d:IsA("BasePart") and d.Parent then
 			local dist = (d.Position - from).Magnitude
-			if dist > 80 and dist < 700 then pickupDoor = d break end
+			if dist > 80 and dist < 700 then table.insert(pickups, d) end
 		end
 	end
-	if not pickupDoor then notify(player, "No riders around here") return false end
-	for _ = 1, 600 do
-		local d = doors[rng:NextInteger(1, #doors)]
-		if d:IsA("BasePart") and d.Parent and d ~= pickupDoor then
-			local dist = (d.Position - pickupDoor.Position).Magnitude
-			if dist >= R.minStuds and dist <= R.maxStuds then dropDoor = d break end
+	if #pickups == 0 then notify(player, "No riders around here") return false end
+	local pickupDoor, dropDoor
+	local attempts = math.min(#pickups, 12)
+	local first = rng:NextInteger(1, #pickups)
+	for i = 0, attempts - 1 do
+		local candidate = pickups[(first + i - 1) % #pickups + 1]
+		local options = {}
+		for _, d in ipairs(doors) do
+			if d:IsA("BasePart") and d.Parent and d ~= candidate then
+				local dist = (d.Position - candidate.Position).Magnitude
+				if dist >= R.minStuds and dist <= R.maxStuds then table.insert(options, d) end
+			end
+		end
+		if #options > 0 then
+			pickupDoor = candidate
+			dropDoor = options[rng:NextInteger(1, #options)]
+			break
 		end
 	end
-	if not dropDoor then notify(player, "No riders around here") return false end
+	if not pickupDoor or not dropDoor then notify(player, "No suitable rides nearby") return false end
 	local pickup, dropoff = doorstep(pickupDoor), doorstep(dropDoor)
 	local dist = (dropoff - pickup).Magnitude
 	local limit = math.max(R.minSeconds, math.floor(((pickup - from).Magnitude + dist) * R.secondsPerStud * 1.6))

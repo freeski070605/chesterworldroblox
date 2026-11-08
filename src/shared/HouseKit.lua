@@ -269,7 +269,10 @@ local function buildInterior(model, I)
 				solid("Partition", Vector3.new(pw, gh - 0.6, 0.5), at(fcf, u + s * (2.2 + pw / 2), floorY + gh / 2 - 0.3, pz), Enum.Material.SmoothPlastic, DRY)
 			end
 		end
-		solid("Partition", Vector3.new(4.4, gh - 0.6 - 8, 0.5), at(fcf, u, floorY + 8 + (gh - 0.6 - 8) / 2, pz), Enum.Material.SmoothPlastic, DRY)
+		local headerH = gh - 0.6 - 8
+		if headerH > 0.1 then
+			solid("Partition", Vector3.new(4.4, headerH, 0.5), at(fcf, u, floorY + 8 + headerH / 2, pz), Enum.Material.SmoothPlastic, DRY)
+		end
 		-- dining table and chairs in the back room
 		local dz = pz + (depth - pz) * 0.45
 		solid("DiningTable", Vector3.new(4, 0.3, 6), inner(0, 2.9, dz), Enum.Material.Wood, Color3.fromRGB(120, 86, 56))
@@ -323,19 +326,31 @@ function HouseKit.Hollow(door)
 		if c:GetAttribute("Exit6Unit") == id then slice = c break end
 	end
 	if not slice or not door:GetAttribute("KitFcf") then return nil end
-	slice:Destroy()
-	door:SetAttribute("KitHollow", true)
 	local k = string.split(door:GetAttribute("Kit") or "", "|")
 	if #k < 12 then return nil end
-	local ok, mat = pcall(function() return Enum.Material[k[11]] end)
-	local stash = buildInterior(door.Parent, {
+	for _, index in ipairs({ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }) do
+		if not tonumber(k[index]) then return nil end
+	end
+	if not tonumber(door:GetAttribute("Exit6HomeDepth")) then return nil end
+	-- Validate the kit before removing the original solid home slice.
+	-- A malformed kit must not leave a permanent hole or mark a failed rental as hollow.
+	local okMaterial, mat = pcall(function() return Enum.Material[k[11]] end)
+	if not okMaterial or not mat then mat = Enum.Material.Brick end
+	local ok, stash = pcall(buildInterior, door.Parent, {
 		fcf = door:GetAttribute("KitFcf"), u = tonumber(k[1]), w = tonumber(k[2]),
 		depth = door:GetAttribute("Exit6HomeDepth"), floorY = tonumber(k[3]),
 		groundTop = tonumber(k[4]), wallTop = tonumber(k[5]), base = tonumber(k[6]),
 		doorU = tonumber(k[7]), winU = tonumber(k[8]), side = tonumber(k[9]),
-		hu = tonumber(k[10]), mat = ok and mat or Enum.Material.Brick, col = door:GetAttribute("KitCol"),
+		hu = tonumber(k[10]), mat = mat, col = door:GetAttribute("KitCol"),
 		lite = k[12] == "1", style = door:GetAttribute("Exit6HomeStyle"),
 	})
+	if not ok then
+		warn("[EXIT6 Housing] Interior failed for", id, stash)
+		return nil
+	end
+	-- Interior was built successfully; only now remove the old solid slice.
+	slice:Destroy()
+	door:SetAttribute("KitHollow", true)
 	if stash then
 		stash:SetAttribute("Exit6Stash", true)
 		stash:SetAttribute("Exit6StashFor", door:GetAttribute("Exit6HomeId"))

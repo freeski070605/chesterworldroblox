@@ -57,6 +57,68 @@ local function part(parent, name, size, cframe, material, color, shape)
 	return p
 end
 
+-- Driveway transitions: connect a level pump forecourt to an actual street surface.
+-- Roads are terrain-following; the station's single flat slab is not.
+local drivewayStats = { built = 0, skippedSteep = 0, noRoad = 0 }
+local ROAD_SEARCH = OverlapParams.new()
+ROAD_SEARCH.MaxParts = 150
+local ROAD_RAY = RaycastParams.new()
+ROAD_RAY.FilterType = Enum.RaycastFilterType.Include
+local function roadTopAt(point)
+	local nearby = Workspace:GetPartBoundsInRadius(point, 28, ROAD_SEARCH)
+	local candidates = {}
+	for _, p in ipairs(nearby) do
+		if p:IsA("BasePart") and type(p:GetAttribute("ChesterStreet")) == "string"
+			and p.Parent and p.Parent.Name == "Roads" and not p:GetAttribute("CW_HighwayProfiled") then
+			table.insert(candidates, p)
+		end
+	end
+	if #candidates == 0 then return nil end
+	ROAD_RAY.FilterDescendantsInstances = candidates
+	local hit = Workspace:Raycast(Vector3.new(point.X, point.Y + 120, point.Z), Vector3.new(0, -240, 0), ROAD_RAY)
+	return hit and hit.Position.Y or nil
+end
+
+-- A short sloping rectangular surface, with the ends flush to their respective
+-- surfaces. Only create it where a real road is close enough and the slope is safe.
+local function driveway(model, frame, halfX, halfZ, side)
+	local forward = (side == "front" and -frame.LookVector)
+		or (side == "back" and frame.LookVector)
+		or (side == "right" and frame.RightVector)
+		or (-frame.RightVector)
+	local edge = (side == "front" and frame * Vector3.new(0, 0, -halfZ))
+		or (side == "back" and frame * Vector3.new(0, 0, halfZ))
+		or (side == "right" and frame * Vector3.new(halfX, 0, 0))
+		or (frame * Vector3.new(-halfX, 0, 0))
+	local roadY, run
+	for d = 5, 24, 3 do
+		local sample = edge + forward * d
+		roadY = roadTopAt(sample)
+		if roadY then run = d break end
+	end
+	if not run then drivewayStats.noRoad += 1 return end
+	local slabTop = frame.Position.Y + 0.5 -- forecourt centre +0.2, thickness 0.6
+	local delta = roadY - slabTop
+	if math.abs(delta) < 0.25 then return end -- already nearly flush
+	if math.abs(delta) / run > 0.15 then
+		drivewayStats.skippedSteep += 1
+		warn(("[EXIT6 Gas Driveway] %s: %.1f stud step over %.1f studs; needs terrain/road regrade")
+			:format(model.Name, delta, run))
+		return
+	end
+	local tangent = Vector3.new(forward.X, 0, forward.Z).Unit
+	local slopeForward = (tangent * run + Vector3.new(0, delta, 0)).Unit
+	local right = slopeForward:Cross(Vector3.yAxis).Unit
+	local up = right:Cross(slopeForward).Unit
+	local center = edge + tangent * (run / 2) + Vector3.new(0, (slabTop + roadY) / 2 - frame.Position.Y - 0.18, 0)
+	local width = math.min((side == "front" or side == "back") and halfX * 1.2 or halfZ * 1.2, 30)
+	local ramp = part(model, "DrivewayTransition", Vector3.new(width, 0.36, run + 0.7),
+		CFrame.fromMatrix(center, right, up, -slopeForward), Enum.Material.Concrete, CONCRETE)
+	ramp:SetAttribute("Exit6Driveway", true)
+	drivewayStats.built += 1
+end
+
+
 local function label(p, text, faces, color)
 	for _, face in ipairs(faces) do
 		local gui = Instance.new("SurfaceGui")
@@ -419,6 +481,11 @@ for _, st in ipairs(Stations) do
 			-- forecourt slab
 			part(model, "Forecourt", Vector3.new(L + 6 * H, 0.6, W + 8 * H), frame * CFrame.new(0, 0.2, 0),
 				Enum.Material.Concrete, CONCRETE)
+			-- Road-matched approaches on sides that actually meet a street.
+			local halfX, halfZ = (L + 6 * H) / 2, (W + 8 * H) / 2
+			for _, side in ipairs({ "front", "back", "right", "left" }) do
+				driveway(model, frame, halfX, halfZ, side)
+			end
 			-- canopy deck + fascia band with brand accent stripe
 			local top = CLEARANCE + FASCIA
 			local deck = part(model, "CanopyDeck", Vector3.new(L, 0.8, W), frame * CFrame.new(0, CLEARANCE + 0.4, 0),
@@ -520,4 +587,6 @@ for _, st in ipairs(Stations) do
 	end
 end
 print(("[ChesterWorld GasStations] built=%d canopyBoxesReplaced=%d exit6Stores=%d parts=%d"):format(built, removed, stores, count))
+print(("[EXIT6 Gas Driveways] built=%d steepNeedsReview=%d noAdjacentRoad=%d"):format(
+	drivewayStats.built, drivewayStats.skippedSteep, drivewayStats.noRoad))
 Workspace:SetAttribute("CW_GasStationsComplete", true)

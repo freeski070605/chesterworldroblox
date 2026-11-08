@@ -83,6 +83,7 @@ local function cashier(store, cf, seed)
 	if not ok or not npc then return nil end
 	npc.Name = "Cashier"
 	local hum = npc:FindFirstChildOfClass("Humanoid")
+	if not hum then npc:Destroy() return nil end
 	hum.DisplayName = "Cashier"
 	hum.NameDisplayDistance = 30
 	hum.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
@@ -325,6 +326,12 @@ local function setup(model)
 	stores[id] = store
 	model.Destroying:Connect(function()
 		stores[id] = nil
+		-- Invalidate any active stock shift tied to an unloaded store.
+		for player, job in pairs(jobs) do
+			if job.store == store then
+				endJob(player, false, "The shop closed during your shift")
+			end
+		end
 	end)
 	model:SetAttribute("Exit6StoreKind", store.kind)
 	-- the cashier stands behind the counter, facing the door (anchor -Z)
@@ -448,7 +455,10 @@ local function setupSimple(model)
   ShopOpen:FireClient(player, { storeId = id, title = title, kind = kind,
    items = menuFor(store), pos = door.Position })
  end)
- model.Destroying:Connect(function() stores[id] = nil end)
+ model.Destroying:Connect(function()
+  stores[id] = nil
+  if store.interior then store.interior:Destroy() store.interior=nil end
+ end)
 end
 for _, m in ipairs(CollectionService:GetTagged("Exit6SimpleStore")) do setupSimple(m) end
 CollectionService:GetInstanceAddedSignal("Exit6SimpleStore"):Connect(setupSimple)

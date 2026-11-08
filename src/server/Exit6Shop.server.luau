@@ -341,6 +341,35 @@ local function setup(model)
 	end
 end
 
+-- Generic city shops get a compact walk-in fit-out only while players are nearby.
+-- The existing storefront shell, glass entrance and shop menu remain untouched.
+-- No NPCs or permanent citywide interior geometry.
+local function simpleInterior(store)
+ local door=store.counter
+ if not door or not door.Parent then return end
+ local model=Instance.new("Model")
+ model.Name="Exit6LocalMarketInterior"
+ model.Parent=store.model
+ local function fixture(name,size,x,y,z,color,material)
+  local p=Instance.new("Part")
+  p.Name=name;p.Size=size;p.Anchored=true
+  p.CanCollide=false;p.CanTouch=false
+  p.Material=material or Enum.Material.SmoothPlastic
+  p.Color=color
+  -- Door CFrame's positive Z points into the shop, negative Z to street.
+  p.CFrame=door.CFrame*CFrame.new(x,y,z)
+  p.Parent=model
+  return p
+ end
+ -- Place compact displays against the sides; keep the entrance and centre aisle clear.
+ local ground=-door.Size.Y/2+0.8
+ fixture("CheckoutCounter",Vector3.new(3.2,2.7,1.6),-3.8,ground+1.35,4.8,Color3.fromRGB(90,67,48),Enum.Material.Wood)
+ fixture("CashRegister",Vector3.new(1.1,0.65,0.8),-3.8,ground+3.0,4.8,Color3.fromRGB(42,44,48))
+ fixture("DisplayShelf",Vector3.new(1.6,4.5,4),4.2,ground+2.25,6.5,Color3.fromRGB(65,70,76),Enum.Material.Metal)
+ fixture("StockDisplay",Vector3.new(1.3,1,2.6),4.2,ground+3.0,6.5,Color3.fromRGB(178,92,48))
+ store.interior=model
+end
+
 -- Unnamed city storefronts use their existing glass door as a shop counter.
 -- No new physical parts, interiors, or cashier NPCs are spawned.
 local function setupSimple(model)
@@ -351,7 +380,7 @@ local function setupSimple(model)
  nextId += 1
  local id = "store" .. nextId
  local title = model:GetAttribute("ShopName") or "Neighborhood Market"
- local store = { model = model, title = title, kind = "market", counter = door, shelves = {} }
+ local store = { model = model, title = title, kind = "market", counter = door, shelves = {}, simple = true }
  stores[id] = store
  model:SetAttribute("Exit6StoreId", id)
  model:SetAttribute("Exit6StoreKind", "market")
@@ -386,6 +415,18 @@ task.spawn(function()
 		end
 		local n = 0
 		for _, store in pairs(stores) do
+			if store.simple and store.model.Parent and store.counter.Parent then
+				local nearest = math.huge
+				for _, rp in ipairs(roots) do
+					nearest = math.min(nearest, (rp - store.counter.Position).Magnitude)
+				end
+				if nearest < 85 and not (store.interior and store.interior.Parent) then
+					simpleInterior(store)
+				elseif nearest > 120 and store.interior then
+					store.interior:Destroy()
+					store.interior = nil
+				end
+			end
 			if store.cashierCf and store.model.Parent then
 				local p = store.counter.Position
 				local nearest = math.huge

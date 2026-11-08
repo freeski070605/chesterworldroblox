@@ -366,10 +366,32 @@ local function simpleInterior(store)
  end
  -- Place compact displays against the sides; keep the entrance and centre aisle clear.
  local ground=-door.Size.Y/2+0.8
- fixture("CheckoutCounter",Vector3.new(3.2,2.7,1.6),-3.8,ground+1.35,4.8,Color3.fromRGB(90,67,48),Enum.Material.Wood)
- fixture("CashRegister",Vector3.new(1.1,0.65,0.8),-3.8,ground+3.0,4.8,Color3.fromRGB(42,44,48))
- fixture("DisplayShelf",Vector3.new(1.6,4.5,4),4.2,ground+2.25,6.5,Color3.fromRGB(65,70,76),Enum.Material.Metal)
- fixture("StockDisplay",Vector3.new(1.3,1,2.6),4.2,ground+3.0,6.5,Color3.fromRGB(178,92,48))
+ local frontage=door.Size.X
+ -- Do not push fittings into adjacent building sections on very small doors.
+ local spread=math.clamp(frontage*0.65,2.4,3.8)
+ local accent=store.kind=="phone" and Color3.fromRGB(44,90,145)
+  or store.kind=="clothing" and Color3.fromRGB(110,64,112)
+  or store.kind=="barber" and Color3.fromRGB(45,105,115)
+  or store.kind=="pizza" and Color3.fromRGB(160,68,43)
+  or Color3.fromRGB(90,67,48)
+ fixture("CheckoutCounter",Vector3.new(2.8,2.7,1.6),-spread,ground+1.35,4.2,accent,Enum.Material.Wood)
+ fixture("CashRegister",Vector3.new(1.1,0.65,0.8),-spread,ground+3.0,4.2,Color3.fromRGB(42,44,48))
+ if store.kind=="barber" then
+  fixture("BarberChair",Vector3.new(2.2,2.2,2.2),spread,ground+1.1,5.5,Color3.fromRGB(36,40,46))
+  fixture("WallMirror",Vector3.new(2.5,3,0.15),spread,ground+4,8,Color3.fromRGB(165,191,202),Enum.Material.Glass)
+ elseif store.kind=="clothing" then
+  fixture("ClothingRack",Vector3.new(1.1,4.4,3.6),spread,ground+2.2,5.5,Color3.fromRGB(67,69,76),Enum.Material.Metal)
+  fixture("FoldedClothes",Vector3.new(1.5,0.8,2.4),spread,ground+3.4,5.5,accent)
+ elseif store.kind=="phone" then
+  fixture("PhoneDisplay",Vector3.new(1.4,3.3,3.6),spread,ground+1.65,5.5,Color3.fromRGB(58,67,76),Enum.Material.Metal)
+  fixture("DeviceCases",Vector3.new(1.2,0.8,2.5),spread,ground+2.9,5.5,accent)
+ elseif store.kind=="pizza" then
+  fixture("PizzaPrepCounter",Vector3.new(2.3,3,3.6),spread,ground+1.5,5.5,Color3.fromRGB(155,158,160),Enum.Material.Metal)
+  fixture("PizzaOven",Vector3.new(2,2,2.5),spread,ground+3.6,6,Color3.fromRGB(65,65,70),Enum.Material.Metal)
+ else
+  fixture("DisplayShelf",Vector3.new(1.6,4.5,3.6),spread,ground+2.25,5.5,Color3.fromRGB(65,70,76),Enum.Material.Metal)
+  fixture("StockDisplay",Vector3.new(1.3,1,2.6),spread,ground+3.0,5.5,Color3.fromRGB(178,92,48))
+ end
  -- A small shop identity plaque sits above the existing glass entrance.
  local sign=fixture("MarketSign",Vector3.new(math.max(5,math.min(door.Size.X+2,9)),1.1,0.2),0,door.Size.Y/2+0.8,0,
   Color3.fromRGB(44,61,67),Enum.Material.Metal)

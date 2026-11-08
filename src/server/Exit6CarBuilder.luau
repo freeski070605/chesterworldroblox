@@ -220,12 +220,17 @@ function Builder.Build(modelId, cf, opts)
 	prompt.Name = "EnterPrompt"
 	prompt.ActionText = "Get in"
 	prompt.ObjectText = model.Name
-	prompt.MaxActivationDistance = 9
+	prompt.MaxActivationDistance = 12
+	prompt.HoldDuration = 0
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.GamepadKeyCode = Enum.KeyCode.ButtonX
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = chassis
 	prompt.Triggered:Connect(function(player)
 		local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-		if not hum or hum.SeatPart then return end
+		if not hum or hum.Health <= 0 or hum.SeatPart then return end
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if not root or (root.Position - chassis.Position).Magnitude > 17 then return end
 		local owner = model:GetAttribute("Owner")
 		if not seat.Occupant and (not owner or owner == player.UserId) then
 			seat:Sit(hum)

@@ -10,6 +10,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ContextActionService = game:GetService("ContextActionService")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local CarPhysics = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Exit6CarPhysics"))
@@ -62,6 +63,27 @@ gauge.BackgroundColor3 = Color3.fromRGB(229, 157, 53)
 gauge.BorderSizePixel = 0
 gauge.Parent = gaugeBack
 
+-- Xbox cash code, on foot: Up Up Down Down Left Right Left Right B A.
+local cashCode = { Enum.KeyCode.DPadUp, Enum.KeyCode.DPadUp, Enum.KeyCode.DPadDown, Enum.KeyCode.DPadDown,
+ Enum.KeyCode.DPadLeft, Enum.KeyCode.DPadRight, Enum.KeyCode.DPadLeft, Enum.KeyCode.DPadRight,
+ Enum.KeyCode.ButtonB, Enum.KeyCode.ButtonA }
+local cashCodeIndex, lastCodeInput = 1, 0
+UserInputService.InputBegan:Connect(function(input, processed)
+ if input.UserInputType ~= Enum.UserInputType.Gamepad1 then return end
+ local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+ if not hum or hum.SeatPart or player:GetAttribute("Exit6CashCodeRedeemed") then return end
+ if os.clock() - lastCodeInput > 6 then cashCodeIndex = 1 end
+ lastCodeInput = os.clock()
+ if input.KeyCode == cashCode[cashCodeIndex] then
+  cashCodeIndex += 1
+  if cashCodeIndex > #cashCode then
+   cashCodeIndex = 1
+   ReplicatedStorage:WaitForChild("Exit6CashCode"):FireServer()
+  end
+ else
+  cashCodeIndex = input.KeyCode == cashCode[1] and 2 or 1
+ end
+end)
 local handbrake = false
 local conn = nil
 
@@ -83,34 +105,15 @@ local function start(seat)
 		return Enum.ContextActionResult.Sink
 	end, false, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonB)
 	ContextActionService:BindAction("Exit6CarExit", function(_, state)
-		if state ~= Enum.UserInputState.Begin then return Enum.ContextActionResult.Sink end
-		local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-		local chassis = car.PrimaryPart
-		if not hum or not root or not chassis or hum.SeatPart ~= seat then return Enum.ContextActionResult.Sink end
-		local side = -chassis.CFrame.RightVector
-		local origin = chassis.Position + side * (chassis.Size.X / 2 + 3.5) + Vector3.new(0, 9, 0)
-		local params = RaycastParams.new()
-		params.FilterType = Enum.RaycastFilterType.Exclude
-		params.FilterDescendantsInstances = { car, player.Character }
-		local ground = workspace:Raycast(origin, Vector3.new(0, -24, 0), params)
-		if not ground or ground.Normal.Y < 0.65 then return Enum.ContextActionResult.Sink end
-		local target = ground.Position + Vector3.new(0, 3, 0)
-		local check = OverlapParams.new()
-		check.FilterType = Enum.RaycastFilterType.Exclude
-		check.FilterDescendantsInstances = { car, player.Character }
-		for _, obstacle in ipairs(workspace:GetPartBoundsInBox(CFrame.new(target), Vector3.new(2.5, 5, 2.5), check)) do
-			if obstacle.CanCollide and obstacle.Position.Y + obstacle.Size.Y / 2 > ground.Position.Y + 0.5 then
-				return Enum.ContextActionResult.Sink
-			end
-		end
-		hum.Sit = false
-		hum.Jump = false
-		task.defer(function()
-			if root.Parent and hum.Health > 0 then root.CFrame = CFrame.new(target, target + chassis.CFrame.LookVector) end
-		end)
-		return Enum.ContextActionResult.Sink
-	end, false, Enum.KeyCode.X, Enum.KeyCode.ButtonX)
+  if state == Enum.UserInputState.Begin then
+   local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+   if hum and hum.SeatPart == seat then
+    hum.Sit = false
+    hum.Jump = true
+   end
+  end
+  return Enum.ContextActionResult.Sink
+ end, false, Enum.KeyCode.X, Enum.KeyCode.ButtonX)
 	conn = RunService.PreSimulation:Connect(function(dt)
 		if not car.Parent or seat.Occupant == nil then stop() return end
 		local speed = CarPhysics.Step(car, dt, {

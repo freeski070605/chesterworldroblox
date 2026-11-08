@@ -341,6 +341,33 @@ local function setup(model)
 	end
 end
 
+-- Unnamed city storefronts use their existing glass door as a shop counter.
+-- No new physical parts, interiors, or cashier NPCs are spawned.
+local function setupSimple(model)
+ if not model.Parent or model:GetAttribute("Exit6StoreId") then return end
+ local ref = model:FindFirstChild("Exit6ShopDoor")
+ local door = ref and ref.Value
+ if not door or not door.Parent then return end
+ nextId += 1
+ local id = "store" .. nextId
+ local title = model:GetAttribute("ShopName") or "Neighborhood Market"
+ local store = { model = model, title = title, kind = "market", counter = door, shelves = {} }
+ stores[id] = store
+ model:SetAttribute("Exit6StoreId", id)
+ model:SetAttribute("Exit6StoreKind", "market")
+ local buy = prompt(door, "Shop", title, 0)
+ buy.Triggered:Connect(function(player)
+  if not ready(player) then return end
+  local r = root(player)
+  if not r or (r.Position - door.Position).Magnitude > REACH then return end
+  ShopOpen:FireClient(player, { storeId = id, title = title, kind = "market",
+   items = menuFor(store), pos = door.Position })
+ end)
+ model.Destroying:Connect(function() stores[id] = nil end)
+end
+for _, m in ipairs(CollectionService:GetTagged("Exit6SimpleStore")) do setupSimple(m) end
+CollectionService:GetInstanceAddedSignal("Exit6SimpleStore"):Connect(setupSimple)
+
 for _, tag in ipairs({ "Exit6GasStation", "Exit6Store" }) do
 	for _, m in ipairs(CollectionService:GetTagged(tag)) do task.spawn(setup, m) end
 	CollectionService:GetInstanceAddedSignal(tag):Connect(function(m) task.spawn(setup, m) end)

@@ -50,6 +50,11 @@ end
 local function ready(player)
 	return player:GetAttribute("Exit6DataReady") == true
 end
+local function inReach(player, target, distance)
+	local r = root(player)
+	return r ~= nil and target ~= nil and target.Parent ~= nil
+		and (r.Position - target.Position).Magnitude <= distance
+end
 local function prompt(parent, action, object, hold)
 	local p = Instance.new("ProximityPrompt")
 	p.ActionText = action
@@ -103,14 +108,14 @@ end
 local function purchase(player, storeId, itemId)
 	local store = stores[storeId]
 	local item = Catalog.Items[itemId]
-	if not store or not item or not ready(player) then return false, "Can't buy that here" end
+	if not store or not item or not ready(player) or not store.model.Parent
+		or not store.counter.Parent then return false, "Can't buy that here" end
 	local onMenu = false
 	for _, id in ipairs(Catalog.Menus[store.kind] or Catalog.Menus.market) do
 		if id == itemId then onMenu = true break end
 	end
 	if not onMenu then return false, "Not sold here" end
-	local r = root(player)
-	if not r or (r.Position - store.counter.Position).Magnitude > REACH then return false, "Walk up to the counter" end
+	if not inReach(player, store.counter, REACH) then return false, "Walk up to the counter" end
 	local cash = stats(player)
 	if not cash or cash.Value < item.price then return false, "Not enough Chester Cash" end
 	if item.kind == "vehicle" then
@@ -212,7 +217,7 @@ local function spawnCrate(player)
 	crate.Parent = store.model
 	local p = prompt(crate, "Pick up crate", "Stock room", 0.4)
 	p.Triggered:Connect(function(who)
-		if who ~= player or jobs[player] ~= job or job.carrying then return end
+		if who ~= player or jobs[player] ~= job or job.carrying or not inReach(who, crate, 12) then return end
 		job.carrying = true
 		crate:Destroy()
 		job.crate = nil
@@ -252,7 +257,7 @@ local function startJob(player, store)
 	for _, shelf in ipairs(store.shelves) do
 		local p = prompt(shelf, "Stock shelf", "Shelf", 0.6)
 		p.Triggered:Connect(function(who)
-			if who ~= player or jobs[player] ~= job or not job.carrying then return end
+			if who ~= player or jobs[player] ~= job or not job.carrying or not inReach(who, shelf, 12) then return end
 			job.carrying = false
 			if job.carry then job.carry:Destroy() job.carry = nil end
 			job.done += 1
@@ -330,7 +335,7 @@ local function setup(model)
 	store.cashierCf, store.seed = face, nextId
 	local buy = prompt(register, "Buy", title, 0)
 	buy.Triggered:Connect(function(player)
-		if not ready(player) then return end
+		if not ready(player) or not inReach(player, register, 12) then return end
 		ShopOpen:FireClient(player, { storeId = id, title = title, kind = store.kind, items = menuFor(store),
 			pos = counter.Position })
 	end)
@@ -339,7 +344,7 @@ local function setup(model)
 		job.KeyboardKeyCode = Enum.KeyCode.F
 		job.GamepadKeyCode = Enum.KeyCode.ButtonX
 		job.Triggered:Connect(function(player)
-			if ready(player) then startJob(player, store) end
+			if ready(player) and inReach(player, counter, 12) then startJob(player, store) end
 		end)
 	end
 end
@@ -439,8 +444,7 @@ local function setupSimple(model)
  local buy = prompt(door, "Shop", title, 0)
  buy.Triggered:Connect(function(player)
   if not ready(player) then return end
-  local r = root(player)
-  if not r or (r.Position - door.Position).Magnitude > REACH then return end
+  if not inReach(player, door, 12) then return end
   ShopOpen:FireClient(player, { storeId = id, title = title, kind = kind,
    items = menuFor(store), pos = door.Position })
  end)

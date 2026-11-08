@@ -10,6 +10,19 @@ local store = DataStoreService:GetDataStore(Config.DataStoreName)
 local Inventory = require(script.Parent:WaitForChild("Exit6Inventory"))
 local Profile = require(script.Parent:WaitForChild("Exit6Profile"))
 local sessions = {}
+local cashCodeRemote = Instance.new("RemoteEvent")
+cashCodeRemote.Name = "Exit6CashCode"
+cashCodeRemote.Parent = ReplicatedStorage
+cashCodeRemote.OnServerEvent:Connect(function(player)
+ local data = sessions[player]
+ if not data or player:GetAttribute("Exit6DataReady") ~= true or data.cashCodeRedeemed then return end
+ local stats = player:FindFirstChild("leaderstats")
+ local cash = stats and stats:FindFirstChild("Chester Cash")
+ if not cash then return end
+ data.cashCodeRedeemed = true
+ cash.Value += 10000
+ player:SetAttribute("Exit6CashCodeRedeemed", true)
+end)
 local function key(player) return "player_" .. player.UserId end
 local function save(player)
  local data = sessions[player]
@@ -18,12 +31,13 @@ local function save(player)
  local cash = stats and stats:FindFirstChild("Chester Cash")
  local rep = stats and stats:FindFirstChild("Reputation")
  local snapshot = {cash = cash and cash.Value or data.cash, reputation = rep and rep.Value or data.reputation,
-  inventory = Inventory.Export(player), profile = Profile.Export(player)}
+  inventory = Inventory.Export(player), profile = Profile.Export(player), cashCodeRedeemed = data.cashCodeRedeemed == true}
  local ok, err = pcall(function()
   store:UpdateAsync(key(player), function(old)
    old = type(old) == "table" and old or {}
    old.cash = snapshot.cash
    old.reputation = snapshot.reputation
+   old.cashCodeRedeemed = old.cashCodeRedeemed == true or snapshot.cashCodeRedeemed
    if snapshot.inventory then old.inventory = snapshot.inventory end
    if snapshot.profile then old.profile = snapshot.profile end
    return old
@@ -38,6 +52,7 @@ Players.PlayerAdded:Connect(function(player)
  if ok and type(loaded) == "table" then
   data.cash = math.max(0, math.floor(tonumber(loaded.cash) or data.cash))
   data.reputation = math.max(0, math.floor(tonumber(loaded.reputation) or data.reputation))
+  data.cashCodeRedeemed = loaded.cashCodeRedeemed == true
  elseif not ok and RunService:IsStudio() then
   -- Studio without "Enable Studio Access to API Services": play an unsaved
   -- session from the starting values so the gameplay can still be tested
@@ -62,6 +77,7 @@ Players.PlayerAdded:Connect(function(player)
  rep.Name = "Reputation"
  rep.Value = data.reputation
  rep.Parent = stats
+ player:SetAttribute("Exit6CashCodeRedeemed", data.cashCodeRedeemed == true)
  player:SetAttribute("Exit6DataReady", true)
 end)
 Players.PlayerRemoving:Connect(function(player)

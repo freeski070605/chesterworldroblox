@@ -57,8 +57,9 @@ local function part(parent, name, size, cframe, material, color, shape)
 	return p
 end
 
--- Driveway transitions: connect a level pump forecourt to an actual street surface.
--- Roads are terrain-following; the station's single flat slab is not.
+-- Blend forecourt pavement into the street without a separate raised driveway.
+-- The level pump area stays intact; each street-facing edge gets a continuous
+-- thin, graded concrete apron whose top starts flush with the forecourt.
 local drivewayStats = { built = 0, skippedSteep = 0, noRoad = 0 }
 local ROAD_SEARCH = OverlapParams.new()
 ROAD_SEARCH.MaxParts = 150
@@ -79,10 +80,8 @@ local function roadTopAt(point)
 	return hit and hit.Position.Y or nil
 end
 
--- Search for a gentle approach instead of using the first road hit, which
--- frequently produces a sharp five-stud ramp at sloped Chester lots.
-local function driveway(model, frame, halfX, halfZ, side)
-	local forward = (side == "front" and frame.LookVector)
+local function blendForecourtEdge(model, frame, halfX, halfZ, side)
+	local outward = (side == "front" and frame.LookVector)
 		or (side == "back" and -frame.LookVector)
 		or (side == "right" and frame.RightVector)
 		or (-frame.RightVector)
@@ -91,36 +90,40 @@ local function driveway(model, frame, halfX, halfZ, side)
 		or (side == "right" and frame * Vector3.new(halfX, 0, 0))
 		or (frame * Vector3.new(-halfX, 0, 0))
 	local slabTop = frame.Position.Y + 0.5
-	local best, closest
+	local nearest, selected
 	for d = 5, 48, 3 do
-		local y = roadTopAt(edge + forward * d)
-		if y then
-			local delta = y - slabTop
-			local grade = math.abs(delta) / d
-			local candidate = { y = y, run = d, delta = delta, grade = grade }
-			if not closest or d < closest.run then closest = candidate end
-			if grade <= 0.12 and (not best or d < best.run) then best = candidate end
+		local roadY = roadTopAt(edge + outward * d)
+		if roadY then
+			local candidate = { run = d, roadY = roadY, grade = math.abs(roadY - slabTop) / d }
+			if not nearest then nearest = candidate end
+			if candidate.grade <= 0.12 then selected = candidate break end
 		end
 	end
-	if not closest then drivewayStats.noRoad += 1 return end
-	if not best then
+	if not nearest then drivewayStats.noRoad += 1 return end
+	if not selected then
 		drivewayStats.skippedSteep += 1
-		warn(("[EXIT6 Gas Driveway] %s %s: nearest road step %.1f studs; no gentle approach found")
-			:format(model.Name, side, closest.delta))
+		warn(("[EXIT6 Forecourt Blend] %s %s: no safe grade; needs road/terrain correction")
+			:format(model.Name, side))
 		return
 	end
-	if math.abs(best.delta) < 0.25 then return end
-	local run, delta = best.run, best.delta
-	local tangent = Vector3.new(forward.X, 0, forward.Z).Unit
-	local slopeForward = (tangent * run + Vector3.new(0, delta, 0)).Unit
-	local right = slopeForward:Cross(Vector3.yAxis).Unit
-	local up = right:Cross(slopeForward).Unit
-	local center = edge + tangent * (run / 2)
-		+ Vector3.new(0, (slabTop + best.y) / 2 - frame.Position.Y - 0.18, 0)
-	local width = math.min((side == "front" or side == "back") and halfX * 1.2 or halfZ * 1.2, 30)
-	local ramp = part(model, "DrivewayTransition", Vector3.new(width, 0.36, run + 0.7),
-		CFrame.fromMatrix(center, right, up, -slopeForward), Enum.Material.Concrete, CONCRETE)
-	ramp:SetAttribute("Exit6Driveway", true)
+	local run, roadY = selected.run, selected.roadY
+	local delta = roadY - slabTop
+	if math.abs(delta) < 0.10 then return end
+	local horizontal = Vector3.new(outward.X, 0, outward.Z).Unit
+	local along = (horizontal * run + Vector3.new(0, delta, 0)).Unit
+	local right = along:Cross(Vector3.yAxis).Unit
+	local up = right:Cross(along).Unit
+	local thickness = 0.30
+	local width = math.min((side == "front" or side == "back") and halfX * 1.6 or halfZ * 1.6, 38)
+	-- A small overlap prevents a collision seam where the blend meets the slab.
+	local overlap = 0.8
+	local center = edge + horizontal * ((run - overlap) / 2)
+		+ Vector3.new(0, (slabTop + roadY) / 2 - frame.Position.Y - thickness / 2, 0)
+	local apron = part(model, "ForecourtBlend", Vector3.new(width, thickness,
+		math.sqrt(run * run + delta * delta) + overlap), CFrame.fromMatrix(center, right, up, -along),
+		Enum.Material.Concrete, CONCRETE)
+	apron:SetAttribute("Exit6ForecourtBlend", true)
+	apron:SetAttribute("BlendSide", side)
 	drivewayStats.built += 1
 end
 
@@ -486,10 +489,10 @@ for _, st in ipairs(Stations) do
 			-- forecourt slab
 			part(model, "Forecourt", Vector3.new(L + 6 * H, 0.6, W + 8 * H), frame * CFrame.new(0, 0.2, 0),
 				Enum.Material.Concrete, CONCRETE)
-			-- Road-matched approaches on sides that actually meet a street.
+			-- Thin road-matched forecourt edge blends; no raised driveway block.
 			local halfX, halfZ = (L + 6 * H) / 2, (W + 8 * H) / 2
 			for _, side in ipairs({ "front", "back", "right", "left" }) do
-				driveway(model, frame, halfX, halfZ, side)
+				blendForecourtEdge(model, frame, halfX, halfZ, side)
 			end
 			-- canopy deck + fascia band with brand accent stripe
 			local top = CLEARANCE + FASCIA
@@ -592,6 +595,6 @@ for _, st in ipairs(Stations) do
 	end
 end
 print(("[ChesterWorld GasStations] built=%d canopyBoxesReplaced=%d exit6Stores=%d parts=%d"):format(built, removed, stores, count))
-print(("[EXIT6 Gas Driveways] built=%d steepNeedsReview=%d noAdjacentRoad=%d"):format(
+print(("[EXIT6 Forecourt Blends] built=%d steepNeedsReview=%d noAdjacentRoad=%d"):format(
 	drivewayStats.built, drivewayStats.skippedSteep, drivewayStats.noRoad))
 Workspace:SetAttribute("CW_GasStationsComplete", true)

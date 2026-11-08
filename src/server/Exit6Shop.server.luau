@@ -105,7 +105,7 @@ local function purchase(player, storeId, itemId)
 	local item = Catalog.Items[itemId]
 	if not store or not item or not ready(player) then return false, "Can't buy that here" end
 	local onMenu = false
-	for _, id in ipairs(Catalog.Menus[store.kind] or {}) do
+	for _, id in ipairs(Catalog.Menus[store.kind] or Catalog.Menus.market) do
 		if id == itemId then onMenu = true break end
 	end
 	if not onMenu then return false, "Not sold here" end
@@ -392,17 +392,34 @@ local function setupSimple(model)
  if not door or not door.Parent then return end
  nextId += 1
  local id = "store" .. nextId
- local title = model:GetAttribute("ShopName") or "Neighborhood Market"
- local store = { model = model, title = title, kind = "market", counter = door, shelves = {}, simple = true }
+ -- Unverified shopfronts should not impersonate real Chester businesses.
+ -- Give them deterministic fictional shop types so the same building keeps
+ -- its identity across sessions, without needing additional map data.
+ local names={
+  {title="Neighborhood Market",kind="market"},
+  {title="Corner Deli",kind="market"},
+  {title="Chester Phone Shop",kind="phone"},
+  {title="Neighborhood Styles",kind="clothing"},
+  {title="Local Pizza Shop",kind="pizza"},
+  {title="Community Barbershop",kind="barber"},
+ }
+ local buildingId=tostring(model:GetAttribute("ChesterBuildingId") or model.Name)
+ local hash=0
+ for i=1,#buildingId do hash=(hash*31+string.byte(buildingId,i))%2147483647 end
+ local selected=names[hash%#names+1]
+ local title=selected.title
+ local kind=selected.kind
+ local store = { model = model, title = title, kind = kind, counter = door, shelves = {}, simple = true }
  stores[id] = store
  model:SetAttribute("Exit6StoreId", id)
- model:SetAttribute("Exit6StoreKind", "market")
+ model:SetAttribute("Exit6StoreKind", kind)
+ model:SetAttribute("ShopName", title)
  local buy = prompt(door, "Shop", title, 0)
  buy.Triggered:Connect(function(player)
   if not ready(player) then return end
   local r = root(player)
   if not r or (r.Position - door.Position).Magnitude > REACH then return end
-  ShopOpen:FireClient(player, { storeId = id, title = title, kind = "market",
+  ShopOpen:FireClient(player, { storeId = id, title = title, kind = kind,
    items = menuFor(store), pos = door.Position })
  end)
  model.Destroying:Connect(function() stores[id] = nil end)

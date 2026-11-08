@@ -549,6 +549,20 @@ function HouseKit.Build(model, r, ctx, H)
 			awning = (arch == "flat_row" or (arch == "porch_row" and hu % 4 == 0)) and awningColor or nil }
 		local gwin = window(fcf, winU, floorY + storeyH * 0.52, 4.4, 5.4, { sill = opts.sill, trim = trim, clear = opts.clear,
 			shutters = opts.shutters, awning = (arch == "flat_row") and awningColor or nil })
+		-- Outside the detailed core, windows are textures on the unit slice.
+		-- Add one small architectural accent to selected nearby homes rather
+		-- than building dozens of individual window parts across the city.
+		if lite and arch == "flat_row" and hu % 3 == 0 then
+			local awning = solid("WindowAwning", Vector3.new(5.8, 0.22, 2.1),
+				at(fcf, winU, floorY + storeyH * 0.83, -1.1) * CFrame.Angles(math.rad(20), 0, 0),
+				Enum.Material.Metal, awningColor)
+			awning.CanCollide = false
+		elseif lite and not siding and hu % 4 == 0 then
+			local sill = solid("WindowSill", Vector3.new(5.2, 0.3, 0.8),
+				at(fcf, winU, floorY + storeyH * 0.29, -0.35),
+				Enum.Material.Concrete, STONE)
+			sill.CanCollide = false
+		end
 		for k = 1, floors - 1 do
 			local y = floorY + k * storeyH + storeyH * 0.52
 			if w >= 15 then

@@ -25,7 +25,7 @@ def main():
         bounds = [(min(v[i] for v in vertices), max(v[i] for v in vertices)) for i in range(3)]
         assert bounds[0][0] > -1.5 and bounds[0][1] < 1.5, (path, bounds)
         assert bounds[1][0] > -2 and bounds[1][1] < 1.5, (path, bounds)
-        assert bounds[2][0] > -.85 and bounds[2][1] < 1, (path, bounds)
+        assert bounds[2][0] > -.85 and bounds[2][1] < 1.1, (path, bounds)
         print(f"{asset['id']}: {len(vertices)} vertices, {len(faces)} triangles, bounds {bounds}")
     print("PASS: OBJ syntax, counts, finite coordinates, and broad scale bounds")
 

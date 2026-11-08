@@ -102,23 +102,38 @@ def tube(mesh, points, radius, sides=7, taper=.28, phase=0.0):
 
 def edge(mesh, sharp=True):
     # Front is negative Z. A tapered hairline and temple corners sit on the cap.
-    pts = [(-.83, .145, -.30), (-.68, .125, -.415), (-.46, .13, -.483),
-           (-.16, .15, -.52), (.16, .15, -.52), (.46, .13, -.483),
-           (.68, .125, -.415), (.83, .145, -.30)]
+    pts = [(-.88, .045, -.23), (-.84, .155, -.31), (-.69, .205, -.414),
+           (-.48, .198, -.488), (-.26, .197, -.515), (0, .198, -.528),
+           (.26, .197, -.515), (.48, .198, -.488), (.69, .205, -.414),
+           (.84, .155, -.31), (.88, .045, -.23)]
     if not sharp:
         pts = [(x, y + .025, z + .012) for x, y, z in pts]
-    tube(mesh, pts, .018 if sharp else .012, sides=5, taper=0)
+    tube(mesh, pts, .023 if sharp else .015, sides=5, taper=0)
     if sharp:
         for sign in (-1, 1):
-            line(mesh, (sign * .82, .145, -.30), (sign * .88, -.025, -.235), .012, 5)
+            line(mesh, (sign * .84, .155, -.31), (sign * .93, -.10, -.19), .018, 5)
 
 
 def fade(mesh, kind):
-    bottom = {"low_taper": .105, "mid_skin": .19, "high_top": .24, "afro_taper": .12}[kind]
-    height = {"low_taper": .50, "mid_skin": .43, "high_top": .90, "afro_taper": .73}[kind]
-    cap(mesh, height=height if kind != "high_top" else .42, bottom=bottom,
-        texture=.018 if kind == "afro_taper" else .005)
+    bottom = {"low_taper": .02, "mid_skin": .27, "high_top": .23, "afro_taper": .08}[kind]
+    height = {"low_taper": .60, "mid_skin": .37, "high_top": .42, "afro_taper": .72}[kind]
+    cap(mesh, height=height, bottom=bottom, rows=12, cols=40,
+        texture=.018 if kind == "afro_taper" else .003)
     edge(mesh)
+    # Sculpt a short stubble field along the fade transition. The mid skin
+    # fade starts higher and has a crisp boundary; the low taper is softer.
+    if kind in ("low_taper", "mid_skin"):
+        steps = 3 if kind == "low_taper" else 2
+        for band in range(steps):
+            theta = 1.02 + band * .20
+            for i in range(36):
+                a = TAU * (i + (band % 2) * .5) / 36
+                x = 1.021 * math.sin(theta) * math.cos(a)
+                z = .535 * math.sin(theta) * math.sin(a)
+                y = bottom + height * math.cos(theta)
+                rad = .013 if kind == "low_taper" else .017
+                tube(mesh, [(x, y, z), (x * 1.012, y + .027, z * 1.012)],
+                     rad, sides=5, taper=.65)
     if kind == "high_top":
         # Square crown with softened vertical corners; distinct flat top.
         rings = []
@@ -159,41 +174,68 @@ def waves(mesh):
 
 
 def hanging(mesh, kind):
-    cap(mesh, height=.46, bottom=.13, texture=.008)
+    cap(mesh, height=.49, bottom=.13, rows=12, cols=40, texture=.008)
     edge(mesh)
-    count = {"starter_locs": 19, "medium_locs": 22, "shoulder_locs": 25,
-             "two_strand_twists": 20, "box_braids": 28, "braided_ponytail": 21}[kind]
-    length = {"starter_locs": .30, "medium_locs": .78, "shoulder_locs": 1.35,
-              "two_strand_twists": .68, "box_braids": 1.07, "braided_ponytail": 1.08}[kind]
+    count = {"starter_locs": 34, "medium_locs": 40, "shoulder_locs": 48,
+             "two_strand_twists": 36, "box_braids": 38}[kind]
+    length = {"starter_locs": .34, "medium_locs": .83, "shoulder_locs": 1.30,
+              "two_strand_twists": .72, "box_braids": 1.02}[kind]
     for i in range(count):
-        a = TAU * (i + .28 * (i % 3)) / count
-        x, z = .79 * math.cos(a), .40 * math.sin(a)
-        stem = .04 * ((i * 7) % 5 - 2)
+        a = TAU * (i * .61803398875 % 1)
+        radius = .60 + .29 * ((i * 7 % 13) / 12)
+        x, z = .98 * radius * math.cos(a), .50 * radius * math.sin(a)
+        root_y = .13 + .49 * math.sqrt(max(.05, 1 - radius * radius)) + .015
+        stem = .025 * ((i * 7) % 5 - 2)
         points = []
-        for j in range(9):
-            t = j / 8
-            if kind == "braided_ponytail":
-                x0 = x * (1 - .72 * t) + stem * t
-                z0 = z * (1 - .72 * t) + .28 * t
-            else:
-                x0 = x * (1 + .20 * t) + stem * t + .025 * math.sin(t * 7 + i)
-                z0 = z * (1 + .28 * t) + .025 * math.sin(t * 8 + i * 2)
-            y0 = .48 - length * t + .045 * math.sin(a * 3 + i)
+        for j in range(11):
+            t = j / 10
+            spread = .24 * t + (.15 if radius < .75 else 0) * t
+            x0 = x * (1 + spread) + stem * t + .014 * math.sin(t * 9 + i)
+            z0 = z * (1 + spread) + .016 * math.sin(t * 8 + i * 2)
+            y0 = root_y - (length + .05 * (i % 5 - 2)) * t
             points.append((x0, y0, z0))
         if kind == "two_strand_twists":
             for sign in (-1, 1):
                 strand = [(px + .022 * math.cos(j * 1.9 + sign * math.pi),
                            py, pz + .022 * math.sin(j * 1.9 + sign * math.pi))
                           for j, (px, py, pz) in enumerate(points)]
-                tube(mesh, strand, .029, sides=5, taper=.40)
-        elif kind in ("box_braids", "braided_ponytail"):
+                tube(mesh, strand, .031, sides=5, taper=.36)
+        elif kind == "box_braids":
+            braid_points = [points[j] for j in (0, 1, 2, 4, 5, 6, 8, 9, 10)]
             for sign in (-1, 0, 1):
                 strand = [(px + .017 * math.cos(j * 1.8 + sign * TAU / 3), py,
                            pz + .017 * math.sin(j * 1.8 + sign * TAU / 3))
-                          for j, (px, py, pz) in enumerate(points)]
-                tube(mesh, strand, .021, sides=5, taper=.3)
+                          for j, (px, py, pz) in enumerate(braid_points)]
+                tube(mesh, strand, .019, sides=5, taper=.3)
         else:
-            tube(mesh, points, .045 + .007 * (i % 3), sides=7, taper=.35)
+            tube(mesh, points, .039 + .006 * (i % 3), sides=6, taper=.34)
+
+
+def ponytail(mesh):
+    cap(mesh, height=.48, bottom=.13, rows=12, cols=40, texture=.006)
+    edge(mesh)
+    # Scalp braids converge at the rear crown, then continue as one plait.
+    for row in range(-4, 5):
+        x0 = row * .18
+        pts = []
+        for j in range(13):
+            t = j / 12
+            x = x0 * (1 - .82 * t)
+            z = -.45 + .83 * t
+            rr = min(.96, (x / 1.02) ** 2 + (z / .53) ** 2)
+            pts.append((x, .13 + .48 * math.sqrt(1 - rr) + .025, z))
+        tube(mesh, pts, .037, sides=6, taper=.12)
+    central = []
+    for j in range(17):
+        t = j / 16
+        central.append((.025 * math.sin(t * 18), .58 - .94 * t,
+                        .38 + .58 * math.sin(t * math.pi / 2)))
+    for strand in range(3):
+        pts = []
+        for j, (x, y, z) in enumerate(central):
+            angle = j * 1.75 + strand * TAU / 3
+            pts.append((x + .047 * math.cos(angle), y, z + .047 * math.sin(angle)))
+        tube(mesh, pts, .038, sides=6, taper=.48)
 
 
 def cornrows(mesh):
@@ -227,7 +269,7 @@ STYLES = {
     "cornrows": cornrows,
     "box_braids": lambda m: hanging(m, "box_braids"),
     "afro_taper": lambda m: fade(m, "afro_taper"),
-    "braided_ponytail": lambda m: hanging(m, "braided_ponytail"),
+    "braided_ponytail": ponytail,
 }
 
 

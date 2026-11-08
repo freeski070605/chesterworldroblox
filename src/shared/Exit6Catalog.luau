@@ -61,6 +61,30 @@ Catalog.Items = {
 	car_coupe = { name = "2018 Coupe", price = 9500, kind = "vehicle", model = "coupe" },
 }
 
+-- Free development collection. IDs are stable profile keys; none are sold by
+-- a shop menu. The server only equips an entry when its MeshPart is installed
+-- under ServerStorage.Exit6ProductionAssets.Hair.
+Catalog.HairTest = {
+	{ id = "sharp_low_taper", name = "Low taper fade" },
+	{ id = "mid_skin_fade", name = "Mid skin fade" },
+	{ id = "high_top_fade", name = "High-top fade" },
+	{ id = "waves_360", name = "360 waves" },
+	{ id = "starter_locs", name = "Short starter locs" },
+	{ id = "medium_locs", name = "Medium locs" },
+	{ id = "shoulder_locs", name = "Shoulder-length locs" },
+	{ id = "two_strand_twists", name = "Two-strand twists" },
+	{ id = "cornrows", name = "Cornrows" },
+	{ id = "box_braids", name = "Box braids" },
+	{ id = "afro_taper", name = "Afro taper" },
+	{ id = "braided_ponytail", name = "Braided ponytail" },
+}
+for _, asset in ipairs(Catalog.HairTest) do
+	Catalog.Items["test_hair_" .. asset.id] = {
+		name = asset.name .. " [TEST]", price = 0, kind = "haircut",
+		assetId = asset.id, testOnly = true,
+	}
+end
+
 -- store kind -> items on its menu
 Catalog.Menus = {
 	food = { "chicken_box", "wings", "fish_platter", "cheesesteak", "soda", "water" },

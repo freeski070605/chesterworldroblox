@@ -18,6 +18,7 @@ local Catalog = require(Shared:WaitForChild("Exit6Catalog"))
 local remotes = ReplicatedStorage:WaitForChild("Exit6Remotes")
 local ShopOpen = remotes:WaitForChild("ShopOpen")
 local Purchase = remotes:WaitForChild("Purchase")
+local HairTestAction = remotes:WaitForChild("HairTestAction")
 local UseItem = remotes:WaitForChild("UseItem")
 local QuitJob = remotes:WaitForChild("QuitJob")
 
@@ -97,6 +98,7 @@ local shop, shopTitle, shopSub, shopList = panel("Shop", 440)
 shop.Hint.Text = "A / CLICK  BUY       B / BACKSPACE  CLOSE"
 local openShop = nil  -- the payload of the store currently open
 local busy = false
+local cancelHairPreview
 
 local function closeAll()
 	shop.Visible = false
@@ -135,6 +137,7 @@ end
 
 ShopOpen.OnClientEvent:Connect(function(payload)
 	if type(payload) ~= "table" then return end
+	if cancelHairPreview then cancelHairPreview() end
 	gui.Phone.Visible = false
 	openShop = payload
 	shop.Visible = true
@@ -152,13 +155,14 @@ local tabs = new("Frame", { Position = UDim2.fromOffset(12, 64), Size = UDim2.ne
 phoneList.Position = UDim2.fromOffset(12, 102)
 phoneList.Size = UDim2.new(1, -24, 1, -142)
 local drawPhone
+local openTab
 local tabButtons = {}
-local TABS = { { "wallet", "Wallet" }, { "bag", "Bag" }, { "job", "Job" }, { "car", "Car" }, { "home", "Home" }, { "biz", "Biz" }, { "music", "Music" } }
+local TABS = { { "wallet", "Wallet" }, { "bag", "Bag" }, { "job", "Job" }, { "car", "Car" }, { "home", "Home" }, { "biz", "Biz" }, { "music", "Music" }, { "hair", "Hair Test" } }
 for i, t in ipairs(TABS) do
 	local b = new("TextButton", { Name = t[1], Position = UDim2.new((i - 1) / #TABS, 2, 0, 0), Size = UDim2.new(1 / #TABS, -4, 1, 0),
-		BackgroundColor3 = CARD, Text = t[2], Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = TEXT }, tabs)
+		BackgroundColor3 = CARD, Text = t[2], Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = TEXT }, tabs)
 	round(b, 6)
-	b.Activated:Connect(function() tab = t[1] drawPhone() end)
+	b.Activated:Connect(function() openTab(t[1]) end)
 	tabButtons[t[1]] = b
 end
 phoneSub.Position = UDim2.fromOffset(18, 40)
@@ -172,6 +176,37 @@ local function profile()
 	local raw = player:GetAttribute("Exit6Profile")
 	local ok, t = pcall(function() return raw and HttpService:JSONDecode(raw) end)
 	return ok and type(t) == "table" and t or {}
+end
+local hairInstalled = {}
+local hairPreviewId = nil
+local hairNotice = ""
+local function refreshHair()
+	local ok, success, items = pcall(function() return HairTestAction:InvokeServer("list") end)
+	table.clear(hairInstalled)
+	if ok and success and type(items) == "table" then
+		for _, entry in ipairs(items) do
+			if type(entry) == "table" and type(entry.id) == "string" then
+				hairInstalled[entry.id] = entry.installed == true
+			end
+		end
+	else
+		hairNotice = "Test library unavailable"
+	end
+end
+local function hairAction(verb, assetId)
+	local ok, success, reason = pcall(function() return HairTestAction:InvokeServer(verb, assetId) end)
+	if ok and success then
+		hairNotice = verb == "equip" and "Equipped and saved" or
+			(verb == "preview" and "Preview on your character" or "Original hair restored")
+		if verb == "preview" then hairPreviewId = assetId else hairPreviewId = nil end
+	else
+		hairNotice = (ok and tostring(reason)) or "Hair Test request failed"
+	end
+end
+cancelHairPreview = function()
+	if not hairPreviewId then return end
+	hairPreviewId = nil
+	task.spawn(function() pcall(function() HairTestAction:InvokeServer("cancel") end) end)
 end
 local function myRoot()
 	return player.Character and player.Character:FindFirstChild("HumanoidRootPart")
@@ -255,8 +290,13 @@ end
 drawPhone = function()
 	local c, r = cash()
 	local prof = profile()
+	local previous = GuiService.SelectedObject
+	local hairFromList = tab == "hair" and previous and previous:IsDescendantOf(phoneList)
+	local hairOrder = hairFromList and previous.LayoutOrder
+	local hairRows = {}
 	phoneTitle.Text = os.date("%I:%M %p"):gsub("^0", "")
 	phoneSub.Text = "Chester, PA"
+	phone.Hint.Text = "P / B  CLOSE      A  SELECT"
 	for k, b in pairs(tabButtons) do b.BackgroundColor3 = (k == tab) and ACCENT or CARD end
 	clearList(phoneList)
 	if tab == "wallet" then
@@ -271,6 +311,39 @@ drawPhone = function()
 			end
 		else
 			row(phoneList, 3, "Stand by someone to give cash", "")
+		end
+	elseif tab == "hair" then
+		phoneTitle.Text = "HAIR TEST"
+		phoneSub.Text = "DEVELOPMENT ONLY - FREE"
+		phone.Hint.Text = "A PREVIEW / EQUIP    B CLOSE"
+		local saved = prof.style and prof.style.hair
+		for i, entry in ipairs(Catalog.HairTest) do
+			local installed = hairInstalled[entry.id] == true
+			local marker = hairPreviewId == entry.id and "PREVIEW" or
+				(saved == "test_hair_" .. entry.id and "SAVED" or (installed and "VIEW" or "MISSING"))
+			hairRows[i] = row(phoneList, i, entry.name, marker,
+				installed and act(function() hairAction("preview", entry.id) end) or nil)
+		end
+		local picked = hairPreviewId
+		hairRows[20] = row(phoneList, 20, picked and "Equip preview (save)" or "Preview a style above", "FREE",
+			picked and act(function() hairAction("equip", picked) end) or nil)
+		hairRows[21] = row(phoneList, 21, "Restore my Roblox hair", "FREE",
+			act(function() hairAction("restore") end))
+		if picked then
+			hairRows[22] = row(phoneList, 22, "Cancel preview", "", act(function() hairAction("cancel") end))
+		end
+		if hairNotice ~= "" then row(phoneList, 23, hairNotice, "") end
+		local selectable = {}
+		for _, index in ipairs({ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 20, 21, 22 }) do
+			local button = hairRows[index]
+			if button and button.Selectable then table.insert(selectable, button) end
+		end
+		if #selectable > 0 then
+			tabButtons.hair.NextSelectionDown = selectable[1]
+			for i, button in ipairs(selectable) do
+				button.NextSelectionUp = selectable[i - 1] or tabButtons.hair
+				button.NextSelectionDown = selectable[i + 1]
+			end
 		end
 	elseif tab == "car" then
 		local out = nil
@@ -409,12 +482,23 @@ drawPhone = function()
 			quit.BackgroundColor3 = Color3.fromRGB(70, 36, 36)
 		end
 	end
+	if tab == "hair" and phone.Visible and hairFromList then
+		local target = hairOrder and hairRows[hairOrder]
+		if not (target and target.Selectable) then
+			for _, index in ipairs({ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 20, 21, 22 }) do
+				if hairRows[index] and hairRows[index].Selectable then target = hairRows[index] break end
+			end
+		end
+		GuiService.SelectedObject = target or tabButtons.hair
+	end
 end
 
-local function openTab(name)
+openTab = function(name)
 	if shop.Visible then closeAll() end
+	if tab == "hair" and name ~= "hair" then cancelHairPreview() end
 	tab = name
 	phone.Visible = true
+	if name == "hair" then refreshHair() end
 	drawPhone()
 	GuiService.SelectedObject = tabButtons[tab]
 end
@@ -425,8 +509,10 @@ end)
 
 local function togglePhone()
 	if shop.Visible then closeAll() return end
+	if phone.Visible then cancelHairPreview() end
 	phone.Visible = not phone.Visible
 	if phone.Visible then
+		if tab == "hair" then refreshHair() end
 		drawPhone()
 		GuiService.SelectedObject = tabButtons[tab]
 	else
@@ -459,6 +545,7 @@ ContextActionService:BindAction("Exit6CloseShop", function(_, state)
 		return Enum.ContextActionResult.Pass
 	end
 	closeAll()
+	cancelHairPreview()
 	phone.Visible = false
 	return Enum.ContextActionResult.Sink
 end, false, Enum.KeyCode.Backspace, Enum.KeyCode.ButtonB)

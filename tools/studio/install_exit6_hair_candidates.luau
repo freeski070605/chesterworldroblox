@@ -22,6 +22,9 @@ end
 local importCount = 0
 for name in pairs(names) do
 	assert(imports[name], "Missing imported MeshPart: " .. name)
+	assert(imports[name].MeshId ~= "", "Imported MeshPart has no mesh ID: " .. name)
+	assert(imports[name].Size.X > 0.4 and imports[name].Size.X < 3.5,
+		"Unexpected mesh scale for " .. name .. ": " .. tostring(imports[name].Size))
 	importCount += 1
 end
 assert(importCount == 12, "Expected exactly 12 styles")

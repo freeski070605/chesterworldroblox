@@ -5,10 +5,12 @@
 -- deleted, so "back to my own" restores it without a respawn).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 local Catalog = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Exit6Catalog"))
 local Profile = require(script.Parent:WaitForChild("Exit6Profile"))
 
 local Style = {}
+local TEST_HAIR_NAME = "Exit6TestHair"
 local HAIR = Color3.fromRGB(22, 17, 14)
 local TOP_PARTS = { "UpperTorso", "LowerTorso", "LeftUpperArm", "RightUpperArm" }
 local SLEEVE_PARTS = { "LeftLowerArm", "RightLowerArm" }
@@ -54,6 +56,48 @@ local function accessoriesOf(char, test)
 		if a:IsA("Accessory") and test(a.AccessoryType) then table.insert(out, a) end
 	end
 	return out
+end
+
+local function testTemplate(assetId)
+	local root = ServerStorage:FindFirstChild("Exit6ProductionAssets")
+	local hair = root and root:FindFirstChild("Hair")
+	local accessory = hair and hair:FindFirstChild(assetId)
+	local handle = accessory and accessory:FindFirstChild("Handle")
+	local attachment = handle and handle:FindFirstChild("HairAttachment")
+	if accessory and accessory:IsA("Accessory") and handle and handle:IsA("MeshPart")
+		and attachment and attachment:IsA("Attachment") and handle.MeshId ~= "" then
+		return accessory
+	end
+	return nil
+end
+
+function Style.TestAssetAvailable(assetId)
+	return type(assetId) == "string" and testTemplate(assetId) ~= nil
+end
+
+local function clearTestHair(char)
+	local old = char:FindFirstChild(TEST_HAIR_NAME)
+	if old then old:Destroy() end
+end
+
+local function applyTestHair(char, assetId)
+	local template = testTemplate(assetId)
+	local humanoid = char:FindFirstChildOfClass("Humanoid")
+	if not template or not humanoid or not char:FindFirstChild("Head") then return false end
+	clearTestHair(char)
+	local clone = template:Clone()
+	clone.Name = TEST_HAIR_NAME
+	local ok = pcall(function() humanoid:AddAccessory(clone) end)
+	if not ok or clone.Parent ~= char then
+		clone:Destroy()
+		return false
+	end
+	local oldParts = char:FindFirstChild("Exit6Hair")
+	if oldParts then oldParts:Destroy() end
+	for _, a in ipairs(accessoriesOf(char, function(t) return t == Enum.AccessoryType.Hair end)) do
+		if a ~= clone then hideAccessory(a, true) end
+	end
+	return true
 end
 
 -- a part welded to the head, in head space
@@ -173,17 +217,46 @@ function Style.Apply(player)
 	if not char or not p or not char:FindFirstChild("Head") then return end
 	local st = p.style
 	local hair = st.hair and Catalog.Items[st.hair]
-	buildHair(char, hair and hair.style or nil)
+	clearTestHair(char)
+	if not (hair and hair.assetId and applyTestHair(char, hair.assetId)) then
+		buildHair(char, hair and hair.style or nil)
+	end
 	buildHat(char, st.hat)
 	buildTop(char, st.top)
 	buildBottom(char, st.bottom)
+end
+
+function Style.PreviewTestHair(player, assetId)
+	local char = player.Character
+	if not char or not Profile.Get(player) then return false end
+	return applyTestHair(char, assetId)
+end
+
+function Style.EquipTestHair(player, assetId)
+	local itemId = "test_hair_" .. tostring(assetId)
+	local item = Catalog.Items[itemId]
+	local p = Profile.Get(player)
+	if not item or not item.testOnly or not p or not testTemplate(assetId) or not player.Character then return false end
+	if not applyTestHair(player.Character, assetId) then return false end
+	p.style.hair = itemId
+	Profile.Publish(player)
+	return true
+end
+
+function Style.RestoreOwnHair(player)
+	local p = Profile.Get(player)
+	if not p then return false end
+	p.style.hair = nil
+	Profile.Publish(player)
+	Style.Apply(player)
+	return true
 end
 
 -- wear a bought cut / piece (catalog kinds "haircut" / "clothing")
 function Style.Wear(player, itemId)
 	local item = Catalog.Items[itemId]
 	local p = Profile.Get(player)
-	if not item or not p then return false end
+	if not item or item.testOnly or not p then return false end
 	if item.kind == "haircut" then
 		p.style.hair = (item.style ~= "own") and itemId or nil
 	elseif item.kind == "clothing" then

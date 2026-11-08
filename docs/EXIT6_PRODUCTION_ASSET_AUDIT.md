@@ -1,5 +1,7 @@
 # EXIT 6 production asset audit
 
+Update: the later [Hair Test handoff](EXIT6_HAIR_TEST_HANDOFF.md) documents the 12-style test catalog and controller UI. The historical observations below predate that implementation.
+
 Status: **incomplete; no new asset is production approved**. Audit performed against source on the feature branch on November 8, 2026. Roblox Studio DataModel access was unavailable in this session. The repository has a Studio MCP configuration, but no callable Studio tool was exposed here. The live `ServerStorage.Exit6CarMeshes` contents were **not inspected**.
 
 ## Vehicle workflow

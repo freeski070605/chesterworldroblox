@@ -318,6 +318,9 @@ local function setup(model)
 		backRoom = anchor.CFrame * CFrame.new(math.clamp(w / 2 - 3, 2, 12), 1.1, math.clamp(d / 2 - 3, 2, 14)),
 	}
 	stores[id] = store
+	model.Destroying:Connect(function()
+		stores[id] = nil
+	end)
 	model:SetAttribute("Exit6StoreKind", store.kind)
 	-- the cashier stands behind the counter, facing the door (anchor -Z)
 	local behind = counter.CFrame * CFrame.new(0, -counter.Size.Y / 2, counter.Size.Z / 2 + 2)
@@ -367,6 +370,16 @@ local function simpleInterior(store)
  fixture("CashRegister",Vector3.new(1.1,0.65,0.8),-3.8,ground+3.0,4.8,Color3.fromRGB(42,44,48))
  fixture("DisplayShelf",Vector3.new(1.6,4.5,4),4.2,ground+2.25,6.5,Color3.fromRGB(65,70,76),Enum.Material.Metal)
  fixture("StockDisplay",Vector3.new(1.3,1,2.6),4.2,ground+3.0,6.5,Color3.fromRGB(178,92,48))
+ -- A small shop identity plaque sits above the existing glass entrance.
+ local sign=fixture("MarketSign",Vector3.new(math.max(5,math.min(door.Size.X+2,9)),1.1,0.2),0,door.Size.Y/2+0.8,0,
+  Color3.fromRGB(44,61,67),Enum.Material.Metal)
+ local gui=Instance.new("SurfaceGui")
+ gui.Name="StoreSign";gui.Face=Enum.NormalId.Front;gui.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud
+ gui.PixelsPerStud=28;gui.Parent=sign
+ local label=Instance.new("TextLabel")
+ label.Size=UDim2.fromScale(1,1);label.BackgroundTransparency=1
+ label.Text=store.title;label.TextScaled=true;label.Font=Enum.Font.GothamBold
+ label.TextColor3=Color3.fromRGB(244,233,205);label.Parent=gui
  store.interior=model
 end
 
@@ -414,14 +427,16 @@ task.spawn(function()
 			if r then table.insert(roots, r.Position) end
 		end
 		local n = 0
+		local simpleBuilt = 0
 		for _, store in pairs(stores) do
 			if store.simple and store.model.Parent and store.counter.Parent then
 				local nearest = math.huge
 				for _, rp in ipairs(roots) do
 					nearest = math.min(nearest, (rp - store.counter.Position).Magnitude)
 				end
-				if nearest < 85 and not (store.interior and store.interior.Parent) then
+				if nearest < 85 and not (store.interior and store.interior.Parent) and simpleBuilt < 5 then
 					simpleInterior(store)
+					simpleBuilt += 1
 				elseif nearest > 120 and store.interior then
 					store.interior:Destroy()
 					store.interior = nil

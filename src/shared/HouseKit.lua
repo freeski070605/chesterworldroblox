@@ -521,10 +521,19 @@ function HouseKit.Build(model, r, ctx, H)
 		local doorColor = H.DOOR_COLORS[(hu % #H.DOOR_COLORS) + 1]
 		local d
 		if lite then
-			-- door + trim (+ a stoop without a porch)
+			-- The citywide client-side kit gets a recognizable entrance without
+			-- the full server-side facade cost: two extra parts only while nearby.
 			local lift = hasPorch and 0.3 or 1.1
 			local gy = r.streetLevel + 0.4
-			d = solid("Door", Vector3.new(3.6, 7.3, 0.35), at(fcf, doorU, gy + lift + 3.65, -0.22), Enum.Material.Wood, doorColor)
+			local entranceTrim = (hu % 4 == 0) and Color3.fromRGB(60, 62, 66) or trim
+			solid("DoorTrim", Vector3.new(4.7, 8.1, 0.25), at(fcf, doorU, gy + lift + 4.05, -0.10),
+				Enum.Material.SmoothPlastic, entranceTrim)
+			d = solid("Door", Vector3.new(3.6, 7.3, 0.35), at(fcf, doorU, gy + lift + 3.65, -0.28), Enum.Material.Wood, doorColor)
+			local handleSide = (hu % 2 == 0) and 1 or -1
+			local knob = solid("DoorKnob", Vector3.new(0.3, 0.3, 0.3),
+				at(fcf, doorU + handleSide * 1.25, gy + lift + 3.4, -0.50),
+				Enum.Material.Metal, Color3.fromRGB(196, 170, 96))
+			knob.CanCollide = false
 			if not hasPorch then
 				solid("Stoop", Vector3.new(5.4, 1.1, 3.0), at(fcf, doorU, gy + 0.55, -1.5), Enum.Material.Concrete, H.CONCRETE)
 			end

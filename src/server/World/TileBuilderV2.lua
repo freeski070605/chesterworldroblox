@@ -999,25 +999,42 @@ local function roadAttributes(road, roadWidth)
 	}
 end
 
+-- Road-relative sidewalks: sampling the terrain at the OUTER sidewalk edge
+-- creates artificial curbs/vertical walls on cross-sloped Chester streets.
+-- Sample the street centerline instead and follow its height in short pieces.
+-- This keeps normal sidewalks solid, with a small tire-friendly curb lip.
 local function buildSidewalkPair(sidewalksFolder, streetName, a2D, b2D, roadWidth)
 	if not a2D or not b2D then return end
+	local run = horizontalLength(a2D, b2D)
+	if run < 0.1 then return end
 	local perpendicular = horizontalPerpendicular(a2D, b2D)
 	local sidewalkWidth = WorldConfig.SIDEWALK_WIDTH_STUDS
 	local offsetDistance = roadWidth / 2 + WorldConfig.SIDEWALK_GAP_STUDS + sidewalkWidth / 2
-	local sidewalkSurfaceOffset = WorldConfig.SIDEWALK_HEIGHT_STUDS / 2 + 0.15
+	local thickness = WorldConfig.SIDEWALK_HEIGHT_STUDS
+	local curbLip = 0.12
+	local centerOffset = WorldConfig.ROAD_SURFACE_OFFSET_STUDS
+		+ WorldConfig.ROAD_THICKNESS_STUDS / 2 + curbLip - thickness / 2
+	local pieces = math.max(1, math.ceil(run / 18))
 	for _, sign in ipairs({ -1, 1 }) do
 		local offset = perpendicular * offsetDistance * sign
-		buildAdaptiveCenterStrip(
-			sidewalksFolder, "Sidewalk",
-			a2D.X + offset.X, a2D.Z + offset.Z,
-			b2D.X + offset.X, b2D.Z + offset.Z,
-			sidewalkWidth,
-			WorldConfig.SIDEWALK_HEIGHT_STUDS,
-			WorldConfig.SIDEWALK_MATERIAL,
-			WorldConfig.SIDEWALK_COLOR,
-			sidewalkSurfaceOffset, 0, 0,
-			{ ChesterStreet = streetName, Side = sign < 0 and "Left" or "Right", CW_TileBuilderSidewalk = true }
-		)
+		for i = 1, pieces do
+			local t0, t1 = (i - 1) / pieces, i / pieces
+			local x0, z0 = a2D.X + (b2D.X - a2D.X) * t0, a2D.Z + (b2D.Z - a2D.Z) * t0
+			local x1, z1 = a2D.X + (b2D.X - a2D.X) * t1, a2D.Z + (b2D.Z - a2D.Z) * t1
+			local y0, y1 = terrainY(x0, z0), terrainY(x1, z1)
+			if y0 and y1 then
+				local p0 = Vector3.new(x0 + offset.X, y0 + centerOffset, z0 + offset.Z)
+				local p1 = Vector3.new(x1 + offset.X, y1 + centerOffset, z1 + offset.Z)
+				local part = makeStripPart(sidewalksFolder, "Sidewalk", p0, p1, sidewalkWidth,
+					thickness, WorldConfig.SIDEWALK_MATERIAL, WorldConfig.SIDEWALK_COLOR)
+				if part then
+					part:SetAttribute("ChesterStreet", streetName)
+					part:SetAttribute("Side", sign < 0 and "Left" or "Right")
+					part:SetAttribute("CW_TileBuilderSidewalk", true)
+					part:SetAttribute("CW_RoadRelativeElevation", true)
+				end
+			end
+		end
 	end
 end
 

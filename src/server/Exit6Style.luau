@@ -145,6 +145,26 @@ local function buildHair(char, style)
 				CFrame.new(math.cos(a) * s.X * 0.36, top + s.Y * 0.26, math.sin(a) * s.Z * 0.36) * CFrame.Angles(0, 0, math.rad(90))
 					* CFrame.Angles(math.cos(a) * 0.35, 0, math.sin(a) * 0.35), HAIR)
 		end
+	elseif style == "high_top" then
+  headPart(char,f,Enum.PartType.Block,Vector3.new(s.X*0.92,s.Y*0.9,s.Z*0.91),
+   CFrame.new(0,s.Y*0.55,0),HAIR,Enum.Material.Fabric)
+  headPart(char,f,Enum.PartType.Block,Vector3.new(s.X*0.94,s.Y*0.12,s.Z*0.94),
+   CFrame.new(0,s.Y*0.14,0),HAIR)
+ elseif style == "loc_short" or style == "loc_long" or style == "box_braids" then
+  local long=style=="loc_long"
+  local braided=style=="box_braids"
+  headPart(char,f,Enum.PartType.Ball,Vector3.new(s.X*1.05,s.Y*0.5,s.Z*1.05),
+   CFrame.new(0,top+s.Y*0.12,0),HAIR,Enum.Material.Fabric)
+  local count=braided and 14 or (long and 16 or 12)
+  for i=1,count do
+   local a=(i-1)/count*math.pi*2
+   local x=math.cos(a)*s.X*0.42
+   local z=math.sin(a)*s.Z*0.42
+   local len=(long and s.Y*0.9 or (braided and s.Y*0.75 or s.Y*0.42))
+   local thickness=braided and s.X*0.075 or s.X*0.11
+   headPart(char,f,Enum.PartType.Cylinder,Vector3.new(len,thickness,thickness),
+    CFrame.new(x,top+s.Y*0.14-len*0.5,z),HAIR,Enum.Material.Fabric)
+  end
 	elseif style == "braids" then
 		headPart(char, f, Enum.PartType.Ball, Vector3.new(s.X * 1.03, s.Y * 0.62, s.Z * 1.03), CFrame.new(0, top, 0.02), HAIR)
 		for i = -2, 2 do
@@ -185,6 +205,20 @@ local function buildHat(char, itemId)
 	end
 end
 
+-- Lightweight garment details are welded to the body rather than recolouring
+-- every item into an indistinguishable block. No marketplace asset IDs needed.
+local function bodyDetail(char, folder, partName, name, size, offset, color, material)
+ local body=char:FindFirstChild(partName)
+ if not body or not body:IsA("BasePart") then return end
+ local p=Instance.new("Part")
+ p.Name=name;p.Size=size;p.Anchored=false;p.Massless=true
+ p.CanCollide=false;p.CanTouch=false;p.CanQuery=false
+ p.Material=material or Enum.Material.Fabric;p.Color=color
+ p.CFrame=body.CFrame*offset
+ local w=Instance.new("WeldConstraint")
+ w.Part0=body;w.Part1=p;w.Parent=p;p.Parent=folder
+end
+
 local function buildTop(char, itemId)
 	local item = itemId and Catalog.Items[itemId]
 	setClassic(char, "Shirt", item ~= nil)
@@ -194,6 +228,25 @@ local function buildTop(char, itemId)
 	setColor(char, SLEEVE_PARTS, item and item.hood and c3(item.color) or nil)
 	local old = char:FindFirstChild("Exit6Hood")
 	if old then old:Destroy() end
+ local oldFit=char:FindFirstChild("Exit6TopDetails")
+ if oldFit then oldFit:Destroy() end
+ if item then
+  local f=Instance.new("Folder");f.Name="Exit6TopDetails";f.Parent=char
+  local torso=char:FindFirstChild("UpperTorso")
+  if torso then
+   if item.puffer then
+    bodyDetail(char,f,"UpperTorso","PufferFront",Vector3.new(torso.Size.X*1.08,torso.Size.Y*0.92,0.26),
+     CFrame.new(0,0,-torso.Size.Z*0.52),c3(item.color))
+    for i=-1,1 do
+     bodyDetail(char,f,"UpperTorso","QuiltSeam",Vector3.new(torso.Size.X*1.08,0.055,0.3),
+      CFrame.new(0,i*torso.Size.Y*0.25,-torso.Size.Z*0.54),Color3.fromRGB(75,77,82))
+    end
+   elseif item.accent then
+    bodyDetail(char,f,"UpperTorso","JacketZip",Vector3.new(0.065,torso.Size.Y*0.8,0.09),
+     CFrame.new(0,0,-torso.Size.Z*0.55),c3(item.accent))
+   end
+  end
+ end
 	if item and item.hood and char:FindFirstChild("Head") then
 		local f = Instance.new("Folder")
 		f.Name = "Exit6Hood"
@@ -209,6 +262,25 @@ local function buildBottom(char, itemId)
 	setClassic(char, "Pants", item ~= nil)
 	for _, a in ipairs(accessoriesOf(char, function(t) return BOTTOM_WRAPS[t] == true end)) do hideAccessory(a, item ~= nil) end
 	setColor(char, BOTTOM_PARTS, item and c3(item.color) or nil)
+ local old=char:FindFirstChild("Exit6BottomDetails")
+ if old then old:Destroy() end
+ if item and (item.stacked or item.accent) then
+  local f=Instance.new("Folder");f.Name="Exit6BottomDetails";f.Parent=char
+  for _,legName in ipairs({"LeftLowerLeg","RightLowerLeg"}) do
+   local leg=char:FindFirstChild(legName)
+   if leg then
+    if item.stacked then
+     for i=1,3 do
+      bodyDetail(char,f,legName,"DenimFold",Vector3.new(leg.Size.X*1.06,0.08,leg.Size.Z*1.06),
+       CFrame.new(0,-leg.Size.Y*0.3+(i-1)*0.18,0),Color3.fromRGB(65,76,96))
+     end
+    elseif item.accent then
+     bodyDetail(char,f,legName,"TrackStripe",Vector3.new(0.075,leg.Size.Y*0.9,0.09),
+      CFrame.new(legName=="LeftLowerLeg" and -leg.Size.X*0.51 or leg.Size.X*0.51,0,0),c3(item.accent))
+    end
+   end
+  end
+ end
 end
 
 function Style.Apply(player)

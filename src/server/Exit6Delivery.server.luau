@@ -106,6 +106,9 @@ local function carryBag(player)
 end
 
 local function start(player, model, counter)
+	local r = root(player)
+	if not r or not counter.Parent or (r.Position-counter.Position).Magnitude>12 then return end
+	if player:GetAttribute("Exit6DataReady") ~= true then return end
 	if jobs[player] or player:GetAttribute("Exit6Job") then notify(player, "Finish your current job first") return end
 	local since = lastRun[player.UserId] and os.clock() - lastRun[player.UserId]
 	if since and since < D.cooldown then
@@ -116,11 +119,14 @@ local function start(player, model, counter)
 	local from = counter.Position
 	local picks = {}
 	for _, door in ipairs(CollectionService:GetTagged("Exit6FrontDoor")) do
-		local d = (door.Position - from).Magnitude
-		if d >= D.minStuds and d <= D.maxStuds then table.insert(picks, door) end
+		if door:IsA("BasePart") and door.Parent then
+			local d = (door.Position - from).Magnitude
+			if d >= D.minStuds and d <= D.maxStuds then table.insert(picks, door) end
+		end
 	end
 	if #picks == 0 then notify(player, "No orders right now") return end
 	local door = picks[rng:NextInteger(1, #picks)]
+	if not door.Parent then notify(player, "That address is unavailable - try again") return end
 	local target = dropPoint(door)
 	local dist = (target - from).Magnitude
 	local street = streetNear(target)
@@ -169,12 +175,17 @@ for _, player in ipairs(Players:GetPlayers()) do watch(player) end
 
 -- counters: a "Take delivery" prompt at every takeout store
 local function setup(model)
+	if not model.Parent then return end
 	local t0 = os.clock()
 	while model.Parent and not model:GetAttribute("Exit6StoreKind") and os.clock() - t0 < 150 do task.wait(1) end
 	if not Catalog.DeliveryKinds[model:GetAttribute("Exit6StoreKind")] then return end
 	local interior = model:FindFirstChild("Exit6Storefront")
 	local counter = interior and interior:FindFirstChild("Counter")
-	if not counter or counter:FindFirstChild("DeliveryPrompt") then return end
+	if not counter and CollectionService:HasTag(model,"Exit6SimpleStore") then
+		local ref = model:FindFirstChild("Exit6ShopDoor")
+		counter = ref and ref.Value
+	end
+	if not counter or not counter.Parent or counter:FindFirstChild("DeliveryPrompt") then return end
 	local p = Instance.new("ProximityPrompt")
 	p.Name = "DeliveryPrompt"
 	p.ActionText = "Take delivery order"
@@ -186,8 +197,10 @@ local function setup(model)
 	p.RequiresLineOfSight = false
 	p.Parent = counter
 	p.Triggered:Connect(function(player)
-		if player:GetAttribute("Exit6DataReady") == true then start(player, model, counter) end
+		if model.Parent and player:GetAttribute("Exit6DataReady") == true then start(player, model, counter) end
 	end)
 end
-for _, m in ipairs(CollectionService:GetTagged("Exit6Store")) do task.spawn(setup, m) end
-CollectionService:GetInstanceAddedSignal("Exit6Store"):Connect(function(m) task.spawn(setup, m) end)
+for _, tag in ipairs({"Exit6Store","Exit6SimpleStore"}) do
+	for _, m in ipairs(CollectionService:GetTagged(tag)) do task.spawn(setup, m) end
+	CollectionService:GetInstanceAddedSignal(tag):Connect(function(m) task.spawn(setup, m) end)
+end

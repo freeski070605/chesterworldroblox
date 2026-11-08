@@ -35,6 +35,10 @@ Catalog.Items = {
 	cut_twists = { name = "Twists", price = 35, kind = "haircut", style = "twists" },
 	cut_afro = { name = "Shape-up Afro", price = 30, kind = "haircut", style = "afro" },
 	cut_braids = { name = "Cornrows", price = 45, kind = "haircut", style = "braids" },
+ cut_loc_short = { name = "Short Starter Locs", price = 35, kind = "haircut", style = "loc_short" },
+ cut_loc_long = { name = "Shoulder-Length Locs", price = 55, kind = "haircut", style = "loc_long" },
+ cut_high_top = { name = "High Top Fade", price = 30, kind = "haircut", style = "high_top" },
+ cut_box_braids = { name = "Box Braids", price = 55, kind = "haircut", style = "box_braids" },
 	cut_bald = { name = "Clean Shave", price = 15, kind = "haircut", style = "bald" },
 	cut_own = { name = "Back to my own hair", price = 0, kind = "haircut", style = "own" },
 	-- clothing: solid-colour fits over your avatar (slot top / bottom / hat), saved
@@ -52,6 +56,13 @@ Catalog.Items = {
 	cap_red = { name = "Red Fitted Cap", price = 25, kind = "clothing", slot = "hat", color = { 160, 24, 32 }, hat = "cap" },
 	cap_navy = { name = "Navy Fitted Cap", price = 25, kind = "clothing", slot = "hat", color = { 26, 38, 70 }, hat = "cap" },
 	durag_black = { name = "Black Durag", price = 10, kind = "clothing", slot = "hat", color = { 20, 20, 22 }, hat = "durag" },
+ tracksuit_black = { name = "Black Track Jacket", price = 65, kind = "clothing", slot = "top", color = { 24, 26, 30 }, hood = true, accent = { 235, 235, 235 } },
+ tracksuit_red = { name = "Red Track Jacket", price = 65, kind = "clothing", slot = "top", color = { 145, 30, 36 }, hood = true, accent = { 235, 235, 235 } },
+ puffer_black = { name = "Black Puffer Jacket", price = 110, kind = "clothing", slot = "top", color = { 28, 29, 32 }, puffer = true },
+ denim_jacket = { name = "Washed Denim Jacket", price = 80, kind = "clothing", slot = "top", color = { 65, 92, 133 }, accent = { 176, 187, 199 } },
+ stacked_jeans = { name = "Dark Stacked Jeans", price = 65, kind = "clothing", slot = "bottom", color = { 35, 44, 67 }, stacked = true },
+ track_pants = { name = "Black Track Pants", price = 45, kind = "clothing", slot = "bottom", color = { 26, 27, 30 }, accent = { 225, 225, 225 } },
+ cap_black = { name = "Black Fitted Cap", price = 25, kind = "clothing", slot = "hat", color = { 24, 25, 28 }, hat = "cap" },
 	fit_own = { name = "Back to my own fit", price = 0, kind = "clothing", slot = "reset" },
 	-- dealership (Exit6Vehicles.server): goes in your garage, saved
 	car_hatch = { name = "2009 Hatchback", price = 1800, kind = "vehicle", model = "hatch" },
@@ -70,9 +81,11 @@ Catalog.Menus = {
 	gas = { "chips", "soda", "iced_tea", "water", "hoagie" },
 	phone = { "phone_case", "charger", "prepaid_card" },
 	laundry = { "detergent", "wash_load", "soda" },
-	barber = { "edge_up", "cut_fade", "cut_waves", "cut_twists", "cut_afro", "cut_braids", "cut_bald", "cut_own" },
+	barber = { "edge_up", "cut_fade", "cut_waves", "cut_twists", "cut_afro", "cut_braids", "cut_loc_short", "cut_loc_long", "cut_high_top", "cut_box_braids", "cut_bald", "cut_own" },
 	clothing = { "tee_white", "tee_black", "tee_red", "hoodie_grey", "hoodie_navy", "jersey_blue", "jeans_blue",
-		"jeans_black", "sweats_grey", "cargo_khaki", "beanie_black", "cap_red", "cap_navy", "durag_black", "fit_own" },
+		"jeans_black", "sweats_grey", "cargo_khaki", "stacked_jeans", "track_pants",
+  "tracksuit_black", "tracksuit_red", "puffer_black", "denim_jacket",
+  "beanie_black", "cap_red", "cap_navy", "cap_black", "durag_black", "fit_own" },
 	dealer = { "car_hatch", "car_van", "car_pickup", "car_suv", "car_coupe" },
 }
 

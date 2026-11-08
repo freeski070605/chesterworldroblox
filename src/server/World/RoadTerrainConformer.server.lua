@@ -1635,10 +1635,10 @@ do
             local here2, far2 = (e2.index == 1 and a2 or b2), (e2.index == 1 and b2 or a2)
             local here = math.max(here1.Y, here2.Y)
             local d1, d2 = hdist(here1, far1), hdist(here2, far2)
-            if d1 > 0.1 and d2 > 0.1 and far1.Y > here + 0.2 and far2.Y > here + 0.2 then
+            if d1 > 0.1 and d2 > 0.1 and far1.Y > here + 0.12 and far2.Y > here + 0.12 then
                 local line = far1.Y + (far2.Y - far1.Y) * d1 / (d1 + d2)
                 local target = math.min(line, here + 2)
-                if target > here + 0.1 then
+                if target > here + 0.08 then
                     for _, e in ipairs({ { e1, a1, b1 }, { e2, a2, b2 } }) do
                         local entry, a, b = e[1], e[2], e[3]
                         if entry.index == 1 then

@@ -105,18 +105,10 @@ Catalog.Menus = {
 	gas = { "chips", "soda", "iced_tea", "water", "hoagie" },
 	phone = { "phone_case", "charger", "prepaid_card" },
 	laundry = { "detergent", "wash_load", "soda" },
-<<<<<<< HEAD
-	-- Legacy part-built looks remain in Items so old profiles restore, but are
-	-- withheld from new sales until mesh/cage assets pass Studio visual QA.
+	-- Legacy part-built looks remain in Items for existing profiles, but are
+	-- withheld from new sales until production assets pass Studio visual QA.
 	barber = { "cut_bald", "cut_own" },
 	clothing = { "fit_own" },
-=======
-	barber = { "edge_up", "cut_fade", "cut_waves", "cut_twists", "cut_afro", "cut_braids", "cut_loc_short", "cut_loc_long", "cut_high_top", "cut_box_braids", "cut_bald", "cut_own" },
-	clothing = { "tee_white", "tee_black", "tee_red", "hoodie_grey", "hoodie_navy", "jersey_blue", "jeans_blue",
-		"jeans_black", "sweats_grey", "cargo_khaki", "stacked_jeans", "track_pants",
-  "tracksuit_black", "tracksuit_red", "puffer_black", "denim_jacket",
-  "beanie_black", "cap_red", "cap_navy", "cap_black", "durag_black", "fit_own" },
->>>>>>> cfeedf91e5bb61e43d1a4c21c97031a0789dd9cb
 	dealer = { "car_hatch", "car_van", "car_pickup", "car_suv", "car_coupe" },
 }
 

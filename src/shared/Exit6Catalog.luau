@@ -107,7 +107,9 @@ Catalog.Menus = {
 	laundry = { "detergent", "wash_load", "soda" },
 	-- Legacy part-built looks remain in Items for existing profiles, but are
 	-- withheld from new sales until production assets pass Studio visual QA.
-	barber = { "cut_bald", "cut_own" },
+	-- Installed Hair Test meshes are offered free at barbershops for now; server
+	-- validates the actual accessory before equipping or saving.
+	barber = { "test_hair_sharp_low_taper", "test_hair_mid_skin_fade", "test_hair_high_top_fade", "test_hair_waves_360", "test_hair_starter_locs", "test_hair_medium_locs", "test_hair_shoulder_locs", "test_hair_two_strand_twists", "test_hair_cornrows", "test_hair_box_braids", "test_hair_afro_taper", "test_hair_braided_ponytail", "cut_bald", "cut_own" },
 	clothing = { "fit_own" },
 	dealer = { "car_hatch", "car_van", "car_pickup", "car_suv", "car_coupe" },
 }

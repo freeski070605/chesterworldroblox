@@ -521,13 +521,14 @@ local function togglePhone()
 end
 
 -- P, D-pad Up (on foot; in tester flight it is the speed tier) or View / Select
-ContextActionService:BindAction("Exit6Phone", function(_, state, input)
+ContextActionService:BindActionAtPriority("Exit6Phone", function(_, state, input)
 	if state ~= Enum.UserInputState.Begin then return Enum.ContextActionResult.Pass end
-	if gui.Parent and player.PlayerGui:FindFirstChild("Exit6MainMenu") then return Enum.ContextActionResult.Pass end
+	local mainMenu = player.PlayerGui:FindFirstChild("Exit6MainMenu")
+	if mainMenu and mainMenu.Enabled then return Enum.ContextActionResult.Pass end
 	if input.KeyCode == Enum.KeyCode.DPadUp and player:GetAttribute("CW_Flying") then return Enum.ContextActionResult.Pass end
 	togglePhone()
 	return Enum.ContextActionResult.Sink
-end, false, Enum.KeyCode.P, Enum.KeyCode.DPadUp, Enum.KeyCode.ButtonSelect)
+end, false, 3000, Enum.KeyCode.P, Enum.KeyCode.DPadUp, Enum.KeyCode.ButtonSelect)
 
 -- on-screen phone button (mouse / touch; also shows the keys)
 local phoneButton = new("TextButton", { Name = "PhoneButton", AnchorPoint = Vector2.new(1, 1),
@@ -540,15 +541,31 @@ RunService.Heartbeat:Connect(function()
 	phoneButton.Visible = not phone.Visible and not shop.Visible
 end)
 
-ContextActionService:BindAction("Exit6CloseShop", function(_, state)
+local function closePhoneAndShop()
+	if not (shop.Visible or phone.Visible) then return end
+	cancelHairPreview()
+	closeAll()
+	phone.Visible = false
+	GuiService.SelectedObject = nil
+end
+
+-- Explicit close button for mouse/touch and gamepad selection.
+local closePhoneButton = new("TextButton", {
+	Name = "ClosePhone", AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -10, 0, 8), Size = UDim2.fromOffset(44, 44),
+	BackgroundColor3 = CARD, Text = "X", Font = Enum.Font.GothamBold,
+	TextSize = 22, TextColor3 = TEXT, ZIndex = 5,
+}, phone)
+round(closePhoneButton, 8)
+closePhoneButton.Activated:Connect(closePhoneAndShop)
+
+ContextActionService:BindActionAtPriority("Exit6CloseShop", function(_, state)
 	if state ~= Enum.UserInputState.Begin or not (shop.Visible or phone.Visible) then
 		return Enum.ContextActionResult.Pass
 	end
-	closeAll()
-	cancelHairPreview()
-	phone.Visible = false
+	closePhoneAndShop()
 	return Enum.ContextActionResult.Sink
-end, false, Enum.KeyCode.Backspace, Enum.KeyCode.ButtonB)
+end, false, 4000, Enum.KeyCode.Backspace, Enum.KeyCode.Escape, Enum.KeyCode.ButtonB)
 
 for _, name in ipairs({ "Exit6Inventory", "Exit6Job", "Exit6Profile" }) do
 	player:GetAttributeChangedSignal(name):Connect(function()

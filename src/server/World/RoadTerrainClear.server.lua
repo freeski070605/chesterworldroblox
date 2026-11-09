@@ -8,8 +8,8 @@
 -- (DEM embankments across I-95 under Edgmont / Upland).
 --
 -- After the world is built and the highway finish has run, the terrain above
--- every street part is emptied over the part's own footprint, from 2 studs
--- below its top surface (a half voxel, so no partly-filled voxel can render
+-- every street part is emptied over the part's own footprint, from 4 studs
+-- below its top surface (one terrain voxel, so no partly-filled voxel can render
 -- above the street; the part itself hides that band) up CLEAR_HEIGHT studs.
 -- Checking each part first missed bumps between the probes and left
 -- half-voxels showing; clearing all of them is simpler and as fast (~24 s for
@@ -25,7 +25,7 @@ if Workspace:GetAttribute("CW_RoadTerrainCleared") then return end
 
 local world = Workspace:WaitForChild("ChesterWorld")
 local FOLDERS = { Roads = true, Intersection = true, Intersections = true, Sidewalks = true }
-local BELOW_TOP = 2          -- start this far under the street top (half a voxel)
+local BELOW_TOP = 4          -- clear a full terrain voxel below the top; no half-filled grass voxel
 local CLEAR_HEIGHT = 40      -- studs emptied above that (reaches overpass decks)
 
 local started = os.clock()

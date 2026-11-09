@@ -158,6 +158,20 @@ end
 
 local supportLocations={}
 local SUPPORT_SPACING=130
+local lowerRoadOverlap=OverlapParams.new()
+lowerRoadOverlap.FilterType=Enum.RaycastFilterType.Include
+lowerRoadOverlap.FilterDescendantsInstances=lower
+local blockedSupports=0
+local function supportCrossesLowerRoad(frame,size,carrier)
+    for _,road in ipairs(Workspace:GetPartBoundsInBox(frame,size,lowerRoadOverlap)) do
+        if road~=carrier and road:IsA("BasePart") and road.CanCollide
+            and road:GetAttribute("CW_Rail")~=true
+            and road.Position.Y+road.Size.Y/2<carrier.Position.Y-carrier.Size.Y/2-0.5 then
+            return true
+        end
+    end
+    return false
+end
 local buildingFolders={}
 for _,tile in ipairs(world:GetChildren()) do
     local buildings=tile:FindFirstChild("Buildings")
@@ -192,9 +206,14 @@ local function onRail(frame,size)
     return #Workspace:GetPartBoundsInBox(frame,size+Vector3.new(0,8,0),railParams)>0
 end
 
-local function canPier(point,height)
+local function canPier(point,height,carrier)
     if height<9 then return false end
     if onRail(CFrame.new(point.X,point.Y-height/2,point.Z),Vector3.new(4,height,4)) then return false end
+    if carrier and supportCrossesLowerRoad(CFrame.new(point.X,point.Y-height/2,point.Z),
+        Vector3.new(4,height,4),carrier) then
+        blockedSupports+=1
+        return false
+    end
     local x,z=point.X,point.Z
     local key=math.floor(x/SUPPORT_SPACING)..":"..math.floor(z/SUPPORT_SPACING)
     if supportLocations[key] then return false end
@@ -268,7 +287,7 @@ for index,road in ipairs(visuallyRaised) do
                 local below=terrainY(top.X,top.Z)
                 if below then
                     local height=top.Y-below
-                    if height>9 and canPier(top,height) then
+                    if height>9 and canPier(top,height,road) then
                         partAt(folder,"BridgeSupport",
                             Vector3.new(3.0,height,3.0),
                             CFrame.new(top.X,below+height/2,top.Z),
@@ -312,6 +331,12 @@ local LOCAL_OVERPASS_BASES={
 }
 local hw={decks=0,girders=0,barriers=0,abutments=0,piers=0,fills=0,fences=0,retainingWalls=0,
     spans=0,spanPieces=0,fillPieces=0,gradePieces=0}
+local pavedOverlap=OverlapParams.new()
+pavedOverlap.FilterType=Enum.RaycastFilterType.Include
+local pavedRoads={}
+for _,road in ipairs(profiled) do table.insert(pavedRoads,road) end
+for _,road in ipairs(lower) do table.insert(pavedRoads,road) end
+pavedOverlap.FilterDescendantsInstances=pavedRoads
 
 local function minTerrainUnder(part,lateral)
     local a,b=endpoints(part)
@@ -332,9 +357,23 @@ local function barrierPair(road,parent,attrs)
     -- Jersey-profile concrete barrier: wide base + narrower upper wall.
     for _,side in ipairs({-1,1}) do
         local edge=side*(road.Size.X/2-0.7)
+        local baseFrame=road.CFrame*CFrame.new(edge,road.Size.Y/2+0.55,0)
+        local blockedByMerge=false
+        for _,other in ipairs(Workspace:GetPartBoundsInBox(baseFrame,
+            Vector3.new(1.6,1.5,road.Size.Z),pavedOverlap)) do
+            if other~=road and other.CanCollide
+                and math.abs((other.Position.Y+other.Size.Y/2)-(road.Position.Y+road.Size.Y/2))<2.5 then
+                blockedByMerge=true
+                break
+            end
+        end
+        if blockedByMerge then
+            hw.barriersAtMergesSkipped=(hw.barriersAtMergesSkipped or 0)+1
+            continue
+        end
         local base=partAt(parent,"HighwayBarrier",
             Vector3.new(1.4,1.1,road.Size.Z),
-            road.CFrame*CFrame.new(edge,road.Size.Y/2+0.55,0),BARRIER_COLOR,true)
+            baseFrame,BARRIER_COLOR,true)
         local wall=partAt(parent,"HighwayBarrier",
             Vector3.new(0.75,BARRIER_HEIGHT-1.1,road.Size.Z),
             road.CFrame*CFrame.new(edge+side*0.15,road.Size.Y/2+1.1+(BARRIER_HEIGHT-1.1)/2,0),
@@ -421,14 +460,17 @@ for index,road in ipairs(profiled) do
                 height+=slopeDrop
                 local fillSize=Vector3.new(road.Size.X+1.0,height,road.Size.Z)
                 local fillFrame=road.CFrame*CFrame.new(0,-road.Size.Y/2-height/2-0.01,0)
-                if onRail(fillFrame,fillSize) then
-                    -- the track runs under here: an open deck, not fill
+                local railBelow=onRail(fillFrame,fillSize)
+                local streetBelow=supportCrossesLowerRoad(fillFrame,fillSize,road)
+                if railBelow or streetBelow then
+                    -- A track or lower street runs under here: leave an open deck.
                     local deck=partAt(hwFolder,"HighwayDeck",
                         Vector3.new(road.Size.X+1.0,DECK_THICKNESS,road.Size.Z),
                         road.CFrame*CFrame.new(0,-road.Size.Y/2-DECK_THICKNESS/2-0.01,0),
                         STRUCT_COLOR,true)
                     for key,value in pairs(attrs) do deck:SetAttribute(key,value) end
-                    hw.fillsOverRail=(hw.fillsOverRail or 0)+1
+                    if railBelow then hw.fillsOverRail=(hw.fillsOverRail or 0)+1 end
+                    if streetBelow then hw.fillsOverRoad=(hw.fillsOverRoad or 0)+1 end
                     barrierPair(road,hwFolder,attrs)
                 else
                     local block=partAt(hwFolder,"HighwayFill",fillSize,fillFrame,STRUCT_COLOR,true)
@@ -566,13 +608,19 @@ for id,entry in pairs(structures) do
                 return
             end
         end
-        if onRail(CFrame.lookAt(c,c+flat),Vector3.new(piece.Size.X+2.0,height,3.0)) then
+        local wallFrame=CFrame.lookAt(c,c+flat)
+        local wallSize=Vector3.new(piece.Size.X+2.0,height,3.0)
+        if onRail(wallFrame,wallSize) then
             hw.abutmentsOnRail=(hw.abutmentsOnRail or 0)+1
             return
         end
+        if supportCrossesLowerRoad(wallFrame,wallSize,piece) then
+            hw.abutmentsOnRoad=(hw.abutmentsOnRoad or 0)+1
+            blockedSupports+=1
+            return
+        end
         local wall=partAt(hwFolder,"HighwayAbutment",
-            Vector3.new(piece.Size.X+2.0,height,3.0),
-            CFrame.lookAt(c,c+flat),STRUCT_COLOR,true)
+            wallSize,wallFrame,STRUCT_COLOR,true)
         wall:SetAttribute("CW_StructureId",id)
         wall:SetAttribute("CW_StructureBasis",entry.basis)
         hw.abutments+=1
@@ -633,7 +681,7 @@ for id,entry in pairs(structures) do
                         local below=terrainY(top.X,top.Z)
                         if below then
                             local height=top.Y-below
-                            if canPier(top,height) then
+                            if canPier(top,height,piece) then
                                 local col=partAt(hwFolder,"HighwayPier",
                                     Vector3.new(3.2,height,3.2),
                                     CFrame.new(top.X,below+height/2,top.Z),
@@ -716,8 +764,10 @@ Workspace:SetAttribute("CW_HighwaySpans",hw.spans)
 print(("[ChesterWorld HighwayStructures] profiledParts=%d spans=%d spanPieces=%d fillPieces=%d gradePieces=%d decks=%d fascia=%d barriers=%d abutments=%d piers=%d fills=%d overpassFences=%d holes=%d padCoveredGaps=%d steps=%d worstStep=%.2f")
     :format(#profiled,hw.spans,hw.spanPieces,hw.fillPieces,hw.gradePieces,hw.decks,
     hw.girders,hw.barriers,hw.abutments,hw.piers,hw.fills,hw.fences,holes,coveredGaps,steps,worstStep))
-print(("[ChesterWorld HighwayStructures] railBeds=%d abutmentsOnRailSkipped=%d fillsOverRailAsDeck=%d abutmentsMidSpanSkipped=%d")
-    :format(#railBeds,hw.abutmentsOnRail or 0,hw.fillsOverRail or 0,hw.abutmentsMidSpan or 0))
+print(("[ChesterWorld HighwayStructures] railBeds=%d abutmentsOnRailSkipped=%d abutmentsOnRoadSkipped=%d supportsOnRoadSkipped=%d fillsOverRailAsDeck=%d fillsOverRoadAsDeck=%d barriersAtMergesSkipped=%d abutmentsMidSpanSkipped=%d")
+    :format(#railBeds,hw.abutmentsOnRail or 0,hw.abutmentsOnRoad or 0,blockedSupports,
+        hw.fillsOverRail or 0,hw.fillsOverRoad or 0,hw.barriersAtMergesSkipped or 0,
+        hw.abutmentsMidSpan or 0))
 for _,line in ipairs(holeList) do
     warn("[ChesterWorld HighwayHole] "..line)
 end

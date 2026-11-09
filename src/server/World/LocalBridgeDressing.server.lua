@@ -101,6 +101,9 @@ end
 local roadParams = RaycastParams.new()
 roadParams.FilterType = Enum.RaycastFilterType.Include
 roadParams.FilterDescendantsInstances = roadFolders
+local roadOverlap = OverlapParams.new()
+roadOverlap.FilterType = Enum.RaycastFilterType.Include
+roadOverlap.FilterDescendantsInstances = roadFolders
 local walkOverlap = OverlapParams.new()
 walkOverlap.FilterType = Enum.RaycastFilterType.Include
 walkOverlap.FilterDescendantsInstances = walkFolders
@@ -240,6 +243,19 @@ local function neighbours(rec, p)
 end
 
 local abutments, piers = 0, 0
+local supportsSkippedForRoads = 0
+local function crossesLowerPavement(frame, size, carrier)
+	-- A center ray misses an oblique street near the end of a wide abutment
+	-- or below a pier cap. Check the whole solid before creating it.
+	for _, hit in ipairs(Workspace:GetPartBoundsInBox(frame, size, roadOverlap)) do
+		if hit ~= carrier and hit:IsA("BasePart") and hit.CanCollide
+			and hit:GetAttribute("CW_Rail") ~= true
+			and hit.Position.Y + hit.Size.Y / 2 < carrier.Position.Y - carrier.Size.Y / 2 - 0.5 then
+			return true
+		end
+	end
+	return false
+end
 local function bent(point, dir, road, topY, wide)
 	-- not on another road / track: the opening below must stay clear
 	local below = Workspace:Raycast(Vector3.new(point.X, topY - 2, point.Z), Vector3.new(0, -400, 0), roadParams)
@@ -252,13 +268,20 @@ local function bent(point, dir, road, topY, wide)
 	local look = CFrame.lookAt(Vector3.zero, Vector3.new(dir.X, 0, dir.Z)).Rotation
 	local right = Vector3.new(-dir.Z, 0, dir.X)
 	if wide then
-		if onRail(CFrame.new(point.X, (topY + bottom) / 2, point.Z) * look, Vector3.new(road.Size.X + 3, h, 3.5)) then
+		local frame = CFrame.new(point.X, (topY + bottom) / 2, point.Z) * look
+		local size = Vector3.new(road.Size.X + 3, h, 3.5)
+		if onRail(frame, size) or crossesLowerPavement(frame, size, road) then
+			supportsSkippedForRoads += 1
 			return false
 		end
-		part("LocalBridgeAbutment", Vector3.new(road.Size.X + 3, h, 3.5),
-			CFrame.new(point.X, (topY + bottom) / 2, point.Z) * look, CONCRETE)
+		part("LocalBridgeAbutment", size, frame, CONCRETE)
 	else
-		if onRail(CFrame.new(point.X, (topY + bottom) / 2, point.Z) * look, Vector3.new(road.Size.X, h, 3.2)) then
+		local frame = CFrame.new(point.X, (topY + bottom) / 2, point.Z) * look
+		local capFrame = CFrame.new(point.X, topY - 1.1, point.Z) * look
+		if onRail(frame, Vector3.new(road.Size.X, h, 3.2))
+			or crossesLowerPavement(frame, Vector3.new(road.Size.X, h, 3.2), road)
+			or crossesLowerPavement(capFrame, Vector3.new(road.Size.X + 1, 2.2, 3.2), road) then
+			supportsSkippedForRoads += 1
 			return false
 		end
 		for side = -1, 1, 2 do
@@ -334,7 +357,7 @@ for _, start in ipairs(pieces) do
 	end
 end
 
-print(("[ChesterWorld LocalBridges] elevatedPieces=%d decks=%d stringers=%d parapets=%d abutments=%d piers=%d parts=%d")
-	:format(#pieces, decks, stringers, parapets, abutments, piers, count))
+print(("[ChesterWorld LocalBridges] elevatedPieces=%d decks=%d stringers=%d parapets=%d abutments=%d piers=%d supportsSkippedForRoads=%d parts=%d")
+	:format(#pieces, decks, stringers, parapets, abutments, piers, supportsSkippedForRoads, count))
 fixCatenary()
 Workspace:SetAttribute("CW_LocalBridgesDressed", true)

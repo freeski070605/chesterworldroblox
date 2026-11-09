@@ -37,6 +37,7 @@ def load_roads(tile_dir: Path = TILE_DIR):
     roads = []
     for path in sorted(tile_dir.glob("tile_r*_c*.lua")):
         section = None
+        road_index = 0
         for line in path.read_text(encoding="utf-8").splitlines():
             stripped = line.strip()
             if stripped.startswith("roads = {"):
@@ -51,6 +52,7 @@ def load_roads(tile_dir: Path = TILE_DIR):
                 continue
             rec = {k: _value(v) for k, v in _FIELD.findall(m.group(1))}
             rec["tile"] = path.stem
-            rec["index"] = len([r for r in roads if r["tile"] == path.stem]) + 1
+            road_index += 1
+            rec["index"] = road_index
             roads.append(rec)
     return roads

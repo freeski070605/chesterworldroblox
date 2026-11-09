@@ -328,7 +328,16 @@ end
 function Style.Wear(player, itemId)
 	local item = Catalog.Items[itemId]
 	local p = Profile.Get(player)
-	if not item or item.testOnly or not p then return false end
+	if not item or not p then return false end
+	if item.testOnly then
+		-- Hair Test entries may be equipped through the barbershop only when
+		-- the actual mesh is installed. Keep the saved profile key unchanged.
+		if item.kind ~= "haircut" or not testTemplate(item.assetId) or not player.Character then return false end
+		if not applyTestHair(player.Character, item.assetId) then return false end
+		p.style.hair = itemId
+		Profile.Publish(player)
+		return true
+	end
 	if item.kind == "haircut" then
 		p.style.hair = (item.style ~= "own") and itemId or nil
 	elseif item.kind == "clothing" then

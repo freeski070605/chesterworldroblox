@@ -1639,11 +1639,36 @@ function HighwayProfile.Prepare(entries, opts)
 						nodeLo[k] = math.max(nodeLo[k], nodeLo[k + 1] - g)
 						nodeHi[k] = math.min(nodeHi[k], nodeHi[k + 1] + g)
 					end
+					-- Do not hard-pin every overlapping gore sample. Adjacent
+						-- mainline samples can have incompatible heights, which used to
+						-- produce impossible grade cones and midpoint spikes.
+						-- Accept a match only if it is reachable from *all* previously
+						-- fixed junctions / accepted matches at the ramp grade limit.
+					local accepted = {}
+					for k = 1, count do
+						if fixed[k] then table.insert(accepted, k) end
+					end
 					for k = 1, count do
 						if target[k] and not fixed[k] then
 							local v = target[k]
-							if nodeLo[k] <= nodeHi[k] then v = math.clamp(v, nodeLo[k], nodeHi[k]) end
-							fixed[k], value[k] = true, v
+							if nodeLo[k] <= nodeHi[k] then
+								v = math.clamp(v, nodeLo[k], nodeHi[k])
+								local feasible = true
+								for _, j in ipairs(accepted) do
+									if math.abs(v - value[j]) > math.abs(k - j) * g + 0.001 then
+										feasible = false
+										break
+									end
+								end
+								if feasible then
+									fixed[k], value[k] = true, v
+									table.insert(accepted, k)
+								else
+									stats.goreTargetsRejected = (stats.goreTargetsRejected or 0) + 1
+								end
+							else
+								stats.goreTargetsRejected = (stats.goreTargetsRejected or 0) + 1
+							end
 						end
 					end
 					local lo, hi = table.create(count, -math.huge), table.create(count, math.huge)

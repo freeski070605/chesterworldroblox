@@ -1318,7 +1318,7 @@ function HighwayProfile.Prepare(entries, opts)
 					local node = part.seg.nodes[which]
 					local s = stationOf(part.seg, which == 1 and 0 or 1)
 					if node.height then
-						addPin(s, node.height, "solved-stroke")
+						addPin(s, node.height, "solved-stroke:" .. tostring(node.heightOwner or "unknown"))
 					elseif node.mixed then
 						local k = math.clamp(math.floor(s / ds + 0.5) + 1, 1, count)
 						-- a county street ending on a designed viaduct passes
@@ -1480,6 +1480,7 @@ function HighwayProfile.Prepare(entries, opts)
 					local node = part.seg.nodes[which]
 					if not node.height then
 						node.height = profileG(stroke, stationOf(part.seg, which == 1 and 0 or 1))
+						node.heightOwner = stroke.id .. "/" .. tostring(part.seg.road.name)
 					end
 				end
 			end

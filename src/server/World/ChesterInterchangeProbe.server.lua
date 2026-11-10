@@ -3,9 +3,14 @@ local W=game:GetService("Workspace")
 local targets={{"EDGMONT_I95",6223,-2232,850},{"BARRY_7TH_FLOWER",-1195,4865,900},{"BARRY_2ND",15,6815,800}}
 local world=W:WaitForChild("ChesterWorld",180)
 if not world then warn("[CWProbe] Missing ChesterWorld") return end
+-- The previous probe ran before HighwayFinish, so supports and clearance
+-- geometry were incomplete. Wait for the actual completion flag.
 local deadline=os.clock()+240
-while os.clock()<deadline and (W:GetAttribute("CW_RoadConformComplete")~=true or not world:FindFirstChild("HighwayInfrastructure")) do task.wait(1) end
-task.wait(8)
+while os.clock()<deadline and W:GetAttribute("CW_HighwayFinishComplete")~=true do task.wait(1) end
+if W:GetAttribute("CW_HighwayFinishComplete")~=true then
+ warn("[CWProbe] HighwayFinish did not complete within 240 seconds; results may be incomplete")
+end
+task.wait(2)
 for _,t in ipairs(targets) do
     local found={}
     for _,p in ipairs(world:GetDescendants()) do

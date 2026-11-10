@@ -167,10 +167,28 @@ UserInputService.InputBegan:Connect(function(input,processed)
 end)
 -- Prevent character movement while menu is open; restore after Play.
 local controls
-pcall(function()
- local playerModule=require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule"))
- controls=playerModule:GetControls()
- controls:Disable()
+-- PlayerModule is not guaranteed to exist in every Studio / console session.
+-- Never block the menu script waiting indefinitely for it.
+task.spawn(function()
+ local scripts = player:WaitForChild("PlayerScripts", 10)
+ local module = scripts and scripts:WaitForChild("PlayerModule", 10)
+ if not module then
+  warn("[EXIT6] PlayerModule unavailable; menu remains usable without movement lock")
+  return
+ end
+ local ok, result = pcall(function()
+  return require(module):GetControls()
+ end)
+ if not ok or not result then
+  warn("[EXIT6] Player controls unavailable: " .. tostring(result))
+  return
+ end
+ controls = result
+ if player:GetAttribute("Exit6EnteredCity") then
+  controls:Enable()
+ else
+  controls:Disable()
+ end
 end)
 player:GetAttributeChangedSignal("Exit6EnteredCity"):Connect(function()
  if player:GetAttribute("Exit6EnteredCity") and controls then controls:Enable() end

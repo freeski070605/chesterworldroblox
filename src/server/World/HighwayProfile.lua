@@ -1622,11 +1622,24 @@ function HighwayProfile.Prepare(entries, opts)
 					-- for (a ramp matches the mainline only as far as its grade
 					-- allows between its junctions)
 					local nodeLo, nodeHi = table.create(count, -math.huge), table.create(count, math.huge)
+					-- Segment boundaries inside a continuous stroke are NOT
+					-- junctions. Pinning every one creates impossible grade cones
+					-- from pre-existing profile noise (the 112 gore conflicts).
+					-- Preserve only stroke terminals and actual graph junctions.
+					local function anchor(k)
+						fixed[k], value[k] = true, G[k]
+						nodeLo[k], nodeHi[k] = G[k], G[k]
+					end
+					anchor(1)
+					anchor(count)
 					for _, part in ipairs(stroke.parts) do
-						for _, s0 in ipairs({ part.s0 or 0, part.s1 }) do
-							local k = math.clamp(math.floor(s0 / ds + 0.5) + 1, 1, count)
-							fixed[k], value[k] = true, G[k]
-							nodeLo[k], nodeHi[k] = G[k], G[k]
+						for which = 1, 2 do
+							local node = part.seg.nodes[which]
+							if node and (node.height ~= nil or node.mixed) then
+								local s0 = which == 1 and (part.flip and part.s1 or part.s0) or (part.flip and part.s0 or part.s1)
+								local k = math.clamp(math.floor(s0 / ds + 0.5) + 1, 1, count)
+								anchor(k)
+							end
 						end
 					end
 					for k = 2, count do

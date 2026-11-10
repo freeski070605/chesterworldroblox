@@ -326,6 +326,26 @@ Registry.AT_GRADE = {
 		status = "aerial_dvrpc2025",
 	},
 	{
+		id = "BARRY_PA291_WB_US322_RAMP_TERMINAL",
+		namesA = { "pa 291 to wb us 322" },
+		namesB = { "2nd" },
+		center = { 104.1, 6784.2 },
+		radius = 22,
+		description = "PA 291 / 2nd Street ramp terminal, not a flyover crossing. "
+			.. "The ramp joins 2nd at grade; preserve the local street under the Barry mainline separately.",
+		status = "studio_probe_2026_11_10",
+	},
+	{
+		id = "BARRY_US322_TO_PA291_RAMP_TERMINAL",
+		namesA = { "us 322 to pa 291" },
+		namesB = { "2nd" },
+		center = { -27.7, 6874.1 },
+		radius = 22,
+		description = "US 322 off-ramp terminal onto PA 291 / 2nd Street, not a second "
+			.. "overpass over 2nd. Barry through lanes remain elevated above the local street.",
+		status = "studio_probe_2026_11_10",
+	},
+	{
 		id = "US322_TO_US13_AT_7TH",
 		namesA = { "us 322 to us 13" },
 		namesB = { "7th" },

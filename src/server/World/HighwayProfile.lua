@@ -1442,8 +1442,12 @@ function HighwayProfile.Prepare(entries, opts)
 						local fadeA = math.clamp(math.abs(a.delta) / (g * 0.5), 40, 400)
 						local fadeB = math.clamp(math.abs(b.delta) / (g * 0.5), 40, 400)
 						if span < fadeA + fadeB then
-							-- close pins: blend across the whole interval
-							delta = lerp(a.delta, b.delta, smoothstep((s - a.s) / span))
+							-- Close pins already consume the available grade budget.
+							-- A smoothstep blend peaks at 1.5x the linear slope,
+							-- introducing an artificial steep spot between fixed
+							-- junctions. Interpolate the correction linearly instead;
+							-- exact pin heights remain unchanged.
+							delta = lerp(a.delta, b.delta, (s - a.s) / span)
 						else
 							-- far apart: each pin only bends its own neighbourhood
 							delta = a.delta * (1 - smoothstep((s - a.s) / fadeA))

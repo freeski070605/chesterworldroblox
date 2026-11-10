@@ -1704,8 +1704,21 @@ function HighwayProfile.Prepare(entries, opts)
 						if fixed[k] then
 							new = value[k]
 						elseif lo[k] > hi[k] then
-							new = (lo[k] + hi[k]) / 2
-							stats.goreConflicts = (stats.goreConflicts or 0) + 1
+							local conflict = lo[k] - hi[k]
+							-- The target acceptance check allows 0.001 stud of
+							-- numerical tolerance. Its forward/backward cones can
+							-- therefore overlap negatively by that tiny amount.
+							-- Do not count sub-millistud roundoff as a road defect.
+							-- A genuine incompatible constraint is not safe to
+							-- 'repair' by inventing a midpoint elevation.
+							if conflict <= 0.002 then
+								new = (lo[k] + hi[k]) / 2
+								stats.goreRoundoffStations = (stats.goreRoundoffStations or 0) + 1
+							else
+								new = G[k]
+								stats.goreConflicts = (stats.goreConflicts or 0) + 1
+								stats.goreWorstConflict = math.max(stats.goreWorstConflict or 0, conflict)
+							end
 						else
 							new = math.clamp(G[k], lo[k], hi[k])
 						end

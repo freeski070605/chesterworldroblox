@@ -1625,10 +1625,8 @@ function HighwayProfile.Prepare(entries, opts)
 					for _, part in ipairs(stroke.parts) do
 						for _, s0 in ipairs({ part.s0 or 0, part.s1 }) do
 							local k = math.clamp(math.floor(s0 / ds + 0.5) + 1, 1, count)
-							if not target[k] then
-								fixed[k], value[k] = true, G[k]
-								nodeLo[k], nodeHi[k] = G[k], G[k]
-							end
+							fixed[k], value[k] = true, G[k]
+							nodeLo[k], nodeHi[k] = G[k], G[k]
 						end
 					end
 					for k = 2, count do
@@ -1639,11 +1637,16 @@ function HighwayProfile.Prepare(entries, opts)
 						nodeLo[k] = math.max(nodeLo[k], nodeLo[k + 1] - g)
 						nodeHi[k] = math.min(nodeHi[k], nodeHi[k + 1] + g)
 					end
-					-- Do not hard-pin every overlapping gore sample. Adjacent
-						-- mainline samples can have incompatible heights, which used to
-						-- produce impossible grade cones and midpoint spikes.
-						-- Accept a match only if it is reachable from *all* previously
-						-- fixed junctions / accepted matches at the ramp grade limit.
+					-- Preserve original junction elevations. If their grade cones
+					-- disagree, gore smoothing cannot safely solve this stroke.
+					local nodesFeasible = true
+					for k = 1, count do
+						if nodeLo[k] > nodeHi[k] + 0.001 then
+							nodesFeasible = false
+							break
+						end
+					end
+					if nodesFeasible then
 					local accepted = {}
 					for k = 1, count do
 						if fixed[k] then table.insert(accepted, k) end
@@ -1696,6 +1699,9 @@ function HighwayProfile.Prepare(entries, opts)
 						goreMax = math.max(goreMax, math.abs(new - G[k]))
 						G[k] = new
 						if target[k] then goreStations += 1 end
+					end
+					else
+						stats.goreStrokesSkipped = (stats.goreStrokesSkipped or 0) + 1
 					end
 					goreRamps += 1
 				end
@@ -1969,7 +1975,7 @@ end
 
 function HighwayProfile.Summary()
 	return string.format(
-		"corridorSegments=%d strokes=%d samples=%d unprofilable=%d nodes=%d mixedNodes=%d vertexSplits=%d freewayCrossNodeSplits=%d crossingsHighwayOver=%d registry=%d atGrade=%d dem=%d layer=%d unresolved=%d notchFilledStations=%d maxNotchFill=%.1f cutStationsKept=%d bridgeTagsDropped=%d spikeCutStations=%d maxSpikeCut=%.1f spans=%d spanStations=%d fillStations=%d gradeStations=%d cutStations=%d worstCut=%.1f gradeViolations=%d worstGradePct=%.1f clearanceShort=%d pins=%d pinConflicts=%d goreRamps=%d goreStations=%d goreMaxShift=%.1f goreConflicts=%d",
+		"corridorSegments=%d strokes=%d samples=%d unprofilable=%d nodes=%d mixedNodes=%d vertexSplits=%d freewayCrossNodeSplits=%d crossingsHighwayOver=%d registry=%d atGrade=%d dem=%d layer=%d unresolved=%d notchFilledStations=%d maxNotchFill=%.1f cutStationsKept=%d bridgeTagsDropped=%d spikeCutStations=%d maxSpikeCut=%.1f spans=%d spanStations=%d fillStations=%d gradeStations=%d cutStations=%d worstCut=%.1f gradeViolations=%d worstGradePct=%.1f clearanceShort=%d pins=%d pinConflicts=%d goreRamps=%d goreStations=%d goreMaxShift=%.1f goreConflicts=%d goreStrokesSkipped=%d goreTargetsRejected=%d",
 		stats.corridorSegments, stats.strokes, stats.samples, stats.unprofilable,
 		stats.nodes, stats.mixedNodes, stats.vertexSplits, stats.freewayCrossNodeSplits, stats.crossingsOver,
 		stats.crossingsRegistry, stats.crossingsAtGrade, stats.crossingsDem, stats.crossingsLayer, stats.crossingsUnresolved, stats.notchFilledStations,
@@ -1977,7 +1983,7 @@ function HighwayProfile.Summary()
 		stats.spanStations, stats.fillStations, stats.gradeStations, stats.cutStations,
 		stats.worstCut, stats.gradeViolations, stats.worstGrade * 100,
 		stats.clearanceShort, stats.pins, stats.pinConflicts,
-		stats.goreRamps or 0, stats.goreStations or 0, stats.goreMaxShift or 0, stats.goreConflicts or 0)
+		stats.goreRamps or 0, stats.goreStations or 0, stats.goreMaxShift or 0, stats.goreConflicts or 0, stats.goreStrokesSkipped or 0, stats.goreTargetsRejected or 0)
 end
 
 return HighwayProfile

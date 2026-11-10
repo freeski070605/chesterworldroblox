@@ -1370,12 +1370,18 @@ function HighwayProfile.Prepare(entries, opts)
 							local function adjust(parent, pin, shift)
 								local x, z = positionAt(stroke, pin.s)
 								local center, best = 0, math.huge
-								for k = 1, #parent.G do
-									local dx, dz = parent.xs[k] - x, parent.zs[k] - z
+								-- Project onto the continuous sampled centerline, rather than
+								-- requiring a sample vertex within four studs of a junction.
+								for k = 1, #parent.G - 1 do
+									local ax, az = parent.xs[k], parent.zs[k]
+									local vx, vz = parent.xs[k + 1] - ax, parent.zs[k + 1] - az
+									local len2 = vx * vx + vz * vz
+									local u = len2 > 1e-8 and math.clamp(((x - ax) * vx + (z - az) * vz) / len2, 0, 1) or 0
+									local dx, dz = ax + vx * u - x, az + vz * u - z
 									local d = dx * dx + dz * dz
-									if d < best then best, center = d, (k - 1) * parent.ds end
+									if d < best then best, center = d, (k - 1 + u) * parent.ds end
 								end
-								if best > 16 then return false end
+								if best > 64 then return false end
 								local taper = 200
 								for k, old in ipairs(parent.G) do
 									local d = math.abs((k - 1) * parent.ds - center)

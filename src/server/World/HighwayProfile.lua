@@ -1310,21 +1310,21 @@ function HighwayProfile.Prepare(entries, opts)
 			-- street. Any node already owned by a solved stroke is matched
 			-- exactly.
 			local pins = {}
-			local function addPin(s, target)
-				table.insert(pins, { s = s, target = target })
+			local function addPin(s, target, source)
+				table.insert(pins, { s = s, target = target, source = source })
 			end
 			for _, part in ipairs(stroke.parts) do
 				for _, which in ipairs({ 1, 2 }) do
 					local node = part.seg.nodes[which]
 					local s = stationOf(part.seg, which == 1 and 0 or 1)
 					if node.height then
-						addPin(s, node.height)
+						addPin(s, node.height, "solved-stroke")
 					elseif node.mixed then
 						local k = math.clamp(math.floor(s / ds + 0.5) + 1, 1, count)
 						-- a county street ending on a designed viaduct passes
 						-- under it: no at-grade pin there
 						if not designMask[k] then
-							addPin(s, terrainY(node.x, node.z) or t[k])
+							addPin(s, terrainY(node.x, node.z) or t[k], "terrain-junction")
 						end
 					end
 				end
@@ -1338,6 +1338,7 @@ function HighwayProfile.Prepare(entries, opts)
 				local last = unique[#unique]
 				if last and math.abs(last.s - pin.s) < 0.5 then
 					last.target = (last.target + pin.target) / 2
+					last.source = last.source == pin.source and last.source or "mixed-sources"
 				else
 					table.insert(unique, pin)
 				end
@@ -1360,10 +1361,10 @@ function HighwayProfile.Prepare(entries, opts)
 						if #stats.pinConflictList < 20 then
 							local ax, az = positionAt(stroke, pins[m - 1].s)
 							local bx, bz = positionAt(stroke, pins[m].s)
-							table.insert(stats.pinConflictList, string.format("%s %s s=%.0f..%.0f dy=%.1f grade=%.1f%% limit=%.1f%% from=(%.0f,%.0f) to=(%.0f,%.0f)",
+							table.insert(stats.pinConflictList, string.format("%s %s s=%.0f..%.0f dy=%.1f grade=%.1f%% limit=%.1f%% from=(%.0f,%.0f) to=(%.0f,%.0f) anchors=%s:%.1f -> %s:%.1f",
 								stroke.id, tostring(stroke.parts[1].seg.road.name), pins[m - 1].s, pins[m].s,
 								pins[m].target - pins[m - 1].target, run > 0 and rise / run * 100 or 0, g * 100,
-								ax, az, bx, bz))
+								ax, az, bx, bz, tostring(pins[m - 1].source), pins[m - 1].target, tostring(pins[m].source), pins[m].target))
 						end
 					end
 					pins[m - 1].slopeAfter = slope

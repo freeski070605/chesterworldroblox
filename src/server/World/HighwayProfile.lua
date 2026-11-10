@@ -1361,10 +1361,11 @@ function HighwayProfile.Prepare(entries, opts)
 						if #stats.pinConflictList < 20 then
 							local ax, az = positionAt(stroke, pins[m - 1].s)
 							local bx, bz = positionAt(stroke, pins[m].s)
-							table.insert(stats.pinConflictList, string.format("%s %s s=%.0f..%.0f dy=%.1f grade=%.1f%% limit=%.1f%% from=(%.0f,%.0f) to=(%.0f,%.0f) anchors=%s:%.1f -> %s:%.1f",
+							table.insert(stats.pinConflictList, string.format("%s %s s=%.0f..%.0f dy=%.1f grade=%.1f%% limit=%.1f%% from=(%.0f,%.0f) to=(%.0f,%.0f) anchors=%s:%.1f -> %s:%.1f excessRise=%.2f minRun=%.1f extraRun=%.1f",
 								stroke.id, tostring(stroke.parts[1].seg.road.name), pins[m - 1].s, pins[m].s,
 								pins[m].target - pins[m - 1].target, run > 0 and rise / run * 100 or 0, g * 100,
-								ax, az, bx, bz, tostring(pins[m - 1].source), pins[m - 1].target, tostring(pins[m].source), pins[m].target))
+								ax, az, bx, bz, tostring(pins[m - 1].source), pins[m - 1].target, tostring(pins[m].source), pins[m].target,
+								rise - g * run, rise / g, math.max(0, rise / g - run)))
 						end
 					end
 					pins[m - 1].slopeAfter = slope

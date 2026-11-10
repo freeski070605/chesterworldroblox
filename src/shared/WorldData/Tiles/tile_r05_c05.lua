@@ -634,7 +634,6 @@ return {
         {id="8637",name="8637",x_m=5870.327,z_m=5492.354,width_m=15.321,depth_m=14.99,yaw_deg=-56.786,height_m=7.297},
         {id="117265",name="117265",x_m=5868.072,z_m=5714.825,width_m=9.866,depth_m=9.346,yaw_deg=45.025,height_m=8.849},
         {id="70596",name="70596",x_m=5853.97,z_m=5717.366,width_m=193.514,depth_m=16.671,yaw_deg=121.972,height_m=12.311},
-        {id="33123",name="33123",x_m=5812.274,z_m=5794.135,width_m=2.015,depth_m=1.941,yaw_deg=180,height_m=9.15},
         {id="156753",name="156753",x_m=5860.892,z_m=5939.881,width_m=4.107,depth_m=2.539,yaw_deg=-178.968,height_m=9.15},
         {id="123966",name="123966",x_m=5854.881,z_m=5964.371,width_m=39.35,depth_m=20.719,yaw_deg=-54.9,height_m=8.291},
         {id="66027",name="66027",x_m=5792.681,z_m=5992.431,width_m=28.767,depth_m=14.044,yaw_deg=126.938,height_m=8.295},

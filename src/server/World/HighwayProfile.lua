@@ -1344,6 +1344,79 @@ function HighwayProfile.Prepare(entries, opts)
 				end
 			end
 			pins = unique
+			-- Reconcile a short connector against its already-solved parents.
+			-- The upstream highway profiles own these junctions, so correcting
+			-- only the connector would create a vertical seam. Move the parent
+			-- profiles locally, with a long taper, and update every shared node
+			-- whose elevation comes from the same parent. Refuse any correction
+			-- that would breach the parent's crossing/design bounds.
+			if stroke.isLink and #pins >= 2 then
+				for m = 2, #pins do
+					local a, b = pins[m - 1], pins[m]
+					local run = b.s - a.s
+					local excess = math.abs(b.target - a.target) - g * run
+					if run > 1 and excess > 0.05 and excess <= 3 then
+						local function parentFor(pin)
+							local owner = string.match(tostring(pin.source), "^solved%-stroke:(HW%d+)/")
+							for _, candidate in ipairs(order) do
+								if candidate.id == owner and candidate.G and candidate.minReq then
+									return candidate
+								end
+							end
+							return nil
+						end
+						local pa, pb = parentFor(a), parentFor(b)
+						if pa and pb and pa ~= pb then
+							local function adjust(parent, pin, shift)
+								local x, z = positionAt(stroke, pin.s)
+								local center, best = 0, math.huge
+								for k = 1, #parent.G do
+									local dx, dz = parent.xs[k] - x, parent.zs[k] - z
+									local d = dx * dx + dz * dz
+									if d < best then best, center = d, (k - 1) * parent.ds end
+								end
+								if best > 16 then return false end
+								local taper = 200
+								for k, old in ipairs(parent.G) do
+									local d = math.abs((k - 1) * parent.ds - center)
+									local weight = math.max(0, 1 - d / taper)
+									local proposed = old + shift * weight
+									if weight > 0 and (proposed < parent.minReq[k] - 0.01
+										or (parent.maxReq and proposed > parent.maxReq[k] + 0.01)) then
+										return false
+									end
+								end
+								return true, center
+							end
+							local direction = b.target < a.target and 1 or -1
+							local shiftA, shiftB = -direction * (excess + 0.08) / 2, direction * (excess + 0.08) / 2
+							local okA, centerA = adjust(pa, a, shiftA)
+							local okB, centerB = adjust(pb, b, shiftB)
+							if okA and okB then
+								local function apply(parent, center, shift)
+									for k, old in ipairs(parent.G) do
+										local weight = math.max(0, 1 - math.abs((k - 1) * parent.ds - center) / 200)
+										parent.G[k] = old + shift * weight
+									end
+									for _, part in ipairs(parent.parts) do
+										for _, which in ipairs({ 1, 2 }) do
+											local node = part.seg.nodes[which]
+											if node.heightOwner and string.match(node.heightOwner, "^" .. parent.id .. "/") then
+												node.height = profileG(parent, stationOf(part.seg, which == 1 and 0 or 1))
+											end
+										end
+									end
+								end
+								apply(pa, centerA, shiftA)
+								apply(pb, centerB, shiftB)
+								a.target = a.target + shiftA
+								b.target = b.target + shiftB
+								stats.parentJunctionRepairs = (stats.parentJunctionRepairs or 0) + 1
+							end
+						end
+					end
+				end
+			end
 			if #pins > 0 then
 				stats.pins += #pins
 				-- Where two pins are closer than the grade allows, that interval

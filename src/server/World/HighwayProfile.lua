@@ -1386,6 +1386,15 @@ function HighwayProfile.Prepare(entries, opts)
 										return false
 									end
 								end
+								for k = 2, #parent.G do
+									local function moved(i)
+										local weight = math.max(0, 1 - math.abs((i - 1) * parent.ds - center) / taper)
+										return parent.G[i] + shift * weight
+									end
+									if math.abs(moved(k) - moved(k - 1)) > parent.grade * parent.ds * 1.02 then
+										return false
+									end
+								end
 								return true, center
 							end
 							local direction = b.target < a.target and 1 or -1
@@ -1550,6 +1559,7 @@ function HighwayProfile.Prepare(entries, opts)
 			stroke.t, stroke.tl, stroke.c, stroke.f = t, tl, c, f
 			stroke.xs, stroke.zs = xs, zs
 			stroke.minReq = minReq
+			stroke.maxReq = maxReq
 			stroke.bridgeMask = bridgeMask
 
 			-- i. record node heights for strokes solved later

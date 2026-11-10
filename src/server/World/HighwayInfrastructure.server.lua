@@ -362,9 +362,17 @@ local function barrierPair(road,parent,attrs)
         for _,other in ipairs(Workspace:GetPartBoundsInBox(baseFrame,
             Vector3.new(1.6,1.5,road.Size.Z),pavedOverlap)) do
             if other~=road and other.CanCollide
+                and other:GetAttribute("CW_StrokeId")~=road:GetAttribute("CW_StrokeId")
                 and math.abs((other.Position.Y+other.Size.Y/2)-(road.Position.Y+road.Size.Y/2))<2.5 then
-                blockedByMerge=true
-                break
+                -- Adjacent pavement segments on the same stroke overlap at
+                -- their joints; that is not a ramp merge. Also ignore
+                -- parallel neighboring carriageways: only a genuinely
+                -- angled, different-stroke road can open this barrier edge.
+                local alignment=math.abs(other.CFrame.LookVector:Dot(road.CFrame.LookVector))
+                if alignment<0.97 then
+                    blockedByMerge=true
+                    break
+                end
             end
         end
         if blockedByMerge then

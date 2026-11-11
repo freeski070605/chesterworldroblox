@@ -1393,6 +1393,7 @@ if #overpassDecks > 0 then
     -- crossing footprint, and reject changes exceeding a modest 5-stud
     -- correction rather than inventing a long embankment.
     local bullensAdjustments, bullensRejected = 0, 0
+    local bullensCandidates, bullensPreSteep, bullensPostSteep = 0, 0, 0
     do
         local candidates, baseline = {}, {}
         local MAX_BULLENS_RAISE = 5
@@ -1409,10 +1410,19 @@ if #overpassDecks > 0 then
                 local kb = endpointKey(plan.part, plan.b)
                 table.insert(candidates, { plan = plan, ka = ka, kb = kb,
                     length = hdist(plan.a, plan.b) })
+                bullensCandidates += 1
                 baseline[ka] = math.min(baseline[ka] or math.huge,
                     endpointNeed[ka] or plan.a.Y)
                 baseline[kb] = math.min(baseline[kb] or math.huge,
                     endpointNeed[kb] or plan.b.Y)
+            end
+        end
+        -- Count the planned slope *before* and *after* the correction,
+        -- to distinguish a missing candidate from a later geometry change.
+        for _, edge in ipairs(candidates) do
+            if edge.length > 1 and math.abs(endpointNeed[edge.ka] - endpointNeed[edge.kb])
+                > MAX_GRADE * edge.length + 0.01 then
+                bullensPreSteep += 1
             end
         end
         -- Repeatedly raise only the low endpoint on edges within the
@@ -1444,9 +1454,20 @@ if #overpassDecks > 0 then
             end
             if not changed then break end
         end
+        for _, edge in ipairs(candidates) do
+            if edge.length > 1 and math.abs(endpointNeed[edge.ka] - endpointNeed[edge.kb])
+                > MAX_GRADE * edge.length + 0.01 then
+                bullensPostSteep += 1
+                if bullensPostSteep <= 5 then
+                    warn(("[ChesterWorld BullensPlannedSteep] x=%.1f z=%.1f length=%.1f ya=%.2f yb=%.2f"):format(
+                        edge.plan.part.Position.X, edge.plan.part.Position.Z,
+                        edge.length, endpointNeed[edge.ka], endpointNeed[edge.kb]))
+                end
+            end
+        end
     end
-    print(("[ChesterWorld BullensGradeCorrection] endpointAdjustments=%d rejected=%d")
-        :format(bullensAdjustments, bullensRejected))
+    print(("[ChesterWorld BullensGradeCorrection] candidates=%d plannedSteepBefore=%d plannedSteepAfter=%d endpointAdjustments=%d rejected=%d")
+        :format(bullensCandidates, bullensPreSteep, bullensPostSteep, bullensAdjustments, bullensRejected))
     -- pass 2: apply
     local raisedByGroup = {}
     for _, plan in ipairs(planned) do

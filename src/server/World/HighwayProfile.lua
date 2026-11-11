@@ -1387,8 +1387,8 @@ function HighwayProfile.Prepare(entries, opts)
 									local d = math.abs((k - 1) * parent.ds - center)
 									local weight = math.max(0, 1 - d / taper)
 									local proposed = old + shift * weight
-									if weight > 0 and (proposed < parent.minReq[k] - 0.01
-										or (parent.maxReq and proposed > parent.maxReq[k] + 0.01)) then
+									if weight > 0 and ((proposed < parent.minReq[k] - 0.01 and proposed < old - 0.01)
+										or (parent.maxReq and proposed > parent.maxReq[k] + 0.01 and proposed > old + 0.01)) then
 										return false
 									end
 								end
@@ -1397,7 +1397,7 @@ function HighwayProfile.Prepare(entries, opts)
 										local weight = math.max(0, 1 - math.abs((i - 1) * parent.ds - center) / taper)
 										return parent.G[i] + shift * weight
 									end
-									if math.abs(moved(k) - moved(k - 1)) > parent.grade * parent.ds * 1.02 then
+									if math.abs(moved(k) - moved(k - 1)) > math.max(parent.grade * parent.ds * 1.02, math.abs(parent.G[k] - parent.G[k - 1]) + 0.005) then
 										return false
 									end
 								end
@@ -1407,6 +1407,22 @@ function HighwayProfile.Prepare(entries, opts)
 							local shiftA, shiftB = -direction * (excess + 0.08) / 2, direction * (excess + 0.08) / 2
 							local okA, centerA = adjust(pa, a, shiftA)
 							local okB, centerB = adjust(pb, b, shiftB)
+							-- A symmetric correction is not always possible: a bridge
+							-- clearance may lock one parent but leave room on the other.
+							-- Search the same total correction with asymmetric shares.
+							if not (okA and okB) then
+								for _, share in ipairs({ 0, 1, 0.25, 0.75, 0.1, 0.9, 0.4, 0.6 }) do
+									local total = excess + 0.08
+									local sa, sb = -direction * total * share, direction * total * (1 - share)
+									local aa, ca = adjust(pa, a, sa)
+									local bb, cb = adjust(pb, b, sb)
+									if aa and bb then
+										shiftA, shiftB = sa, sb
+										okA, centerA, okB, centerB = aa, ca, bb, cb
+										break
+									end
+								end
+							end
 							if okA and okB then
 								local function apply(parent, center, shift)
 									for k, old in ipairs(parent.G) do

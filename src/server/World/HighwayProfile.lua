@@ -1368,11 +1368,13 @@ function HighwayProfile.Prepare(entries, opts)
 						end
 						local pa, pb = parentFor(a), parentFor(b)
 						if pa and pb and pa ~= pb then
+							-- Test several approach lengths. A fixed 200-stud triangular
+							-- taper can add grade at a section already near its limit.
+							-- We only commit a proposal after checking *every* sample
+							-- against the existing crossing bounds and original grades.
 							local function adjust(parent, pin, shift)
 								local x, z = positionAt(stroke, pin.s)
 								local center, best = 0, math.huge
-								-- Project onto the continuous sampled centerline, rather than
-								-- requiring a sample vertex within four studs of a junction.
 								for k = 1, #parent.G - 1 do
 									local ax, az = parent.xs[k], parent.zs[k]
 									local vx, vz = parent.xs[k + 1] - ax, parent.zs[k + 1] - az
@@ -1383,31 +1385,41 @@ function HighwayProfile.Prepare(entries, opts)
 									if d < best then best, center = d, (k - 1 + u) * parent.ds end
 								end
 								if best > 64 then return false, "junction-off-parent:" .. string.format("%.1f", math.sqrt(best)) end
-								local taper = 200
-								for k, old in ipairs(parent.G) do
-									local d = math.abs((k - 1) * parent.ds - center)
-									local weight = math.max(0, 1 - d / taper)
-									local proposed = old + shift * weight
-									if weight > 0 and ((proposed < parent.minReq[k] - 0.01 and proposed < old - 0.01)
-										or (parent.maxReq and proposed > parent.maxReq[k] + 0.01 and proposed > old + 0.01)) then
-										return false, "clearance-or-design-bound:k=" .. tostring(k)
-									end
-								end
-								for k = 2, #parent.G do
+								if math.abs(shift) < 1e-6 then return true, { center = center, taper = 200 } end
+								local lastReason = "no-valid-taper"
+								for _, taper in ipairs({ 200, 300, 450, 650, 900, 1200, 1600, 2200 }) do
 									local function moved(i)
 										local weight = math.max(0, 1 - math.abs((i - 1) * parent.ds - center) / taper)
 										return parent.G[i] + shift * weight
 									end
-									if math.abs(moved(k) - moved(k - 1)) > math.max(parent.grade * parent.ds * 1.02, math.abs(parent.G[k] - parent.G[k - 1]) + 0.005) then
-										return false, "parent-grade:k=" .. tostring(k)
+									local reason = nil
+									for k, old in ipairs(parent.G) do
+										local proposed = moved(k)
+										if (proposed < parent.minReq[k] - 0.01 and proposed < old - 0.01)
+											or (parent.maxReq and proposed > parent.maxReq[k] + 0.01 and proposed > old + 0.01) then
+											reason = "bound:k=" .. tostring(k) .. ":taper=" .. tostring(taper)
+											break
+										end
 									end
+									if not reason then
+										for k = 2, #parent.G do
+											local before = math.abs(parent.G[k] - parent.G[k - 1])
+											local after = math.abs(moved(k) - moved(k - 1))
+											if after > math.max(parent.grade * parent.ds * 1.02, before + 0.005) then
+												reason = "grade:k=" .. tostring(k) .. ":taper=" .. tostring(taper)
+												break
+											end
+										end
+									end
+									if not reason then return true, { center = center, taper = taper } end
+									lastReason = reason
 								end
-								return true, center
+								return false, lastReason
 							end
 							local direction = b.target < a.target and 1 or -1
 							local shiftA, shiftB = -direction * (excess + 0.08) / 2, direction * (excess + 0.08) / 2
-							local okA, centerA = adjust(pa, a, shiftA)
-							local okB, centerB = adjust(pb, b, shiftB)
+							local okA, planA = adjust(pa, a, shiftA)
+							local okB, planB = adjust(pb, b, shiftB)
 							-- A symmetric correction is not always possible: a bridge
 							-- clearance may lock one parent but leave room on the other.
 							-- Search the same total correction with asymmetric shares.
@@ -1419,15 +1431,15 @@ function HighwayProfile.Prepare(entries, opts)
 									local bb, cb = adjust(pb, b, sb)
 									if aa and bb then
 										shiftA, shiftB = sa, sb
-										okA, centerA, okB, centerB = aa, ca, bb, cb
+										okA, planA, okB, planB = aa, ca, bb, cb
 										break
 									end
 								end
 							end
 							if okA and okB then
-								local function apply(parent, center, shift)
+								local function apply(parent, plan, shift)
 									for k, old in ipairs(parent.G) do
-										local weight = math.max(0, 1 - math.abs((k - 1) * parent.ds - center) / 200)
+										local weight = math.max(0, 1 - math.abs((k - 1) * parent.ds - plan.center) / plan.taper)
 										parent.G[k] = old + shift * weight
 									end
 									for _, part in ipairs(parent.parts) do
@@ -1439,8 +1451,8 @@ function HighwayProfile.Prepare(entries, opts)
 										end
 									end
 								end
-								apply(pa, centerA, shiftA)
-								apply(pb, centerB, shiftB)
+								apply(pa, planA, shiftA)
+								apply(pb, planB, shiftB)
 								-- Read back the actual adjusted junction heights. Sampling
 								-- and taper interpolation need not deliver the exact shift
 								-- requested at a continuous junction station.
@@ -1464,7 +1476,7 @@ function HighwayProfile.Prepare(entries, opts)
 								stats.parentJunctionRepairs = (stats.parentJunctionRepairs or 0) + 1
 							elseif #stats.parentRepairRejected < 12 then
 								table.insert(stats.parentRepairRejected, string.format("%s parent repair rejected HW%s/HW%s: A=%s B=%s run=%.1f excess=%.2f",
-									stroke.id, tostring(pa.id), tostring(pb.id), tostring(centerA), tostring(centerB), run, excess))
+									stroke.id, tostring(pa.id), tostring(pb.id), tostring(planA), tostring(planB), run, excess))
 							end
 						elseif #stats.parentRepairRejected < 12 then
 							table.insert(stats.parentRepairRejected, string.format("%s parent lookup failed: %s and %s",

@@ -16,7 +16,7 @@ local TileBuilderV2 = {}
 -- the first few are reported with coordinates, so missing asphalt can never
 -- again be silent.
 local omissions = {
-	steepPieces = 0, steepLength = 0, noTerrainPieces = 0,
+	steepPieces = 0, steepLength = 0, noTerrainPieces = 0, terrainRecovered = 0,
 	trimConsumed = 0, trimConsumedHighway = 0, samples = {},
 }
 local highwayStats = {
@@ -78,6 +78,30 @@ local function terrainY(xStuds, zStuds)
 		terrainParams
 	)
 	return hit and hit.Position.Y or nil
+end
+
+-- Only fill small, nearly level holes at a terrain tile seam. Do not
+-- extrapolate across a cliff, excavation, river or elevated structure.
+local function terrainYForStripEndpoint(x, z)
+	local exact = terrainY(x, z)
+	if exact ~= nil then return exact end
+	for _, radius in ipairs({ 8, 16 }) do
+		local n, sum, lo, hi = 0, 0, math.huge, -math.huge
+		for _, dir in ipairs({ {1,0}, {-1,0}, {0,1}, {0,-1},
+			{0.707,0.707}, {-0.707,0.707}, {0.707,-0.707}, {-0.707,-0.707} }) do
+			local y = terrainY(x + dir[1] * radius, z + dir[2] * radius)
+			if y then
+				n += 1
+				sum += y
+				lo, hi = math.min(lo, y), math.max(hi, y)
+			end
+		end
+		if n >= 4 and hi - lo <= 3 then
+			omissions.terrainRecovered = (omissions.terrainRecovered or 0) + 1
+			return sum / n
+		end
+	end
+	return nil
 end
 
 local function makeFolder(parent, name)
@@ -192,8 +216,8 @@ end
 -- Terrain-following endpoint pair WITHOUT grade rejection. Returns the pair
 -- and its grade so callers can subdivide BEFORE deciding to omit anything.
 local function groundPair(x1, z1, x2, z2, surfaceOffset, gradeOffset)
-	local y1 = terrainY(x1, z1)
-	local y2 = terrainY(x2, z2)
+	local y1 = terrainYForStripEndpoint(x1, z1)
+	local y2 = terrainYForStripEndpoint(x2, z2)
 	if y1 == nil and y2 == nil then
 		return nil, nil, 0
 	end
@@ -713,7 +737,7 @@ end
 function TileBuilderV2.Prepare(tileModules)
 	globalIntersectionNodes = {}
 	omissions = {
-		steepPieces = 0, steepLength = 0, noTerrainPieces = 0,
+		steepPieces = 0, steepLength = 0, noTerrainPieces = 0, terrainRecovered = 0,
 		trimConsumed = 0, trimConsumedHighway = 0, samples = {},
 	}
 	highwayStats = {

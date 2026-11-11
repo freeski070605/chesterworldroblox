@@ -1691,6 +1691,67 @@ for _, item in ipairs(bridgeComponents) do
         end
     end
 end
+-- The registry pass leaves Bullens within grade; a later embankment
+-- adjustment can steepen one of its short pieces. Reconcile the FINAL
+-- planned embankment heights instead of changing an earlier clean pass.
+-- Only raise low endpoints on the known Bullens group; keep a strict
+-- 5-stud cap, preserve shared vertices, and report any rejected change.
+local bullensEmbankmentCandidates, bullensEmbankmentBefore = 0, 0
+local bullensEmbankmentAdjusted, bullensEmbankmentRejected = 0, 0
+do
+    local edges, original = {}, {}
+    local function targetGroup(part)
+        return attr(part, "CW_GradeGroup") == "county:20931:g1"
+            and normalizedRoadName(attr(part, "ChesterStreet")) == "bullens ln"
+            and math.abs(part.Position.X - 9365) < 260
+            and math.abs(part.Position.Z + 11582) < 260
+    end
+    for _, plan in ipairs(embankmentPlans) do
+        if targetGroup(plan.part) then
+            local ka, kb = embankmentKey(plan.part, plan.a), embankmentKey(plan.part, plan.b)
+            table.insert(edges, {ka=ka, kb=kb, length=hdist(plan.a, plan.b)})
+            original[ka] = embankmentNeed[ka]
+            original[kb] = embankmentNeed[kb]
+        end
+    end
+    bullensEmbankmentCandidates = #edges
+    for _, edge in ipairs(edges) do
+        if edge.length > 1 and math.abs(embankmentNeed[edge.ka] - embankmentNeed[edge.kb]) > MAX_GRADE * edge.length + 0.01 then
+            bullensEmbankmentBefore += 1
+        end
+    end
+    for _ = 1, 16 do
+        local changed = false
+        for _, edge in ipairs(edges) do
+            if edge.length > 1 then
+                local a, b = embankmentNeed[edge.ka], embankmentNeed[edge.kb]
+                local limit = edge.length * MAX_GRADE
+                local low, needed
+                if a + limit < b then
+                    low, needed = edge.ka, b - limit
+                elseif b + limit < a then
+                    low, needed = edge.kb, a - limit
+                end
+                if low then
+                    if needed <= original[low] + 5 then
+                        if needed > embankmentNeed[low] + 0.01 then
+                            embankmentNeed[low] = needed
+                            bullensEmbankmentAdjusted += 1
+                            changed = true
+                        end
+                    else
+                        bullensEmbankmentRejected += 1
+                    end
+                end
+            end
+        end
+        if not changed then break end
+    end
+end
+print(("[ChesterWorld BullensEmbankmentGrade] candidates=%d steepBefore=%d adjustments=%d rejected=%d")
+    :format(bullensEmbankmentCandidates, bullensEmbankmentBefore,
+        bullensEmbankmentAdjusted, bullensEmbankmentRejected))
+
 local embankmentRaised, embankmentResting, embankmentLiftMax = 0, 0, 0
 local embankmentLiftAt = ""
 local embankmentRaisedGroups = {}

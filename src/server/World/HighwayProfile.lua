@@ -1619,9 +1619,20 @@ function HighwayProfile.Prepare(entries, opts)
 				end
 				if math.abs(worst) > 2 then
 					stats.designMissList = stats.designMissList or {}
-					table.insert(stats.designMissList, string.format("%s %s %s stations=%d worst=%.1f at (%.0f, %.0f) pins=%d",
+					local station = (worstHit.k - 1) * ds
+					local closestPin, closestDist = nil, math.huge
+					for _, pin in ipairs(pins) do
+						local distance = math.abs(pin.s - station)
+						if distance < closestDist then closestPin, closestDist = pin, distance end
+					end
+					local pinDetail = closestPin and string.format("nearestPin=%s s=%.1f distance=%.1f height=%.1f",
+						tostring(closestPin.source), closestPin.s, closestDist, closestPin.target) or "nearestPin=none"
+					local lower = minReq[worstHit.k]
+					local upper = maxReq[worstHit.k]
+					table.insert(stats.designMissList, string.format("%s %s %s stations=%d worst=%.1f at (%.0f, %.0f) pins=%d target=%.1f actual=%.1f min=%.1f max=%s %s",
 						id, stroke.id, tostring(stroke.parts[1].seg.road.name), #hits, worst,
-						xs[worstHit.k], zs[worstHit.k], #pins))
+						xs[worstHit.k], zs[worstHit.k], #pins, worstHit.y, G[worstHit.k], lower,
+						upper == math.huge and "inf" or string.format("%.1f", upper), pinDetail))
 				end
 			end
 			stroke.t, stroke.tl, stroke.c, stroke.f = t, tl, c, f

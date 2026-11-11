@@ -1197,6 +1197,11 @@ function HighwayProfile.Prepare(entries, opts)
 						partAt += 1
 					end
 					local roadName = normName(stroke.parts[partAt].seg.road.name)
+					-- Multiple parallel carriageways may fall inside the lateral
+					-- radius of the same survey. Assign each sample to its
+					-- *nearest* matching design centerline; don't stack
+					-- contradictory heights from both sides of the bridge.
+					local chosen, chosenY, chosenD = nil, nil, math.huge
 					for _, design in ipairs(Registry.DESIGN_PROFILES or {}) do
 						local named = false
 						for _, n in ipairs(design.names) do
@@ -1209,26 +1214,26 @@ function HighwayProfile.Prepare(entries, opts)
 								local ax, az, ay = pts[p][1], pts[p][2], pts[p][3]
 								local bx, bz, by = pts[p + 1][1], pts[p + 1][2], pts[p + 1][3]
 								local vx, vz = bx - ax, bz - az
-								local u = math.clamp(((xs[k] - ax) * vx + (zs[k] - az) * vz) / (vx * vx + vz * vz), 0, 1)
+								local len2 = vx * vx + vz * vz
+								local u = len2 > 1e-8 and math.clamp(((xs[k] - ax) * vx + (zs[k] - az) * vz) / len2, 0, 1) or 0
 								local px, pz = ax + vx * u, az + vz * u
 								local d = math.sqrt((xs[k] - px) ^ 2 + (zs[k] - pz) ^ 2)
-								if d < best then
-									best, bestY = d, ay + (by - ay) * u
-								end
+								if d < best then best, bestY = d, ay + (by - ay) * u end
 							end
-							if bestY and best <= design.lateral then
-								designMask[k] = true
-								minReq[k] = math.max(minReq[k], bestY)
-								-- the design is authoritative: a crossing cap (the
-								-- Conrail track judged to pass over from the DEM)
-								-- may not pull the viaduct under it
-								maxReq[k] = math.max(math.min(maxReq[k], bestY + 0.5), minReq[k] + 0.5)
-								stats.designStations = (stats.designStations or 0) + 1
-								stroke.designHits = stroke.designHits or {}
-								stroke.designHits[design.id] = stroke.designHits[design.id] or {}
-								table.insert(stroke.designHits[design.id], { k = k, y = bestY })
+							if bestY and best <= design.lateral and best < chosenD then
+								chosen, chosenY, chosenD = design, bestY, best
 							end
 						end
+					end
+					if chosen then
+						designMask[k] = true
+						minReq[k] = math.max(minReq[k], chosenY)
+						-- Preserve clearance floors while capping this one selected design.
+						maxReq[k] = math.max(math.min(maxReq[k], chosenY + 0.5), minReq[k] + 0.5)
+						stats.designStations = (stats.designStations or 0) + 1
+						stroke.designHits = stroke.designHits or {}
+						stroke.designHits[chosen.id] = stroke.designHits[chosen.id] or {}
+						table.insert(stroke.designHits[chosen.id], { k = k, y = chosenY })
 					end
 				end
 			end

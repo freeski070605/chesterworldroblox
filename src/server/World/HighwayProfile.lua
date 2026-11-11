@@ -902,8 +902,11 @@ function HighwayProfile.Prepare(entries, opts)
 			local key = string.format("%s|%s|%d|%d", seg.nameKey, other.nameKey, math.floor(x / 20), math.floor(z / 20))
 			if not unresolvedSeen[key] and #stats.unresolvedList < 40 then
 				unresolvedSeen[key] = true
-				table.insert(stats.unresolvedList, string.format("%s x %s at (%.1f, %.1f) notches=%s",
-					tostring(seg.road.name), tostring(other.road.name), x, z, tostring(shared.notches)))
+				table.insert(stats.unresolvedList, string.format("%s x %s at (%.1f, %.1f) notches=%s groups=%s/%s classes=%s/%s levels=%s/%s",
+					tostring(seg.road.name), tostring(other.road.name), x, z, tostring(shared.notches),
+					tostring(seg.group), tostring(other.group),
+					tostring(seg.road.road_class), tostring(other.road.road_class),
+					tostring(seg.level), tostring(other.level)))
 			end
 		end
 		if shared.upper then

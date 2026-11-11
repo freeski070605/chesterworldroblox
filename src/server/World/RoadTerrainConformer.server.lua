@@ -426,6 +426,51 @@ local function conformComponent(parts, groupKey)
     if not lowPoint or not highPoint then return nil end
     local startGround, estimatedStart = terrainYNearby(lowPoint.X, lowPoint.Z)
     local endGround, estimatedEnd = terrainYNearby(highPoint.X, highPoint.Z)
+    -- A terrain import seam can end exactly at a bridge abutment. If the
+    -- immediate continuation of the SAME street is physically connected,
+    -- use its terrain-backed far endpoint to infer the missing rim. Never
+    -- use a nearby unrelated road or propagate an unverified 3D height.
+    local function groundFromContinuation(terminal, away)
+        local bridgeName = normalizedRoadName(attr(parts[1], "ChesterStreet"))
+        if bridgeName == "" then return nil end
+        local best, score = nil, math.huge
+        for _, item in ipairs(nearbyEndpoints(approachIndex, terminal)) do
+            local road = item.obj
+            if normalizedRoadName(attr(road, "ChesterStreet")) == bridgeName
+                and hdist(item.pos, terminal) <= 3 then
+                local p, q = endpoints(road)
+                local far = hdist(p, item.pos) <= hdist(q, item.pos) and q or p
+                local directionOut = horizontalUnit(far - terminal)
+                local length = hdist(far, terminal)
+                if directionOut and directionOut:Dot(away) > 0.85 and length >= 8 then
+                    local farTerrain = terrainY(far.X, far.Z)
+                    local nearTerrain = terrainY(item.pos.X, item.pos.Z)
+                    -- Only infer the absent endpoint from a nearly level,
+                    -- locally verified approach: never span a slope or cut.
+                    if farTerrain and nearTerrain and
+                        math.abs(farTerrain - nearTerrain) <= math.max(1, length * MAX_GRADE) then
+                        local d = hdist(item.pos, terminal)
+                        if d < score then best, score = nearTerrain, d end
+                    end
+                end
+            end
+        end
+        return best
+    end
+    if not startGround then
+        startGround = groundFromContinuation(lowPoint, -direction)
+        if startGround then
+            estimatedStart = true
+            stats.terrainContinuationEstimates = (stats.terrainContinuationEstimates or 0) + 1
+        end
+    end
+    if not endGround then
+        endGround = groundFromContinuation(highPoint, direction)
+        if endGround then
+            estimatedEnd = true
+            stats.terrainContinuationEstimates = (stats.terrainContinuationEstimates or 0) + 1
+        end
+    end
     if not startGround or not endGround then
         stats.bridgeNoTerrain += #parts
         stats.missingBridgeTerrainList = stats.missingBridgeTerrainList or {}
@@ -1673,7 +1718,8 @@ do
     end
     print(("[ChesterWorld RoadTerrainConformer] vDipsSmoothed=%d"):format(smoothed))
 end
-print(("[ChesterWorld RoadTerrainConformer] waterCrossings=%d bankRaisedEnds=%d notchRims=%d"):format(stats.waterCrossings or 0, stats.bankRaised or 0, stats.notchRims or 0))
+print(("[ChesterWorld RoadTerrainConformer] waterCrossings=%d bankRaisedEnds=%d notchRims=%d continuationTerrainRecovered=%d"):format(
+    stats.waterCrossings or 0, stats.bankRaised or 0, stats.notchRims or 0, stats.terrainContinuationEstimates or 0))
 for _, missing in ipairs(stats.missingBridgeTerrainList or {}) do
     warn("[ChesterWorld BridgeNoTerrain] " .. missing)
 end

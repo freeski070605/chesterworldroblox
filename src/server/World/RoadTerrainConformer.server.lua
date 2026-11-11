@@ -1739,6 +1739,39 @@ for _, missing in ipairs(stats.missingBridgeTerrainList or {}) do
     warn("[ChesterWorld BridgeNoTerrain] " .. missing)
 end
 
+-- Earlier bridge warnings are emitted before registry overpasses and their
+-- follower ramps are finalized. Audit the *rendered* parts at the end;
+-- never clear original grade-limit flags merely to lower the counts.
+do
+    local flagged, steepNow, stillEarlyOwner, lateAdjusted = 0, 0, 0, 0
+    local examples = {}
+    for _, part in ipairs(allRoads) do
+        if part:GetAttribute("CW_GradeLimited") == true then
+            flagged += 1
+            local a, b = endpoints(part)
+            local horizontal = hdist(a, b)
+            local grade = horizontal > 0.1 and math.abs(a.Y - b.Y) / horizontal or 0
+            local owner = attr(part, "CW_ElevationOwner")
+            if grade > MAX_GRADE * 1.15 then steepNow += 1 end
+            if owner == "RoadTerrainConformer:BridgeDeck" then
+                stillEarlyOwner += 1
+            else
+                lateAdjusted += 1
+            end
+            if #examples < 12 and (grade > MAX_GRADE * 1.15 or owner ~= "RoadTerrainConformer:BridgeDeck") then
+                table.insert(examples, string.format("%s at (%.0f,%.0f) grade=%.1f%% owner=%s",
+                    attr(part, "ChesterStreet"), part.Position.X, part.Position.Z,
+                    grade * 100, owner))
+            end
+        end
+    end
+    print(("[ChesterWorld BridgeFinalAudit] flagged=%d measuredSteep=%d earlyDeckOwner=%d subsequentlyAdjusted=%d gradeLimit=%.1f%%")
+        :format(flagged, steepNow, stillEarlyOwner, lateAdjusted, MAX_GRADE * 115))
+    for _, example in ipairs(examples) do
+        print("[ChesterWorld BridgeFinalAuditPart] " .. example)
+    end
+end
+
 print(("[ChesterWorld RoadTerrainConformer] final=%d groundPreserved=%d bridgeConformed=%d conformed=%d noTerrain=%d failed=%d bridgeGroups=%d sourceBridgeGroups=%d bridgeComponents=%d bridgeParts=%d tunnelParts=%d rampParts=%d rampGroups=%d marked=%d crossingChecks=%d clearanceWarnings=%d terrainClearanceWarnings=%d terrainEndpointEstimates=%d steepGroups=%d gradeLimitedGroups=%d gradeLimitedParts=%d actualSteepParts=%d baselineSteepGroups=%d smoothDecks=true")
     :format(#allRoads, #atGrade-stats.rampParts, stats.bridgeConformed,
     conformed, stats.bridgeNoTerrain, stats.failed, stats.groups,

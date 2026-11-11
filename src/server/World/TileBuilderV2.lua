@@ -768,6 +768,9 @@ function TileBuilderV2.Prepare(tileModules)
 		local profileStats = HighwayProfile.Stats()
 		print(("[ChesterWorld HighwayParentRepair] accepted=%d rejected=%d"):format(
 			profileStats.parentJunctionRepairs or 0, #(profileStats.parentRepairRejected or {})))
+		for _, line in ipairs(profileStats.parentRepairAccepted or {}) do
+			print("[ChesterWorld HighwayParentRepairAccepted] " .. line)
+		end
 		for _, line in ipairs(profileStats.parentRepairRejected or {}) do
 			warn("[ChesterWorld HighwayParentRepairRejected] " .. line)
 		end

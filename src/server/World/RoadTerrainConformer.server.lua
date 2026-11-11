@@ -1386,6 +1386,67 @@ if #overpassDecks > 0 then
             end
         end
     end
+    -- Bullens Lane near MacDade/I-476 retains one 15.2% final deck
+    -- segment after the registry pass. Enforce the normal 10% grade by
+    -- lifting lower ends of *connected Bullens pieces*, not by moving the
+    -- highway below or lowering the bridge deck. Only act in this known
+    -- crossing footprint, and reject changes exceeding a modest 5-stud
+    -- correction rather than inventing a long embankment.
+    local bullensAdjustments, bullensRejected = 0, 0
+    do
+        local candidates, baseline = {}, {}
+        local MAX_BULLENS_RAISE = 5
+        local function isBullens(part)
+            local key = normalizedRoadName(attr(part, "ChesterStreet"))
+            return key == "bullens ln" or key == "bullens lane"
+        end
+        local function inZone(p)
+            return math.abs(p.X - 9365) < 260 and math.abs(p.Z + 11582) < 260
+        end
+        for _, plan in ipairs(planned) do
+            if isBullens(plan.part) and inZone(plan.part.Position) then
+                local ka = endpointKey(plan.part, plan.a)
+                local kb = endpointKey(plan.part, plan.b)
+                table.insert(candidates, { plan = plan, ka = ka, kb = kb,
+                    length = hdist(plan.a, plan.b) })
+                baseline[ka] = math.min(baseline[ka] or math.huge,
+                    endpointNeed[ka] or plan.a.Y)
+                baseline[kb] = math.min(baseline[kb] or math.huge,
+                    endpointNeed[kb] or plan.b.Y)
+            end
+        end
+        -- Repeatedly raise only the low endpoint on edges within the
+        -- verified crossing zone. Shared endpoint keys keep joints closed.
+        for _ = 1, 16 do
+            local changed = false
+            for _, edge in ipairs(candidates) do
+                if edge.length > 1 then
+                    local ya, yb = endpointNeed[edge.ka], endpointNeed[edge.kb]
+                    local allowance = MAX_GRADE * edge.length
+                    local key, target
+                    if ya + allowance < yb then
+                        key, target = edge.ka, yb - allowance
+                    elseif yb + allowance < ya then
+                        key, target = edge.kb, ya - allowance
+                    end
+                    if key then
+                        if target <= (baseline[key] or target) + MAX_BULLENS_RAISE then
+                            if target > endpointNeed[key] + 0.01 then
+                                endpointNeed[key] = target
+                                bullensAdjustments += 1
+                                changed = true
+                            end
+                        else
+                            bullensRejected += 1
+                        end
+                    end
+                end
+            end
+            if not changed then break end
+        end
+    end
+    print(("[ChesterWorld BullensGradeCorrection] endpointAdjustments=%d rejected=%d")
+        :format(bullensAdjustments, bullensRejected))
     -- pass 2: apply
     local raisedByGroup = {}
     for _, plan in ipairs(planned) do

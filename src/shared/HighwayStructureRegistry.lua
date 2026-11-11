@@ -149,6 +149,19 @@ Registry.NAMED = {
 		"I-95 and the I-476 ramps over Chester Pike (county 1451/20526/21450/21449) [chester_pke]. Aerial: "
 			.. "three concrete decks with shadows; Chester Pike hidden beneath. Confidence high.",
 		{ status = "aerial_dvrpc2025", references = { DVRPC2025 } }),
+	-- These two rail separations are already established by the aerial-backed
+	-- Barry design profiles below. Explicitly classify the physical crossings
+	-- rather than leaving the bare-earth DEM to infer their deck order.
+	namedEntry("BARRY_OVER_AMTRAK_NEC", nil,
+		{ "commodore john barry", "us 322 to us 13", "us 13 to us 322" },
+		{ "amtrak ne corridor" }, -715, 5680, 90, nil,
+		"Barry/US 322 viaduct over the Amtrak Northeast Corridor. Both carriageways are elevated on the surveyed design lines below; the stripped DEM is ambiguous at the crossing.",
+		{ status = "design:aerial_dvrpc2025", references = { DVRPC2025 } }),
+	namedEntry("BARRY_OVER_CHESTER_SECONDARY", nil,
+		{ "commodore john barry" }, { "cr chester secondary" },
+		553, 7487, 85, nil,
+		"Barry approach viaduct over the Conrail Chester Secondary near the middle design-profile anchor; existing BARRY_PA_APPROACH documents the elevated crossing.",
+		{ status = "design:aerial_dvrpc2025", references = { DVRPC2025 } }),
 	namedEntry("BARRY_OVER_FLOWER", nil, { "commodore john barry" }, { "flower st", "flower" },
 		-1330, 4680, 60, nil,
 		"Barry approach over Flower St (county 20475/21224/20476) [flower]. Aerial: elevated deck casting a "

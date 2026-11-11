@@ -1744,7 +1744,7 @@ end
 -- never clear original grade-limit flags merely to lower the counts.
 do
     local flagged, steepNow, stillEarlyOwner, lateAdjusted = 0, 0, 0, 0
-    local examples = {}
+    local examples, steepDetails = {}, {}
     for _, part in ipairs(allRoads) do
         if part:GetAttribute("CW_GradeLimited") == true then
             flagged += 1
@@ -1752,7 +1752,12 @@ do
             local horizontal = hdist(a, b)
             local grade = horizontal > 0.1 and math.abs(a.Y - b.Y) / horizontal or 0
             local owner = attr(part, "CW_ElevationOwner")
-            if grade > MAX_GRADE * 1.15 then steepNow += 1 end
+            if grade > MAX_GRADE * 1.15 then
+                steepNow += 1
+                table.insert(steepDetails, string.format("%s group=%s at (%.1f,%.1f) grade=%.2f%% length=%.1f owner=%s",
+                    attr(part, "ChesterStreet"), attr(part, "CW_GradeGroup"),
+                    part.Position.X, part.Position.Z, grade * 100, horizontal, owner))
+            end
             if owner == "RoadTerrainConformer:BridgeDeck" then
                 stillEarlyOwner += 1
             else
@@ -1769,6 +1774,11 @@ do
         :format(flagged, steepNow, stillEarlyOwner, lateAdjusted, MAX_GRADE * 115))
     for _, example in ipairs(examples) do
         print("[ChesterWorld BridgeFinalAuditPart] " .. example)
+    end
+    -- Always print every genuinely steep flagged part, even if the first
+    -- twelve audit examples were consumed by already-adjusted roads.
+    for _, detail in ipairs(steepDetails) do
+        warn("[ChesterWorld BridgeFinalSteep] " .. detail)
     end
 end
 

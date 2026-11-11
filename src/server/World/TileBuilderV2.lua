@@ -766,6 +766,11 @@ function TileBuilderV2.Prepare(tileModules)
 	if HighwayProfile.Enabled() then
 		print(("[ChesterWorld HighwayProfile] %s seconds=%.1f"):format(HighwayProfile.Summary(), os.clock() - profileStart))
 		local profileStats = HighwayProfile.Stats()
+		print(("[ChesterWorld HighwayParentRepair] accepted=%d rejected=%d"):format(
+			profileStats.parentJunctionRepairs or 0, #(profileStats.parentRepairRejected or {})))
+		for _, line in ipairs(profileStats.parentRepairRejected or {}) do
+			warn("[ChesterWorld HighwayParentRepairRejected] " .. line)
+		end
 		for _, line in ipairs(profileStats.pinConflictList) do
 			warn("[ChesterWorld HighwayProfilePinConflict] " .. line)
 		end

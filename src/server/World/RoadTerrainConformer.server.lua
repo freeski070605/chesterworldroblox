@@ -34,11 +34,12 @@ local function terrainY(x, z)
     return result and result.Position.Y or nil
 end
 
--- Estimated small import-seam gaps; do not extrapolate farther than 16 studs.
+-- Repair small import-seam gaps; wider 24/32-stud samples require four
+-- consistent readings within a three-stud elevation range.
 local function terrainYNearby(x, z)
     local exact = terrainY(x, z)
     if exact then return exact, false end
-    for _, radius in ipairs({8, 16}) do
+    for _, radius in ipairs({8, 16, 24, 32}) do
         local samples = {}
         for _, vector in ipairs({
             {1,0}, {-1,0}, {0,1}, {0,-1},
@@ -48,10 +49,18 @@ local function terrainYNearby(x, z)
             local y = terrainY(x + vector[1]*radius, z + vector[2]*radius)
             if y then table.insert(samples, y) end
         end
-        if #samples >= 2 then
-            local total = 0
-            for _, y in ipairs(samples) do total += y end
-            return total/#samples, true
+        if #samples >= (radius <= 16 and 2 or 4) then
+            local total, minY, maxY = 0, math.huge, -math.huge
+            for _, y in ipairs(samples) do
+                total += y
+                minY = math.min(minY, y)
+                maxY = math.max(maxY, y)
+            end
+            -- Wider searches are only valid for relatively level import
+            -- seams. A ravine, cut or bridge approach is not a seam.
+            if radius <= 16 or maxY - minY <= 3 then
+                return total/#samples, true
+            end
         end
     end
     return nil, false
@@ -419,6 +428,14 @@ local function conformComponent(parts, groupKey)
     local endGround, estimatedEnd = terrainYNearby(highPoint.X, highPoint.Z)
     if not startGround or not endGround then
         stats.bridgeNoTerrain += #parts
+        stats.missingBridgeTerrainList = stats.missingBridgeTerrainList or {}
+        if #stats.missingBridgeTerrainList < 24 then
+            table.insert(stats.missingBridgeTerrainList,
+                string.format("%s %s parts=%d start=(%.1f,%.1f) terrain=%s end=(%.1f,%.1f) terrain=%s",
+                    groupKey, attr(parts[1], "ChesterStreet"), #parts,
+                    lowPoint.X, lowPoint.Z, tostring(startGround),
+                    highPoint.X, highPoint.Z, tostring(endGround)))
+        end
         return nil
     end
 
@@ -1655,6 +1672,10 @@ do
     print(("[ChesterWorld RoadTerrainConformer] vDipsSmoothed=%d"):format(smoothed))
 end
 print(("[ChesterWorld RoadTerrainConformer] waterCrossings=%d bankRaisedEnds=%d notchRims=%d"):format(stats.waterCrossings or 0, stats.bankRaised or 0, stats.notchRims or 0))
+for _, missing in ipairs(stats.missingBridgeTerrainList or {}) do
+    warn("[ChesterWorld BridgeNoTerrain] " .. missing)
+end
+
 print(("[ChesterWorld RoadTerrainConformer] final=%d groundPreserved=%d bridgeConformed=%d conformed=%d noTerrain=%d failed=%d bridgeGroups=%d sourceBridgeGroups=%d bridgeComponents=%d bridgeParts=%d tunnelParts=%d rampParts=%d rampGroups=%d marked=%d crossingChecks=%d clearanceWarnings=%d terrainClearanceWarnings=%d terrainEndpointEstimates=%d steepGroups=%d gradeLimitedGroups=%d gradeLimitedParts=%d actualSteepParts=%d baselineSteepGroups=%d smoothDecks=true")
     :format(#allRoads, #atGrade-stats.rampParts, stats.bridgeConformed,
     conformed, stats.bridgeNoTerrain, stats.failed, stats.groups,

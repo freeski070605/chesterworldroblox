@@ -77,8 +77,9 @@ function TileBuilderV3.Build(tileModule)
                 :format(highway.profiledPieces, highway.profiledLength, highway.spanPieces, highway.fillPieces,
                     highway.markingParts, highway.suppressedHighwayPads, highway.fallbackHighwayRoads,
                     omissions.trimConsumedHighway))
-            print(("[ChesterWorld PavementOmissions] steepPieces=%d steepLength=%.0f noTerrainPieces=%d trimConsumed=%d")
-                :format(omissions.steepPieces, omissions.steepLength, omissions.noTerrainPieces, omissions.trimConsumed))
+            print(("[ChesterWorld PavementOmissions] steepPieces=%d steepLength=%.0f noTerrainPieces=%d terrainSeamSamplesRecovered=%d trimConsumed=%d")
+                :format(omissions.steepPieces, omissions.steepLength, omissions.noTerrainPieces,
+                    omissions.terrainRecovered or 0, omissions.trimConsumed))
             for index = 1, math.min(12, #omissions.samples) do
                 print("[ChesterWorld PavementOmission] " .. omissions.samples[index])
             end

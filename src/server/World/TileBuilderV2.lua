@@ -777,6 +777,10 @@ function TileBuilderV2.Prepare(tileModules)
 		for _, line in ipairs(profileStats.pinConflictList) do
 			warn("[ChesterWorld HighwayProfilePinConflict] " .. line)
 		end
+		print(("[ChesterWorld HighwayDesignGroundPins] skipped=%d"):format(profileStats.designGroundPinsSkipped or 0))
+		for _, line in ipairs(profileStats.designGroundPinList or {}) do
+			print("[ChesterWorld HighwayDesignGroundPinSkipped] " .. line)
+		end
 		for _, line in ipairs(profileStats.designMissList or {}) do
 			warn("[ChesterWorld HighwayProfileDesignMiss] " .. line)
 		end

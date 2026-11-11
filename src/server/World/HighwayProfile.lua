@@ -1474,6 +1474,10 @@ function HighwayProfile.Prepare(entries, opts)
 								a.target = actualJunctionHeight(pa, a) or (a.target + shiftA)
 								b.target = actualJunctionHeight(pb, b) or (b.target + shiftB)
 								stats.parentJunctionRepairs = (stats.parentJunctionRepairs or 0) + 1
+								stats.parentRepairAccepted = stats.parentRepairAccepted or {}
+								table.insert(stats.parentRepairAccepted, string.format("%s %s/%s shifts=%.2f/%.2f tapers=%.0f/%.0f achievedRise=%.2f allowedRise=%.2f",
+									stroke.id, pa.id, pb.id, shiftA, shiftB, planA.taper, planB.taper,
+									math.abs(b.target - a.target), g * run))
 							elseif #stats.parentRepairRejected < 12 then
 								table.insert(stats.parentRepairRejected, string.format("%s parent repair rejected HW%s/HW%s: A=%s B=%s run=%.1f excess=%.2f",
 									stroke.id, tostring(pa.id), tostring(pb.id), tostring(planA), tostring(planB), run, excess))

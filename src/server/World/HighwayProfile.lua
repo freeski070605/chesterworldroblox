@@ -1344,6 +1344,7 @@ function HighwayProfile.Prepare(entries, opts)
 				end
 			end
 			pins = unique
+			stats.parentRepairRejected = stats.parentRepairRejected or {}
 			-- Reconcile a short connector against its already-solved parents.
 			-- The upstream highway profiles own these junctions, so correcting
 			-- only the connector would create a vertical seam. Move the parent
@@ -1381,7 +1382,7 @@ function HighwayProfile.Prepare(entries, opts)
 									local d = dx * dx + dz * dz
 									if d < best then best, center = d, (k - 1 + u) * parent.ds end
 								end
-								if best > 64 then return false end
+								if best > 64 then return false, "junction-off-parent:" .. string.format("%.1f", math.sqrt(best)) end
 								local taper = 200
 								for k, old in ipairs(parent.G) do
 									local d = math.abs((k - 1) * parent.ds - center)
@@ -1389,7 +1390,7 @@ function HighwayProfile.Prepare(entries, opts)
 									local proposed = old + shift * weight
 									if weight > 0 and ((proposed < parent.minReq[k] - 0.01 and proposed < old - 0.01)
 										or (parent.maxReq and proposed > parent.maxReq[k] + 0.01 and proposed > old + 0.01)) then
-										return false
+										return false, "clearance-or-design-bound:k=" .. tostring(k)
 									end
 								end
 								for k = 2, #parent.G do
@@ -1398,7 +1399,7 @@ function HighwayProfile.Prepare(entries, opts)
 										return parent.G[i] + shift * weight
 									end
 									if math.abs(moved(k) - moved(k - 1)) > math.max(parent.grade * parent.ds * 1.02, math.abs(parent.G[k] - parent.G[k - 1]) + 0.005) then
-										return false
+										return false, "parent-grade:k=" .. tostring(k)
 									end
 								end
 								return true, center
@@ -1440,10 +1441,34 @@ function HighwayProfile.Prepare(entries, opts)
 								end
 								apply(pa, centerA, shiftA)
 								apply(pb, centerB, shiftB)
-								a.target = a.target + shiftA
-								b.target = b.target + shiftB
+								-- Read back the actual adjusted junction heights. Sampling
+								-- and taper interpolation need not deliver the exact shift
+								-- requested at a continuous junction station.
+								local function actualJunctionHeight(parent, pin)
+									local x, z = positionAt(stroke, pin.s)
+									local best, value = math.huge, nil
+									for _, part in ipairs(parent.parts) do
+										for _, which in ipairs({ 1, 2 }) do
+											local node = part.seg.nodes[which]
+											local dx, dz = node.x - x, node.z - z
+											local d = dx * dx + dz * dz
+											if d < best then
+												best, value = d, node.height
+											end
+										end
+									end
+									return best < 64 and value or nil
+								end
+								a.target = actualJunctionHeight(pa, a) or (a.target + shiftA)
+								b.target = actualJunctionHeight(pb, b) or (b.target + shiftB)
 								stats.parentJunctionRepairs = (stats.parentJunctionRepairs or 0) + 1
+							elseif #stats.parentRepairRejected < 12 then
+								table.insert(stats.parentRepairRejected, string.format("%s parent repair rejected HW%s/HW%s: A=%s B=%s run=%.1f excess=%.2f",
+									stroke.id, tostring(pa.id), tostring(pb.id), tostring(centerA), tostring(centerB), run, excess))
 							end
+						elseif #stats.parentRepairRejected < 12 then
+							table.insert(stats.parentRepairRejected, string.format("%s parent lookup failed: %s and %s",
+								stroke.id, tostring(a.source), tostring(b.source)))
 						end
 					end
 				end

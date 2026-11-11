@@ -628,10 +628,12 @@ local function conformComponent(parts, groupKey)
             rec.part:SetAttribute("CW_AchievableDeckLift", targetLift)
         end
         if stats.insufficientApproachLength <= 12 then
-            warn(("[ChesterWorld BridgeGradeLimited] name=%s group=%s x=%.1f z=%.1f span=%.1f requested=%.1f feasible=%.1f rampStart=%.1f rampEnd=%.1f drivenBy=%s"):format(
+            warn(("[ChesterWorld BridgeGradeLimited] name=%s group=%s x=%.1f z=%.1f span=%.1f requested=%.1f feasible=%.1f rampStart=%.1f rampEnd=%.1f approachPieces=%d/%d crossingCount=%d terrainConstraints=%d innerCapacity=%.1f startCapacity=%.1f endCapacity=%.1f drivenBy=%s"):format(
                 bridgeName, groupKey,
                 (lowPoint.X+highPoint.X)/2, (lowPoint.Z+highPoint.Z)/2,
-                span, requestedLift, targetLift, startLength, endLength, drivenBy))
+                span, requestedLift, targetLift, startLength, endLength,
+                #rampStart, #rampEnd, #crossings, #terrainRequirements,
+                innerCapacity, outerStartCapacity, outerEndCapacity, drivenBy))
         end
     end
 

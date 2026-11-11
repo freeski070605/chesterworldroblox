@@ -472,14 +472,29 @@ local function conformComponent(parts, groupKey)
         end
     end
     if not startGround or not endGround then
+        -- Diagnose whether the missing rim is a short tile seam or a
+        -- genuinely unsupported extension beyond the terrain footprint.
+        -- Do not infer bridge height across a long void.
+        local function terrainTransect(terminal, inward)
+            local entries = {}
+            for _, distance in ipairs({ 0, 16, 32, 64, 128, 256, 512 }) do
+                local p = terminal + inward * distance
+                local y = terrainY(p.X, p.Z)
+                table.insert(entries, string.format("%d:%s", distance,
+                    y and string.format("%.1f", y) or "nil"))
+            end
+            return table.concat(entries, ",")
+        end
         stats.bridgeNoTerrain += #parts
         stats.missingBridgeTerrainList = stats.missingBridgeTerrainList or {}
         if #stats.missingBridgeTerrainList < 24 then
             table.insert(stats.missingBridgeTerrainList,
-                string.format("%s %s parts=%d start=(%.1f,%.1f) terrain=%s end=(%.1f,%.1f) terrain=%s",
+                string.format("%s %s parts=%d start=(%.1f,%.1f) terrain=%s end=(%.1f,%.1f) terrain=%s inwardStart=[%s] inwardEnd=[%s]",
                     groupKey, attr(parts[1], "ChesterStreet"), #parts,
                     lowPoint.X, lowPoint.Z, tostring(startGround),
-                    highPoint.X, highPoint.Z, tostring(endGround)))
+                    highPoint.X, highPoint.Z, tostring(endGround),
+                    terrainTransect(lowPoint, direction),
+                    terrainTransect(highPoint, -direction)))
         end
         return nil
     end

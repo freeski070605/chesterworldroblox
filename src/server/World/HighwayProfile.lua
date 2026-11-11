@@ -1326,10 +1326,34 @@ function HighwayProfile.Prepare(entries, opts)
 						addPin(s, node.height, "solved-stroke:" .. tostring(node.heightOwner or "unknown"))
 					elseif node.mixed then
 						local k = math.clamp(math.floor(s / ds + 0.5) + 1, 1, count)
-						-- a county street ending on a designed viaduct passes
-						-- under it: no at-grade pin there
-						if not designMask[k] then
-							addPin(s, terrainY(node.x, node.z) or t[k], "terrain-junction")
+						local ground = terrainY(node.x, node.z) or t[k]
+						-- The surveyed Barry viaduct can pass an unsurveyed
+						-- ground-level street node between design samples. A point
+						-- outside the exact design mask must not force the deck down
+						-- twenty studs in one short approach. Reject only pins that
+						-- are geometrically incompatible with a nearby authoritative
+						-- elevated design line; ordinary ground joins stay pinned.
+						local underDesignedDeck = designMask[k]
+						if not underDesignedDeck then
+							local reach = math.ceil(60 / ds)
+							for j = math.max(1, k - reach), math.min(count, k + reach) do
+								if designMask[j] then
+									local distance = math.abs(s - (j - 1) * ds)
+									if minReq[j] - ground > stroke.grade * distance + 4 then
+										underDesignedDeck = true
+										stats.designGroundPinsSkipped = (stats.designGroundPinsSkipped or 0) + 1
+										stats.designGroundPinList = stats.designGroundPinList or {}
+										if #stats.designGroundPinList < 12 then
+											table.insert(stats.designGroundPinList, string.format("%s %s station=%.1f ground=%.1f design=%.1f distance=%.1f",
+												stroke.id, tostring(part.seg.road.name), s, ground, minReq[j], distance))
+										end
+										break
+									end
+								end
+							end
+						end
+						if not underDesignedDeck then
+							addPin(s, ground, "terrain-junction")
 						end
 					end
 				end

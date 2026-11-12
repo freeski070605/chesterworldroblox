@@ -2091,6 +2091,49 @@ do
         :format(#pieces,steep,maxGrade*100,maxGradeAt,shared,gaps,largestGap))
 end
 
+-- Industrial approach cut feasibility: the first 41 studs climb
+-- ~16 terrain studs from a fixed creek-bank terminal, too steep for a
+-- drivable 10% street. Sample longitudinal and lateral terrain out to
+-- 300 studs before authorizing a retaining-wall cut or extended approach.
+-- This is read-only: no terrain/road geometry changes are made.
+do
+    local start = Vector3.new(12296.7,0,-1894.3)
+    local finish = Vector3.new(11008.0,0,-1042.3)
+    local direction = (finish-start).Unit
+    local right = Vector3.new(-direction.Z,0,direction.X)
+    local startingRoadY = nil
+    for _,part in ipairs(allRoads) do
+        if part.Parent and normalizedRoadName(attr(part,"ChesterStreet"))=="industrial"
+            and (tonumber(part:GetAttribute("CW_GradeLevel")) or 0)==1 then
+            local a,b=endpoints(part)
+            for _,p in ipairs({a,b}) do
+                if hdist(p,start)<3 then startingRoadY=p.Y end
+            end
+        end
+    end
+    if startingRoadY then
+        local cutMax, cutAt, samples={},0,0
+        for _,d in ipairs({0,20,40,60,80,100,120,160,200,240,300}) do
+            local p=start+direction*d
+            local left=terrainY(p.X-right.X*15,p.Z-right.Z*15)
+            local center=terrainY(p.X,p.Z)
+            local side=terrainY(p.X+right.X*15,p.Z+right.Z*15)
+            local target=startingRoadY+MAX_GRADE*d
+            local required=center and math.max(0,center+ROAD_OFFSET-target) or nil
+            if required and required>cutMax then cutMax,cutAt=required,d end
+            table.insert(samples,string.format("%d:[%s,%s,%s] cut=%s",d,
+                left and string.format("%.1f",left) or "nil",
+                center and string.format("%.1f",center) or "nil",
+                side and string.format("%.1f",side) or "nil",
+                required and string.format("%.1f",required) or "nil"))
+        end
+        print(("[ChesterWorld IndustrialCutFeasibility] anchorY=%.2f maxRequiredCut=%.1f atDistance=%d samples=%s")
+            :format(startingRoadY,cutMax,cutAt,table.concat(samples," ")))
+    else
+        warn("[ChesterWorld IndustrialCutFeasibility] anchored road endpoint not found")
+    end
+end
+
 -- Earlier bridge warnings are emitted before registry overpasses and their
 -- follower ramps are finalized. Audit the *rendered* parts at the end;
 -- never clear original grade-limit flags merely to lower the counts.

@@ -2027,6 +2027,100 @@ for _, missing in ipairs(stats.missingBridgeTerrainList or {}) do
     warn("[ChesterWorld BridgeNoTerrain] " .. missing)
 end
 
+-- Industrial creek-side approach: original DEM climbs ~16 studs over the
+-- first 41, but a 10% road reaches that level smoothly by ~160. Prepare a
+-- bounded cut approach on the known source group only, then let
+-- HighwayInfrastructure excavate its footprint AFTER the road pass.
+-- No changes occur unless the anchor and 160/200-stud bank levels agree
+-- with the measured terrain; the two anchors are never moved.
+do
+    local start = Vector3.new(12296.7,0,-1894.3)
+    local far = Vector3.new(11008.0,0,-1042.3)
+    local dir = (far-start).Unit
+    local function station(p)
+        return (p.X-start.X)*dir.X+(p.Z-start.Z)*dir.Z
+    end
+    local selected, roadAnchor, joinSum, joinCount = {}, nil, 0, 0
+    for _,part in ipairs(allRoads) do
+        if part.Parent and part:GetAttribute("CW_BridgeProfiled")==true
+            and attr(part,"CW_GradeGroup")=="county:18112:g1"
+            and normalizedRoadName(attr(part,"ChesterStreet"))=="industrial" then
+            local a,b=endpoints(part)
+            local sa,sb=station(a),station(b)
+            if math.max(sa,sb)>-1 and math.min(sa,sb)<201 then
+                table.insert(selected,{part=part,a=a,b=b,sa=sa,sb=sb})
+                for _,p in ipairs({a,b}) do
+                    if hdist(p,start)<3 then roadAnchor=p.Y end
+                end
+                if math.min(sa,sb)<=200 and math.max(sa,sb)>=200 then
+                    local t=(200-sa)/(sb-sa)
+                    if t>=0 and t<=1 then
+                        joinSum+=a.Y+(b.Y-a.Y)*t
+                        joinCount+=1
+                    end
+                end
+            end
+        end
+    end
+    local joined = joinCount>0 and joinSum/joinCount or nil
+    local ground40=terrainY(start.X+dir.X*40,start.Z+dir.Z*40)
+    local ground160=terrainY(start.X+dir.X*160,start.Z+dir.Z*160)
+    local ground200=terrainY(start.X+dir.X*200,start.Z+dir.Z*200)
+    local reason=nil
+    if #selected<8 or not roadAnchor or not joined then reason="missingSourceEdgesOrAnchors"
+    elseif math.abs(roadAnchor-1.67)>2 then reason="anchorElevationChanged"
+    elseif not ground40 or ground40<14 or ground40>20 then reason="cutTerrainChanged"
+    elseif not ground160 or not ground200 or math.abs(ground160-ground200)>3 then reason="farBankChanged"
+    elseif math.abs(joined-ground200)>7 then reason="joinHeightTooFarFromBank"
+    elseif math.abs(joined-(roadAnchor+16))>6 then reason="joinRequiresLongerRamp"
+    end
+    if reason then
+        warn(("[ChesterWorld IndustrialCutProfileBlocked] reason=%s candidates=%d anchor=%s join=%s ground40=%s ground160=%s ground200=%s")
+            :format(reason,#selected,tostring(roadAnchor),tostring(joined),
+                tostring(ground40),tostring(ground160),tostring(ground200)))
+    else
+        local function heightAt(d,prior)
+            if d<=0 then return roadAnchor end
+            if d<=160 then return roadAnchor+MAX_GRADE*d end
+            if d<200 then return lerp(roadAnchor+MAX_GRADE*160,joined,(d-160)/40) end
+            return prior
+        end
+        local proposed, unsafe, cutMax = {},0,0
+        for _,entry in ipairs(selected) do
+            local ya=heightAt(entry.sa,entry.a.Y)
+            local yb=heightAt(entry.sb,entry.b.Y)
+            local length=hdist(entry.a,entry.b)
+            if length>0.1 and math.abs(ya-yb)/length>MAX_GRADE*1.03 then unsafe+=1 end
+            for _,p in ipairs({entry.a,entry.b}) do
+                local d=station(p)
+                if d>=0 and d<=200 then
+                    local gy=terrainY(p.X,p.Z)
+                    if gy then cutMax=math.max(cutMax,gy+ROAD_OFFSET-heightAt(d,p.Y)) end
+                end
+            end
+            table.insert(proposed,{entry=entry,ya=ya,yb=yb})
+        end
+        if unsafe>0 or cutMax>16 then
+            warn(("[ChesterWorld IndustrialCutProfileBlocked] reason=steepOrExcessCut unsafe=%d maxEndpointCut=%.1f")
+                :format(unsafe,cutMax))
+        else
+            local changed=0
+            for _,item in ipairs(proposed) do
+                local e=item.entry
+                if math.abs(item.ya-e.a.Y)>0.02 or math.abs(item.yb-e.b.Y)>0.02 then
+                    if setEndpoints(e.part,Vector3.new(e.a.X,item.ya,e.a.Z),
+                        Vector3.new(e.b.X,item.yb,e.b.Z)) then
+                        changed+=1
+                        e.part:SetAttribute("CW_IndustrialCutApproach",true)
+                    end
+                end
+            end
+            print(("[ChesterWorld IndustrialCutProfile] changed=%d candidates=%d anchorY=%.2f joinY=%.2f maxEndpointCut=%.1f targetGrade=%.1f%%")
+                :format(changed,#selected,roadAnchor,joined,cutMax,MAX_GRADE*100))
+        end
+    end
+end
+
 -- The Industrial bridge previously had 21 unprofiled parts. A recovered
 -- bank endpoint must not hide a steep chord or a broken joint after the
 -- terrain-aware embankment pass. Inspect the final 21 source pieces without

@@ -1843,6 +1843,7 @@ do
     -- available height budget. This protects joins even on rejection.
     local MAX_EXTRA_RISE = 20
     local blocked = false
+    local conflicts = {}
     for _ = 1, 64 do
         local changed = false
         for _, edge in ipairs(edges) do
@@ -1854,6 +1855,12 @@ do
             if low then
                 if terminalKeys[low] or target > original[low]+MAX_EXTRA_RISE then
                     blocked=true
+                    if #conflicts < 6 then
+                        table.insert(conflicts, string.format(
+                            "key=%s current=%.2f needed=%.2f extra=%.2f limit=%.2f terminal=%s",
+                            low, plannedHeights[low], target, target-original[low],
+                            MAX_EXTRA_RISE, tostring(terminalKeys[low] == true)))
+                    end
                 elseif target > plannedHeights[low]+0.01 then
                     plannedHeights[low]=target
                     changed=true
@@ -1880,6 +1887,9 @@ do
         industrialSlopeBlocked=stillSteep
         warn(("[ChesterWorld IndustrialSlopeBlocked] edges=%d originallySteep=%d remaining=%d anchoredTerminalOrRiseCap=%s")
             :format(#edges,industrialSlopeBefore,stillSteep,tostring(blocked)))
+        for _,conflict in ipairs(conflicts) do
+            warn("[ChesterWorld IndustrialSlopeConflict] " .. conflict)
+        end
     end
 end
 print(("[ChesterWorld IndustrialSlopeRepair] edges=%d steepBefore=%d raisedEndpoints=%d blockedSteep=%d")
@@ -2042,9 +2052,14 @@ do
             end
             if grade > MAX_GRADE * 1.15 then
                 steep += 1
+                part:SetAttribute("CW_HighwayUnsafeGrade", true)
+                part:SetAttribute("CW_HighwayMaxGrade", grade)
+                part:SetAttribute("CW_GradeLimited", true)
                 if steep <= 8 then
-                    warn(("[ChesterWorld IndustrialFinalSteep] x=%.1f z=%.1f grade=%.1f%% length=%.1f")
-                        :format(part.Position.X,part.Position.Z,grade*100,distance))
+                    local ga, gb = terrainY(a.X,a.Z), terrainY(b.X,b.Z)
+                    warn(("[ChesterWorld IndustrialFinalSteep] x=%.1f z=%.1f grade=%.1f%% length=%.1f endpointsY=%.2f/%.2f terrainY=%s/%s group=%s")
+                        :format(part.Position.X,part.Position.Z,grade*100,distance,
+                            a.Y,b.Y,tostring(ga),tostring(gb),attr(part,"CW_GradeGroup")))
                 end
             end
             local lift = tonumber(part:GetAttribute("CW_DeckLiftCenter")) or 0

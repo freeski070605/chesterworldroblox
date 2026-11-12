@@ -2112,7 +2112,7 @@ do
         end
     end
     if startingRoadY then
-        local cutMax, cutAt, samples={},0,0
+        local cutMax, cutAt, samples = 0, 0, {}
         for _,d in ipairs({0,20,40,60,80,100,120,160,200,240,300}) do
             local p=start+direction*d
             local left=terrainY(p.X-right.X*15,p.Z-right.Z*15)

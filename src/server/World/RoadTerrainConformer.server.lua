@@ -1918,6 +1918,65 @@ for _, missing in ipairs(stats.missingBridgeTerrainList or {}) do
     warn("[ChesterWorld BridgeNoTerrain] " .. missing)
 end
 
+-- The Industrial bridge previously had 21 unprofiled parts. A recovered
+-- bank endpoint must not hide a steep chord or a broken joint after the
+-- terrain-aware embankment pass. Inspect the final 21 source pieces without
+-- altering their geometry; the source elevation remains an estimate.
+do
+    local pieces, steep, maxGrade, maxGradeAt = {}, 0, 0, ""
+    local highestLift, highestLiftAt = 0, ""
+    local joints = {}
+    local function key(p)
+        return math.floor(p.X * 2 + 0.5) .. ":" .. math.floor(p.Z * 2 + 0.5)
+    end
+    for _, part in ipairs(allRoads) do
+        if part.Parent and normalizedRoadName(attr(part, "ChesterStreet")) == "industrial"
+            and (tonumber(part:GetAttribute("CW_GradeLevel")) or 0) == 1
+            and part:GetAttribute("CW_BridgeProfiled") == true then
+            table.insert(pieces, part)
+            local a, b = endpoints(part)
+            local distance = hdist(a, b)
+            local grade = distance > 0.1 and math.abs(a.Y - b.Y) / distance or 0
+            if grade > maxGrade then
+                maxGrade = grade
+                maxGradeAt = string.format("(%.1f,%.1f)",part.Position.X,part.Position.Z)
+            end
+            if grade > MAX_GRADE * 1.15 then
+                steep += 1
+                if steep <= 8 then
+                    warn(("[ChesterWorld IndustrialFinalSteep] x=%.1f z=%.1f grade=%.1f%% length=%.1f")
+                        :format(part.Position.X,part.Position.Z,grade*100,distance))
+                end
+            end
+            local lift = tonumber(part:GetAttribute("CW_DeckLiftCenter")) or 0
+            if lift > highestLift then
+                highestLift, highestLiftAt = lift,
+                    string.format("(%.1f,%.1f)",part.Position.X,part.Position.Z)
+            end
+            for _, p in ipairs({a,b}) do
+                local k = key(p)
+                joints[k] = joints[k] or {}
+                table.insert(joints[k],p.Y)
+            end
+        end
+    end
+    local shared, gaps, largestGap = 0, 0, 0
+    for _, heights in pairs(joints) do
+        if #heights > 1 then
+            shared += 1
+            local lo, hi = math.huge, -math.huge
+            for _, y in ipairs(heights) do
+                lo, hi = math.min(lo,y), math.max(hi,y)
+            end
+            local delta = hi-lo
+            if delta > 0.5 then gaps += 1 end
+            largestGap = math.max(largestGap,delta)
+        end
+    end
+    print(("[ChesterWorld IndustrialFinalAudit] profiled=%d steep=%d maxGrade=%.2f%% maxGradeAt=%s connectedJoints=%d mismatchedJoints=%d maxJointStep=%.2f estimatedBank=true")
+        :format(#pieces,steep,maxGrade*100,maxGradeAt,shared,gaps,largestGap))
+end
+
 -- Earlier bridge warnings are emitted before registry overpasses and their
 -- follower ramps are finalized. Audit the *rendered* parts at the end;
 -- never clear original grade-limit flags merely to lower the counts.

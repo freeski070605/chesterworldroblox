@@ -579,6 +579,63 @@ end
 print(("[ChesterWorld HighwayCuts] pieces=%d walls=%d deepest=%.1f at (%.1f, %.1f) cappedAt%d=%d")
     :format(cut.pieces,cut.walls,cut.deepest,cut.deepX,cut.deepZ,CUT_MAX_DEPTH,cut.capped))
 
+-- Industrial creek approach uses a bounded cut instead of the DEM's
+-- physically undriveable 27%-56% grade. Only cut source road pieces that
+-- the guarded RoadTerrainConformer adjustment explicitly marked.
+-- Verify EVERY cut section first; if any section is unsafe, do not cut any.
+do
+    local candidates, cuts, maximum = {},0,0
+    for _,road in ipairs(bridge) do
+        if road:GetAttribute("CW_IndustrialCutApproach")==true
+            and tostring(road:GetAttribute("CW_GradeGroup") or "")=="county:18112:g1" then
+            local a,b=endpoints(road)
+            local horizontal=distXZ(a,b)
+            local grade=horizontal>0.1 and math.abs(a.Y-b.Y)/horizontal or 0
+            local worst=0
+            local right=road.CFrame.RightVector
+            for _,t in ipairs({0,0.25,0.5,0.75,1}) do
+                local p=a:Lerp(b,t)
+                for _,side in ipairs({-1,0,1}) do
+                    local q=p+right*(road.Size.X/2+1)*side
+                    local gy=terrainY(q.X,q.Z)
+                    if gy then
+                        worst=math.max(worst,gy-(p.Y+road.Size.Y/2-0.3))
+                    end
+                end
+            end
+            table.insert(candidates,{road=road,over=worst,a=a,b=b})
+            maximum=math.max(maximum,worst)
+            if grade>0.105 or worst>16 then
+                cuts=-1
+                warn(("[ChesterWorld IndustrialCutRejected] x=%.1f z=%.1f grade=%.2f%% cut=%.1f")
+                    :format(road.Position.X,road.Position.Z,grade*100,worst))
+            end
+        end
+    end
+    if cuts>=0 and #candidates>0 then
+        for _,entry in ipairs(candidates) do
+            if entry.over>0.3 then
+                local road=entry.road
+                local a,b=entry.a,entry.b
+                local flat=Vector3.new(b.X-a.X,0,b.Z-a.Z).Unit
+                local bottom=math.min(a.Y,b.Y)+road.Size.Y/2-0.4
+                local top=math.max(a.Y,b.Y)+road.Size.Y/2+entry.over+3
+                local height=top-bottom
+                local middle=(a+b)/2
+                local frame=CFrame.lookAt(
+                    Vector3.new(middle.X,bottom+height/2,middle.Z),
+                    Vector3.new(middle.X,bottom+height/2,middle.Z)+flat)
+                Terrain:FillBlock(frame,
+                    Vector3.new(road.Size.X+2,height,distXZ(a,b)+2),Enum.Material.Air)
+                road:SetAttribute("CW_IndustrialCutDepth",entry.over)
+                cuts+=1
+            end
+        end
+    end
+    print(("[ChesterWorld IndustrialTerrainCut] planned=%d excavated=%d maxDepth=%.1f")
+        :format(#candidates,cuts,maximum))
+end
+
 local spanParams=OverlapParams.new()
 spanParams.FilterType=Enum.RaycastFilterType.Include
 spanParams.FilterDescendantsInstances=profiled

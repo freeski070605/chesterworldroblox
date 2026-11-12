@@ -471,6 +471,41 @@ local function conformComponent(parts, groupKey)
             stats.terrainContinuationEstimates = (stats.terrainContinuationEstimates or 0) + 1
         end
     end
+    -- Industrial's creek-side bridge terminates in an imported terrain
+    -- void at (11008,-1042). The observed land bank 128-256 studs
+    -- inward is nearly level, while the 64-stud sample is a deep cut.
+    -- Its stable bank is evidence for the road's endpoint elevation;
+    -- the cut below it is NOT an appropriate at-grade road anchor.
+    -- This recovery is intentionally limited to this one source span.
+    local function industrialBankAt(terminal, inward)
+        if groupKey ~= "industrial:elevation:1"
+            or math.abs(terminal.X - 11008) > 24
+            or math.abs(terminal.Z + 1042) > 24
+            or #parts ~= 21 then return nil end
+        local function sample(d)
+            local p = terminal + inward * d
+            return terrainY(p.X, p.Z)
+        end
+        if sample(0) or sample(16) or sample(32) then return nil end
+        local cut, bank, inland = sample(64), sample(128), sample(256)
+        if not cut or not bank or not inland then return nil end
+        if bank - cut < 8
+            or math.abs(inland - bank) > 4
+            or math.abs(inland - bank) > MAX_GRADE * 128
+            or bank < 0 or bank > 40 then return nil end
+        stats.industrialBankRecovered = (stats.industrialBankRecovered or 0) + 1
+        warn(("[ChesterWorld IndustrialBankRecovered] endpoint=(%.1f,%.1f) bank=%.2f inland=%.2f cut=%.2f sourceDistances=64/128/256")
+            :format(terminal.X, terminal.Z, bank, inland, cut))
+        return bank
+    end
+    if not endGround then
+        endGround = industrialBankAt(highPoint, -direction)
+        if endGround then estimatedEnd = true end
+    end
+    if not startGround then
+        startGround = industrialBankAt(lowPoint, direction)
+        if startGround then estimatedStart = true end
+    end
     if not startGround or not endGround then
         -- Diagnose whether the missing rim is a short tile seam or a
         -- genuinely unsupported extension beyond the terrain footprint.
@@ -1876,8 +1911,9 @@ do
     end
     print(("[ChesterWorld RoadTerrainConformer] vDipsSmoothed=%d"):format(smoothed))
 end
-print(("[ChesterWorld RoadTerrainConformer] waterCrossings=%d bankRaisedEnds=%d notchRims=%d continuationTerrainRecovered=%d"):format(
-    stats.waterCrossings or 0, stats.bankRaised or 0, stats.notchRims or 0, stats.terrainContinuationEstimates or 0))
+print(("[ChesterWorld RoadTerrainConformer] waterCrossings=%d bankRaisedEnds=%d notchRims=%d continuationTerrainRecovered=%d industrialBankRecovered=%d"):format(
+    stats.waterCrossings or 0, stats.bankRaised or 0, stats.notchRims or 0,
+    stats.terrainContinuationEstimates or 0, stats.industrialBankRecovered or 0))
 for _, missing in ipairs(stats.missingBridgeTerrainList or {}) do
     warn("[ChesterWorld BridgeNoTerrain] " .. missing)
 end

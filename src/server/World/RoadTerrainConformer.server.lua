@@ -1787,6 +1787,105 @@ print(("[ChesterWorld BullensEmbankmentGrade] candidates=%d steepBefore=%d adjus
     :format(bullensEmbankmentCandidates, bullensEmbankmentBefore,
         bullensEmbankmentAdjusted, bullensEmbankmentRejected))
 
+-- Industrial's recovered bank makes the bridge profile complete, but
+-- the embankment pass revealed two 20-stud pieces at 27/56% grade.
+-- Reconcile the shared heights across its connected deck pieces instead of
+-- lifting one piece at a time. Keep both known abutments grounded; if a
+-- physically valid 10% profile cannot fit, report the conflict rather than
+-- manufacture a cliff at a bridge terminal. The correction is all-or-nothing.
+local industrialSlopeEdges, industrialSlopeBefore = 0, 0
+local industrialSlopeApplied, industrialSlopeBlocked = 0, 0
+do
+    local edges, original, plannedHeights = {}, {}, {}
+    local terminalKeys = {}
+    local function isIndustrial(part)
+        return normalizedRoadName(attr(part, "ChesterStreet")) == "industrial"
+            and (tonumber(part:GetAttribute("CW_GradeLevel")) or 0) == 1
+            and part.Position.X > 10900 and part.Position.X < 12400
+            and part.Position.Z > -2100 and part.Position.Z < -900
+    end
+    for _, plan in ipairs(embankmentPlans) do
+        if isIndustrial(plan.part) then
+            local ka, kb = embankmentKey(plan.part, plan.a), embankmentKey(plan.part, plan.b)
+            local length = hdist(plan.a,plan.b)
+            if length > 1 then
+                table.insert(edges,{ka=ka,kb=kb,length=length})
+                original[ka], original[kb] = embankmentNeed[ka], embankmentNeed[kb]
+                plannedHeights[ka],plannedHeights[kb] = embankmentNeed[ka],embankmentNeed[kb]
+            end
+        end
+    end
+    industrialSlopeEdges = #edges
+    for _, edge in ipairs(edges) do
+        if math.abs(plannedHeights[edge.ka]-plannedHeights[edge.kb])
+            > MAX_GRADE*edge.length+0.01 then
+            industrialSlopeBefore += 1
+        end
+    end
+    -- Do not raise either surveyed/bank-inferred component terminal:
+    -- doing so would disconnect Industrial from its ground-level approach.
+    local terminalCoordinates = {
+        {12296.7,-1894.3},{11008.0,-1042.3}
+    }
+    for _, plan in ipairs(embankmentPlans) do
+        if isIndustrial(plan.part) then
+            for _, point in ipairs({plan.a,plan.b}) do
+                for _, site in ipairs(terminalCoordinates) do
+                    if math.abs(point.X-site[1])<4 and math.abs(point.Z-site[2])<4 then
+                        terminalKeys[embankmentKey(plan.part,point)] = true
+                    end
+                end
+            end
+        end
+    end
+    -- Cap additional raise to a local 20 studs, and abort the whole
+    -- adjustment if it needs to move a ground-anchored terminal or exceeds
+    -- available height budget. This protects joins even on rejection.
+    local MAX_EXTRA_RISE = 20
+    local blocked = false
+    for _ = 1, 64 do
+        local changed = false
+        for _, edge in ipairs(edges) do
+            local a,b=plannedHeights[edge.ka],plannedHeights[edge.kb]
+            local limit=edge.length*MAX_GRADE
+            local low,target
+            if a+limit < b-0.01 then low,target=edge.ka,b-limit
+            elseif b+limit < a-0.01 then low,target=edge.kb,a-limit end
+            if low then
+                if terminalKeys[low] or target > original[low]+MAX_EXTRA_RISE then
+                    blocked=true
+                elseif target > plannedHeights[low]+0.01 then
+                    plannedHeights[low]=target
+                    changed=true
+                end
+            end
+        end
+        if blocked or not changed then break end
+    end
+    local stillSteep=0
+    for _, edge in ipairs(edges) do
+        if math.abs(plannedHeights[edge.ka]-plannedHeights[edge.kb])
+            > MAX_GRADE*edge.length+0.02 then
+            stillSteep+=1
+        end
+    end
+    if not blocked and stillSteep==0 then
+        for key,value in pairs(plannedHeights) do
+            if value > embankmentNeed[key]+0.01 then
+                embankmentNeed[key]=value
+                industrialSlopeApplied+=1
+            end
+        end
+    else
+        industrialSlopeBlocked=stillSteep
+        warn(("[ChesterWorld IndustrialSlopeBlocked] edges=%d originallySteep=%d remaining=%d anchoredTerminalOrRiseCap=%s")
+            :format(#edges,industrialSlopeBefore,stillSteep,tostring(blocked)))
+    end
+end
+print(("[ChesterWorld IndustrialSlopeRepair] edges=%d steepBefore=%d raisedEndpoints=%d blockedSteep=%d")
+    :format(industrialSlopeEdges,industrialSlopeBefore,
+        industrialSlopeApplied,industrialSlopeBlocked))
+
 local embankmentRaised, embankmentResting, embankmentLiftMax = 0, 0, 0
 local embankmentLiftAt = ""
 local embankmentRaisedGroups = {}

@@ -2067,7 +2067,22 @@ do
     local ground160=terrainY(start.X+dir.X*160,start.Z+dir.Z*160)
     local ground200=terrainY(start.X+dir.X*200,start.Z+dir.Z*200)
     local reason=nil
-    if #selected<8 or not roadAnchor or not joined then reason="missingSourceEdgesOrAnchors"
+    -- The 200-stud approach is represented by five source pieces, not
+    -- eight. Verify the actual coverage instead of imposing an arbitrary
+    -- segment count: no missing span wider than 3 studs is allowed.
+    local intervals = {}
+    for _,entry in ipairs(selected) do
+        table.insert(intervals,{lo=math.max(0,math.min(entry.sa,entry.sb)),
+            hi=math.min(200,math.max(entry.sa,entry.sb))})
+    end
+    table.sort(intervals,function(a,b) return a.lo<b.lo end)
+    local coverageEnd,missingCoverage=0,false
+    for _,item in ipairs(intervals) do
+        if item.lo>coverageEnd+3 then missingCoverage=true end
+        coverageEnd=math.max(coverageEnd,item.hi)
+    end
+    if coverageEnd<198 then missingCoverage=true end
+    if #selected<3 or missingCoverage or not roadAnchor or not joined then reason="missingSourceEdgesOrAnchors"
     elseif math.abs(roadAnchor-1.67)>2 then reason="anchorElevationChanged"
     elseif not ground40 or ground40<14 or ground40>20 then reason="cutTerrainChanged"
     elseif not ground160 or not ground200 or math.abs(ground160-ground200)>3 then reason="farBankChanged"
@@ -2111,9 +2126,11 @@ do
                     if setEndpoints(e.part,Vector3.new(e.a.X,item.ya,e.a.Z),
                         Vector3.new(e.b.X,item.yb,e.b.Z)) then
                         changed+=1
-                        e.part:SetAttribute("CW_IndustrialCutApproach",true)
                     end
                 end
+                -- Terrain excavation must cover every profile piece in the
+                -- approach, even one whose source height already matches.
+                e.part:SetAttribute("CW_IndustrialCutApproach",true)
             end
             print(("[ChesterWorld IndustrialCutProfile] changed=%d candidates=%d anchorY=%.2f joinY=%.2f maxEndpointCut=%.1f targetGrade=%.1f%%")
                 :format(changed,#selected,roadAnchor,joined,cutMax,MAX_GRADE*100))

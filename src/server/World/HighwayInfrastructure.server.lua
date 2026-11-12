@@ -634,6 +634,39 @@ do
     end
     print(("[ChesterWorld IndustrialTerrainCut] planned=%d excavated=%d maxDepth=%.1f")
         :format(#candidates,cuts,maximum))
+    -- Measure the *finished* cut after all five terrain writes. The center
+    -- and two shoulders must be free of terrain, not just correctly graded.
+    -- Treat missing terrain as an unknown, not an automatic clearance pass.
+    if cuts >= 0 and #candidates > 0 then
+        local blocked, unknown, worstOverlap, checked = 0, 0, 0, 0
+        for _,entry in ipairs(candidates) do
+            local road=entry.road
+            local right=road.CFrame.RightVector
+            for _,t in ipairs({0.1,0.25,0.5,0.75,0.9}) do
+                local p=entry.a:Lerp(entry.b,t)
+                for _,side in ipairs({-1,0,1}) do
+                    local q=p+right*(road.Size.X*0.45)*side
+                    local gy=terrainY(q.X,q.Z)
+                    checked+=1
+                    if not gy then
+                        unknown+=1
+                    else
+                        local above=gy-(p.Y+road.Size.Y/2)
+                        if above>0.5 then
+                            blocked+=1
+                            worstOverlap=math.max(worstOverlap,above)
+                            if blocked<=6 then
+                                warn(("[ChesterWorld IndustrialCutObstruction] x=%.1f z=%.1f terrainAboveRoad=%.2f")
+                                    :format(q.X,q.Z,above))
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        print(("[ChesterWorld IndustrialCutFinalAudit] roadPieces=%d samples=%d obstructed=%d missingTerrain=%d maxIntrusion=%.2f")
+            :format(#candidates,checked,blocked,unknown,worstOverlap))
+    end
 end
 
 local spanParams=OverlapParams.new()

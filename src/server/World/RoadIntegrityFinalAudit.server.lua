@@ -2,7 +2,9 @@
 -- AFTER highway dressing, terrain clearing, local bridges, landmarks and water.
 -- It does NOT bridge uncertain riverbanks or raise roads to invented heights.
 local Workspace = game:GetService("Workspace")
-local World = Workspace:WaitForChild("ChesterWorld")
+-- The city root is created by Bootstrap AFTER this script starts.
+-- Wait for the stage attribute first so Studio does not report a false
+-- infinite yield warning while the first tile is being prepared.
 local TileBuilder = require(script.Parent:WaitForChild("TileBuilderV2"))
 local WaterMap = require(script.Parent:WaitForChild("WaterMap"))
 
@@ -11,12 +13,19 @@ local started=os.clock()
 local stages={
     "CW_BootstrapComplete","CW_RoadConformComplete","CW_HighwayFinishComplete",
     "CW_RoadTerrainCleared","CW_LocalBridgesDressed",
-    "CW_LandmarksComplete","CW_WaterComplete",
+    "CW_LandmarksComplete","CW_WaterComplete","CW_RoadGapRepairComplete",
 }
 for _,stage in ipairs(stages) do
     while Workspace:GetAttribute(stage) ~= true do task.wait(0.5) end
 end
 
+local World=Workspace:FindFirstChild("ChesterWorld")
+if not World then error("Final road audit: city missing after bootstrap completion") end
+local auditStarted=os.clock()
+local repairStatus=tostring(Workspace:GetAttribute("CW_RoadGapRepairStatus") or "unknown")
+if repairStatus=="failed" then
+    warn("[ChesterWorld RoadFinalAudit] Automatic dry-gap repair failed; auditing unmodified surfaces")
+end
 local omissions=TileBuilder.Stats()
 local fragments=omissions and omissions.missingFragments or {}
 local overlap=OverlapParams.new()
@@ -129,11 +138,12 @@ for _,h in ipairs(badHighways) do
     warn(("[ChesterWorld RoadFinalHighwayGrade] road=%s center=(%.1f,%.1f) grade=%.1f%% threshold=%.1f%%")
         :format(h.name,h.x,h.z,h.grade*100,h.max*100))
 end
-print(("[ChesterWorld RoadFinalAudit] fragmentCandidates=%d coveredSameRoad=%d coveredOtherRoad=%d STILL_OPEN=%d openOnUnmappedTerrain=%d openOnMappedWater=%d openOnApproxStream=%d checkedRoadParts=%d highwayParts=%d highwayAboveGradeLimit=%d nonHighwaySteep=%d bridgeFlagged=%d bridgeStillSteep=%d seconds=%.1f")
+print(("[ChesterWorld RoadFinalAudit] fragmentCandidates=%d coveredSameRoad=%d coveredOtherRoad=%d STILL_OPEN=%d openOnUnmappedTerrain=%d openOnMappedWater=%d openOnApproxStream=%d checkedRoadParts=%d highwayParts=%d highwayAboveGradeLimit=%d nonHighwaySteep=%d bridgeFlagged=%d bridgeStillSteep=%d auditSeconds=%.1f repairStatus=%s repairParts=%d")
     :format(#fragments,sameRoadCovered,otherRoadCovered,openCount,
         openLand,openMappedWater,openStream,#roadParts,
         highwayPieces,highwayGradeOverLimit,unsafeStreetPieces,
-        gradeLimited,gradeLimitedSteep,os.clock()-started))
+        gradeLimited,gradeLimitedSteep,os.clock()-auditStarted,repairStatus,
+        Workspace:GetAttribute("CW_RoadGapRepairParts") or 0))
 Workspace:SetAttribute("CW_RoadFinalOpenGaps",openCount)
 Workspace:SetAttribute("CW_RoadFinalHighwaySteep",highwayGradeOverLimit)
 Workspace:SetAttribute("CW_RoadFinalAuditComplete",true)

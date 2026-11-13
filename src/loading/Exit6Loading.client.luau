@@ -62,6 +62,7 @@ local function worldReady()
   and Workspace:GetAttribute("CW_HighwayFinishComplete")==true
   and Workspace:GetAttribute("CW_ParksComplete")==true
   and Workspace:GetAttribute("CW_GasStationsComplete")==true
+  and Workspace:GetAttribute("CW_WaterComplete")==true
 end
 while not worldReady() do
  local elapsed=os.clock()-started
@@ -72,6 +73,8 @@ while not worldReady() do
  local highwayDone=Workspace:GetAttribute("CW_HighwayFinishComplete")==true
  local parksDone=Workspace:GetAttribute("CW_ParksComplete")==true
  local gasDone=Workspace:GetAttribute("CW_GasStationsComplete")==true
+ local waterDone=Workspace:GetAttribute("CW_WaterComplete")==true
+ local waterStatus=Workspace:GetAttribute("CW_WaterStatus")
  local slow=elapsed>240
  local suffix=slow and " — large world, still working" or ""
  if not tilesDone then
@@ -89,6 +92,15 @@ while not worldReady() do
   progress(.91,"Opening parks and playgrounds..."..suffix)
  elseif not gasDone then
   progress(.94,"Finishing gas stations and storefronts..."..suffix)
+ elseif not waterDone then
+  if waterStatus=="failed" then
+   progress(.95,"Water build failed - check Studio Output for [EXIT6 Water]")
+  else
+   local done=Workspace:GetAttribute("CW_WaterPatchesDone") or 0
+   local totalPatches=Workspace:GetAttribute("CW_WaterPatchesTotal") or 0
+   progress(.95+.03*(totalPatches>0 and math.clamp(done/totalPatches,0,1) or 0),
+    string.format("Adding rivers and creeks... %d / %d",done,totalPatches)..suffix)
+  end
  else
   progress(.96,"Syncing your neighborhood..."..suffix)
  end
@@ -98,7 +110,7 @@ while not worldReady() do
  end
  task.wait(.35)
 end
-print(("[EXIT6] World ready: tiles=%d/%d roads/highway/parks/gas complete after %.1fs")
+print(("[EXIT6] World ready: tiles=%d/%d roads/highway/parks/gas/water complete after %.1fs")
  :format(Workspace:GetAttribute("CW_TilesBuilt") or 0,
   Workspace:GetAttribute("CW_TilesTotal") or 0,os.clock()-started))
 progress(.9,"Preparing your character...")

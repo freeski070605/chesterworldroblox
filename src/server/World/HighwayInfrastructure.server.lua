@@ -20,7 +20,7 @@ folder.Parent = world
 local terrainRay = RaycastParams.new()
 terrainRay.FilterType = Enum.RaycastFilterType.Include
 terrainRay.FilterDescendantsInstances = {Terrain}
-terrainRay.IgnoreWater = false
+terrainRay.IgnoreWater = true
 
 local function terrainY(x, z)
     local hit = Workspace:Raycast(Vector3.new(x, 3000, z),

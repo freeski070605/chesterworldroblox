@@ -16,6 +16,7 @@ root.Parent = Workspace
 local terrainParams = RaycastParams.new()
 terrainParams.FilterType = Enum.RaycastFilterType.Include
 terrainParams.FilterDescendantsInstances = { Workspace.Terrain }
+terrainParams.IgnoreWater = true
 local function groundY(x, z)
 	local hit = Workspace:Raycast(Vector3.new(x, 3000, z), Vector3.new(0, -6000, 0), terrainParams)
 	return hit and hit.Position.Y or nil

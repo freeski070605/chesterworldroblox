@@ -26,7 +26,7 @@ local MAX_GRADE = Config.HIGHWAY_MAX_APPROACH_GRADE or 0.10
 local terrainParams = RaycastParams.new()
 terrainParams.FilterType = Enum.RaycastFilterType.Include
 terrainParams.FilterDescendantsInstances = {Terrain}
-terrainParams.IgnoreWater = false
+terrainParams.IgnoreWater = true
 
 local function terrainY(x, z)
     local result = Workspace:Raycast(

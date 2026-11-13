@@ -65,7 +65,7 @@ local POLYGON_LATERAL_OVERLAP = 0.75
 local terrainParams = RaycastParams.new()
 terrainParams.FilterType = Enum.RaycastFilterType.Include
 terrainParams.FilterDescendantsInstances = { workspace.Terrain }
-terrainParams.IgnoreWater = false
+terrainParams.IgnoreWater = true
 
 local prepared = false
 local globalIntersectionNodes = {}

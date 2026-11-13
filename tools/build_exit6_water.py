@@ -92,8 +92,8 @@ def to_rects(mask, xmin, zmax):
         seen = set()
         if row < height:
             cells = mask[row]
-            edges = np.flatnonzero(np.diff(np.r_[0, cells, 0]))
-            for j0, j1 in zip(edges[::2], edges[1::2]):
+            edges = np.flatnonzero(np.r_[True, cells[1:] != cells[:-1], True])
+            for j0, j1 in zip(edges[:-1], edges[1:]):
                 kind = int(cells[j0])
                 if kind:
                     seen.add((int(j0), int(j1), kind))

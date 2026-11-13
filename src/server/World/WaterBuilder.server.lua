@@ -82,8 +82,10 @@ local function fillAirOnly(x0, z0, w, d)
         Terrain:WriteVoxels(region, VOXEL, materials, occupancy)
     end
     patchCount += 1
-    Workspace:SetAttribute("CW_WaterPatchesDone", patchCount)
-    if patchCount % 32 == 0 then task.wait() end
+    if patchCount % 32 == 0 then
+        Workspace:SetAttribute("CW_WaterPatchesDone", patchCount)
+        task.wait()
+    end
 end
 
 local function build()
@@ -131,6 +133,7 @@ local function build()
             end
         end
     end
+    Workspace:SetAttribute("CW_WaterPatchesDone", patchCount)
     Workspace:SetAttribute("CW_WaterSolidCellsProtected", skippedSolid)
     Workspace:SetAttribute("CW_WaterFilledVoxels", writtenVoxels)
     Workspace:SetAttribute("CW_WaterStatus", "complete")

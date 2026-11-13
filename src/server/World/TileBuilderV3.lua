@@ -3,6 +3,7 @@
 -- V3 keeps the Bootstrap entrypoint stable; it must NOT replace the
 -- graph-defined polygon with an axis-aligned rectangle.
 local BaseBuilder = require(script.Parent:WaitForChild("TileBuilderV2"))
+local WaterMap = require(script.Parent:WaitForChild("WaterMap"))
 local TileBuilderV3 = {}
 local expectedTiles = 0
 local builtTiles = 0
@@ -134,17 +135,22 @@ function TileBuilderV3.Build(tileModule)
                         end
                     end
                     local span=lo==math.huge and "none" or string.format("%.1f..%.1f",lo,hi)
+                    local mappedWater = WaterMap.Classify(x,z)
                     local status
-                    if near>=6 and hi-lo<=4 then
+                    if mappedWater=="mappedPolygon" then
+                        status="mappedWaterPolygonNeedsAlignmentReview"
+                    elseif mappedWater=="approxStream" then
+                        status="approxStreamNeedsWidthReview"
+                    elseif near>=6 and hi-lo<=4 then
                         status="possibleSmallSeam"
                     elseif near<=2 then
                         status="extendedNoTerrainOrWater"
                     else
                         status="mixedBankNeedsSurvey"
                     end
-                    print(("[ChesterWorld PavementTerrainSurvey] road=%s center=(%.0f,%.0f) centerHit=%s near24=%d/8 far64=%d/8 waterHits=%d ringY=%s status=%s")
+                    print(("[ChesterWorld PavementTerrainSurvey] road=%s center=(%.0f,%.0f) centerHit=%s near24=%d/8 far64=%d/8 waterHits=%d ringY=%s mappedWater=%s status=%s")
                         :format(entry.street,x,z,tostring(center~=nil),
-                            near,far,water,span,status))
+                            near,far,water,span,mappedWater,status))
                 end
             end
             workspace:SetAttribute("CW_HighwayProfiledPieces", highway.profiledPieces)

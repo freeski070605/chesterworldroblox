@@ -15,7 +15,7 @@ local TileBuilder = require(script.Parent.World:WaitForChild("TileBuilderV3"))
 local terrainParams = RaycastParams.new()
 terrainParams.FilterType = Enum.RaycastFilterType.Include
 terrainParams.FilterDescendantsInstances = { workspace.Terrain }
-terrainParams.IgnoreWater = false
+terrainParams.IgnoreWater = true
 
 local function terrainY(x, z)
 	local hit = workspace:Raycast(

@@ -107,14 +107,30 @@ function TileBuilderV3.Build(tileModule)
             print(("[ChesterWorld RoadGapAudit] missingFragments=%d noTerrain=%d steep=%d noTerrainGISWater=%d noTerrainApproxStreams=%d noTerrainUnmapped=%d")
                 :format(#fragments,omissions.noTerrainPieces,omissions.steepPieces,
                     gisCounts.mappedPolygon,gisCounts.approxStream,gisCounts.notMapped))
-            for index=1,math.min(35,#fragments) do
-                local f=fragments[index]
-                local x,z=(f.ax+f.bx)/2,(f.az+f.bz)/2
-                print(("[ChesterWorld RoadGap] kind=%s road=%s class=%s len=%.1f width=%.1f center=(%.1f,%.1f) from=(%.1f,%.1f) to=(%.1f,%.1f) gradePct=%s GIS=%s")
-                    :format(f.kind,tostring(f.road),tostring(f.class),f.length,
-                        f.width,x,z,f.ax,f.az,f.bx,f.bz,
-                        f.grade and string.format("%.1f",f.grade*100) or "unknown",
-                        WaterMap.Classify(x,z)))
+            -- The previous first-35 report printed almost exclusively
+            -- Riverfront's no-terrain fragments, hiding exact endpoints
+            -- for Macdade, Crum Lynne, 6th and other grade failures.
+            -- Give each repair category its own ranked inventory.
+            local detailed={steep={},["no-terrain"]={}}
+            for _,f in ipairs(fragments) do
+                local category=detailed[f.kind]
+                if category then table.insert(category,f) end
+            end
+            for _,kind in ipairs({"steep","no-terrain"}) do
+                local list=detailed[kind]
+                print(("[ChesterWorld RoadGapDetail] kind=%s total=%d top=%d")
+                    :format(kind,#list,math.min(40,#list)))
+                for index=1,math.min(40,#list) do
+                    local f=list[index]
+                    local x,z=(f.ax+f.bx)/2,(f.az+f.bz)/2
+                    print(("[ChesterWorld RoadGap] kind=%s rank=%d road=%s class=%s len=%.1f width=%.1f center=(%.1f,%.1f) from=(%.1f,%.1f) to=(%.1f,%.1f) sourceY=%s/%s gradePct=%s GIS=%s")
+                        :format(f.kind,index,tostring(f.road),tostring(f.class),f.length,
+                            f.width,x,z,f.ax,f.az,f.bx,f.bz,
+                            f.ay and string.format("%.1f",f.ay) or "unknown",
+                            f.by and string.format("%.1f",f.by) or "unknown",
+                            f.grade and string.format("%.1f",f.grade*100) or "unknown",
+                            WaterMap.Classify(x,z)))
+                end
             end
             workspace:SetAttribute("CW_RoadGapsToReview",#fragments)
             workspace:SetAttribute("CW_RoadWaterSourceMissing",gisCounts.notMapped)

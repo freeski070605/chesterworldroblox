@@ -81,9 +81,43 @@ function TileBuilderV3.Build(tileModule)
             print(("[ChesterWorld PavementOmissions] steepPieces=%d steepLength=%.0f noTerrainPieces=%d terrainSeamSamplesRecovered=%d trimConsumed=%d")
                 :format(omissions.steepPieces, omissions.steepLength, omissions.noTerrainPieces,
                     omissions.terrainRecovered or 0, omissions.trimConsumed))
+            print(("[ChesterWorld SeamRecovery] recoveredAt4=%d totalRecovered=%d waterMarginRejected=%d")
+                :format(omissions.seam4Recovered or 0,omissions.terrainRecovered or 0,
+                    omissions.seamWaterRejected or 0))
             for index = 1, math.min(12, #omissions.samples) do
                 print("[ChesterWorld PavementOmission] " .. omissions.samples[index])
             end
+            -- Source-aligned segments are needed for real repairs. 80-stud
+            -- hotspot coordinates identify a neighborhood, not the ends of
+            -- the missing surface. Preserve the exact geometry separately.
+            local fragments = omissions.missingFragments or {}
+            table.sort(fragments,function(a,b)
+                if a.kind ~= b.kind then return a.kind == "no-terrain" end
+                if a.length ~= b.length then return a.length > b.length end
+                return tostring(a.road) < tostring(b.road)
+            end)
+            local gisCounts={notMapped=0,mappedPolygon=0,approxStream=0}
+            for _,f in ipairs(fragments) do
+                if f.kind=="no-terrain" then
+                    local midX,midZ=(f.ax+f.bx)/2,(f.az+f.bz)/2
+                    local k=WaterMap.Classify(midX,midZ)
+                    gisCounts[k]=(gisCounts[k] or 0)+1
+                end
+            end
+            print(("[ChesterWorld RoadGapAudit] missingFragments=%d noTerrain=%d steep=%d noTerrainGISWater=%d noTerrainApproxStreams=%d noTerrainUnmapped=%d")
+                :format(#fragments,omissions.noTerrainPieces,omissions.steepPieces,
+                    gisCounts.mappedPolygon,gisCounts.approxStream,gisCounts.notMapped))
+            for index=1,math.min(35,#fragments) do
+                local f=fragments[index]
+                local x,z=(f.ax+f.bx)/2,(f.az+f.bz)/2
+                print(("[ChesterWorld RoadGap] kind=%s road=%s class=%s len=%.1f width=%.1f center=(%.1f,%.1f) from=(%.1f,%.1f) to=(%.1f,%.1f) gradePct=%s GIS=%s")
+                    :format(f.kind,tostring(f.road),tostring(f.class),f.length,
+                        f.width,x,z,f.ax,f.az,f.bx,f.bz,
+                        f.grade and string.format("%.1f",f.grade*100) or "unknown",
+                        WaterMap.Classify(x,z)))
+            end
+            workspace:SetAttribute("CW_RoadGapsToReview",#fragments)
+            workspace:SetAttribute("CW_RoadWaterSourceMissing",gisCounts.notMapped)
             -- Prioritize real missing length rather than raw subdivision
             -- counts; omit geometry changes until each hotspot is surveyed.
             local areas = {}

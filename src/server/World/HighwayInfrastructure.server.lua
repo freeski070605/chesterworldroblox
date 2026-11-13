@@ -634,6 +634,11 @@ do
     end
     print(("[ChesterWorld IndustrialTerrainCut] planned=%d excavated=%d maxDepth=%.1f")
         :format(#candidates,cuts,maximum))
+    -- Terrain:FillBlock writes the voxel data synchronously, but raycast
+    -- collision geometry may not reflect it until a physics update. The old
+    -- audit ran in the same scheduler slice and reported 44 identical
+    -- obstructions despite 88 more spot cuts. Yield before rechecking.
+    if cuts > 0 then task.wait(0.25) end
     -- Measure the *finished* cut after all five terrain writes. The center
     -- and two shoulders must be free of terrain, not just correctly graded.
     -- Treat missing terrain as an unknown, not an automatic clearance pass.
@@ -706,6 +711,7 @@ do
                     end
                 end
                 if passCuts==0 then break end
+                task.wait(0.25)
             end
         end
         local finalBlocked,finalUnknown,finalWorst,finalSamples=0,0,0,0

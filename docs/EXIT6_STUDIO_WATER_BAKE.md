@@ -28,10 +28,15 @@ once verified water is baked into the saved Roblox place.
 6. SAVE the place while still in Edit mode (File > Save or Ctrl+S). The
    published game is unchanged until File > Publish to Roblox is used.
 7. Start Play from the saved Edit place. In Output expect:
-       [EXIT6 Water] BAKED VERIFIED ... savedRuntimeGeneration=true
+       [EXIT6 Water] BAKED DETECTED ...
+       [EXIT6 Water] BAKED VERIFIED AFTER WORLD FINISH ... savedRuntimeGeneration=true
        [EXIT6] World ready: ... waterStatus=baked-verified
+   The second verification happens AFTER land clearing, landmarks and local
+   bridge construction (which can modify Terrain). The loading screen waits
+   for road terrain clearing, landmarks, bridges, street furniture and trees.
    There must be no [EXIT6 Water] COMPLETE ... fallback build message.
-   If verification fails, runtime fallback still runs; do not publish.
+   If post-build proof fails, runtime rebuilds missing water before entry;
+   do not publish until visually checked.
 8. Publish only AFTER visual and gameplay tests pass. Do NOT commit a copy of
    the .rbxl terrain to GitHub unless you explicitly want an enormous binary.
 

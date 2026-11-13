@@ -19,20 +19,17 @@ if not dataset then
     return
 end
 
-local baked,why = WaterTerrain.Verify(dataset)
-if baked then
+local initiallyBaked,why = WaterTerrain.Verify(dataset)
+if initiallyBaked then
     WaterTerrain.ApplyWaterAppearance()
-    Workspace:SetAttribute("CW_WaterStatus","baked-verified")
-    Workspace:SetAttribute("CW_WaterComplete",true)
-    Workspace:SetAttribute("CW_WaterPatchesTotal",dataset.patches)
-    Workspace:SetAttribute("CW_WaterPatchesDone",dataset.patches)
-    print(("[EXIT6 Water] BAKED VERIFIED signature=%s tiles=%d rects=%d " ..
-        "savedRuntimeGeneration=true proof=%s")
-        :format(dataset.signature,#dataset.tiles,dataset.rects,tostring(why)))
-    return
+    Workspace:SetAttribute("CW_WaterStatus","baked-waiting-for-final-terrain")
+    print(("[EXIT6 Water] BAKED DETECTED signature=%s; awaiting final terrain clearing, " ..
+        "landmarks and local bridges before certifying the playable world")
+        :format(dataset.signature))
+else
+    warn("[EXIT6 Water] No verified Studio water bake (" .. tostring(why) ..
+        "); using conservative live-server fallback.")
 end
-warn("[EXIT6 Water] No verified Studio water bake (" .. tostring(why) ..
-    "); using conservative live-server fallback.")
 
 local function readyForWater()
     return Workspace:GetAttribute("CW_BootstrapComplete")==true
@@ -60,6 +57,21 @@ while not readyForWater() do
         lastStage = stage
     end
     task.wait(0.5)
+end
+if initiallyBaked then
+    local stillVerified,finalReason = WaterTerrain.Verify(dataset)
+    if stillVerified then
+        Workspace:SetAttribute("CW_WaterPatchesTotal",dataset.patches)
+        Workspace:SetAttribute("CW_WaterPatchesDone",dataset.patches)
+        Workspace:SetAttribute("CW_WaterStatus","baked-verified")
+        Workspace:SetAttribute("CW_WaterComplete",true)
+        print(("[EXIT6 Water] BAKED VERIFIED AFTER WORLD FINISH signature=%s " ..
+            "tiles=%d rects=%d savedRuntimeGeneration=true proof=%s")
+            :format(dataset.signature,#dataset.tiles,dataset.rects,tostring(finalReason)))
+        return
+    end
+    warn("[EXIT6 Water] Baked water proof failed AFTER world finish (" ..
+        tostring(finalReason) .. "); repairing using the conservative runtime fallback.")
 end
 Workspace:SetAttribute("CW_WaterPatchesTotal",dataset.patches)
 Workspace:SetAttribute("CW_WaterStatus","building")

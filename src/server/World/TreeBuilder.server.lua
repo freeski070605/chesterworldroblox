@@ -7,10 +7,17 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local WorldConfig = require(Shared:WaitForChild("WorldConfig"))
 local module = Shared:WaitForChild("WorldData"):FindFirstChild("StreetTrees")
-if not module then return end
+if not module then
+    warn("[ChesterWorld Trees] No tree data; skipping safely.")
+    Workspace:SetAttribute("CW_TreesComplete",true)
+    return
+end
 
 while Workspace:GetAttribute("CW_HighwayFinishComplete") ~= true do task.wait(0.5) end
-if Workspace:FindFirstChild("ChesterTrees") then return end
+if Workspace:FindFirstChild("ChesterTrees") then
+    Workspace:SetAttribute("CW_TreesComplete",true)
+    return
+end
 local root = Instance.new("Folder")
 root.Name = "ChesterTrees"
 root.Parent = Workspace
@@ -90,3 +97,4 @@ for i, t in ipairs(Trees) do
 end
 if chunk then chunk.Parent = root end
 print(("[ChesterWorld Trees] built=%d skipped=%d (water/no terrain/gas stations: %d)"):format(built, skipped, onStation))
+Workspace:SetAttribute("CW_TreesComplete",true)

@@ -62,6 +62,11 @@ local function worldReady()
   and Workspace:GetAttribute("CW_HighwayFinishComplete")==true
   and Workspace:GetAttribute("CW_ParksComplete")==true
   and Workspace:GetAttribute("CW_GasStationsComplete")==true
+  and Workspace:GetAttribute("CW_LandmarksComplete")==true
+  and Workspace:GetAttribute("CW_RoadTerrainCleared")==true
+  and Workspace:GetAttribute("CW_LocalBridgesDressed")==true
+  and Workspace:GetAttribute("CW_StreetFurnitureComplete")==true
+  and Workspace:GetAttribute("CW_TreesComplete")==true
   and Workspace:GetAttribute("CW_WaterComplete")==true
 end
 while not worldReady() do
@@ -73,6 +78,11 @@ while not worldReady() do
  local highwayDone=Workspace:GetAttribute("CW_HighwayFinishComplete")==true
  local parksDone=Workspace:GetAttribute("CW_ParksComplete")==true
  local gasDone=Workspace:GetAttribute("CW_GasStationsComplete")==true
+ local landmarksDone=Workspace:GetAttribute("CW_LandmarksComplete")==true
+ local clearingDone=Workspace:GetAttribute("CW_RoadTerrainCleared")==true
+ local bridgesDone=Workspace:GetAttribute("CW_LocalBridgesDressed")==true
+ local furnitureDone=Workspace:GetAttribute("CW_StreetFurnitureComplete")==true
+ local treesDone=Workspace:GetAttribute("CW_TreesComplete")==true
  local waterDone=Workspace:GetAttribute("CW_WaterComplete")==true
  local waterStatus=Workspace:GetAttribute("CW_WaterStatus")
  local slow=elapsed>240
@@ -91,7 +101,17 @@ while not worldReady() do
  elseif not parksDone then
   progress(.91,"Opening parks and playgrounds..."..suffix)
  elseif not gasDone then
-  progress(.94,"Finishing gas stations and storefronts..."..suffix)
+  progress(.91,"Finishing gas stations and storefronts..."..suffix)
+ elseif not landmarksDone then
+  progress(.92,"Building Chester landmarks and venues..."..suffix)
+ elseif not clearingDone then
+  progress(.93,"Clearing terrain from completed streets..."..suffix)
+ elseif not bridgesDone then
+  progress(.94,"Finishing local bridges and rail crossings..."..suffix)
+ elseif not furnitureDone then
+  progress(.945,"Adding streetlights, signals and signs..."..suffix)
+ elseif not treesDone then
+  progress(.95,"Finishing trees and landscaping..."..suffix)
  elseif not waterDone then
   if waterStatus=="failed" then
    progress(.95,"Water build failed - check Studio Output for [EXIT6 Water]")
@@ -116,7 +136,7 @@ while not worldReady() do
  end
  task.wait(.35)
 end
-print(("[EXIT6] World ready: tiles=%d/%d roads/highway/parks/gas ready waterStatus=%s after %.1fs")
+print(("[EXIT6] World ready: tiles=%d/%d structures/roads/terrain/bridges/furniture/trees complete waterStatus=%s after %.1fs")
  :format(Workspace:GetAttribute("CW_TilesBuilt") or 0,
   Workspace:GetAttribute("CW_TilesTotal") or 0,
   tostring(Workspace:GetAttribute("CW_WaterStatus") or "unknown"),os.clock()-started))

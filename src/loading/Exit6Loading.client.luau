@@ -68,6 +68,7 @@ local function worldReady()
   and Workspace:GetAttribute("CW_StreetFurnitureComplete")==true
   and Workspace:GetAttribute("CW_TreesComplete")==true
   and Workspace:GetAttribute("CW_WaterComplete")==true
+  and Workspace:GetAttribute("CW_RoadFinalAuditComplete")==true
   and Workspace:GetAttribute("CW_Exit6DealershipReady")==true
   and Workspace:GetAttribute("CW_Exit6MusicReady")==true
   and Workspace:GetAttribute("CW_Exit6TrafficReady")==true
@@ -89,6 +90,7 @@ while not worldReady() do
  local furnitureDone=Workspace:GetAttribute("CW_StreetFurnitureComplete")==true
  local treesDone=Workspace:GetAttribute("CW_TreesComplete")==true
  local waterDone=Workspace:GetAttribute("CW_WaterComplete")==true
+ local roadAuditDone=Workspace:GetAttribute("CW_RoadFinalAuditComplete")==true
  local dealershipDone=Workspace:GetAttribute("CW_Exit6DealershipReady")==true
  local musicDone=Workspace:GetAttribute("CW_Exit6MusicReady")==true
  local trafficDone=Workspace:GetAttribute("CW_Exit6TrafficReady")==true
@@ -137,6 +139,8 @@ while not worldReady() do
    progress(.95+.03*(totalPatches>0 and math.clamp(done/totalPatches,0,1) or 0),
     string.format("Adding rivers and creeks... %d / %d",done,totalPatches)..suffix)
   end
+ elseif not roadAuditDone then
+  progress(.975,"Verifying road and highway surfaces..."..suffix)
  elseif not dealershipDone then
   progress(.98,"Opening EXIT 6 Motors..."..suffix)
  elseif not musicDone then
@@ -171,7 +175,7 @@ for _, pair in ipairs(systems) do
   warn("[EXIT6] Gameplay system unavailable at world-ready: " .. pair[1] .. "=" .. state)
  end
 end
-print(("[EXIT6] World ready: tiles=%d/%d terrain/bridges/furniture/trees/services finished waterStatus=%s services={%s} after %.1fs")
+print(("[EXIT6] World ready: tiles=%d/%d terrain/bridges/road-audit/furniture/trees/services finished waterStatus=%s services={%s} after %.1fs")
  :format(Workspace:GetAttribute("CW_TilesBuilt") or 0,
   Workspace:GetAttribute("CW_TilesTotal") or 0,
   tostring(Workspace:GetAttribute("CW_WaterStatus") or "unknown"),

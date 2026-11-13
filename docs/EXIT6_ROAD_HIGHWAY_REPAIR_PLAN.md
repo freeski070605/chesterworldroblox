@@ -86,3 +86,63 @@ Native baked water is untouched: do not rerun the Studio water bake.
 Do not publish the live game until these physical gap audits are reviewed,
 the major missing asphalt is actually repaired, and a full drivable test
 has been performed across the affected corridors.
+
+
+## Nov 13 Studio test results (post-audit baseline)
+
+The uploaded Studio log reports:
+- 229 omitted fragment candidates (181 steep, 48 no-terrain).
+- 202 physically open at fragment midpoints; 3 covered by same road, 24
+  covered by another road. This is a midpoint-only test and is not a
+  complete driving/connectivity certification.
+- 9 missing no-terrain fragments centered in mapped water polygons;
+  39 are *notMapped* by available water GIS. NOT-MAPPED does not mean
+  dry land. The riverfront geometry must remain unpatched pending GIS.
+- The earlier 4-stud seam interpolation recovered 0 additional samples;
+  5 samples recovered using the existing wider seam logic.
+- The physical highway audit reports 0 highway profile grade failures
+  and 0 measured low-clearance crossings. Pre-registry height constraints
+  remain to be surveyed.
+- Studio flagged a temporary infinite-yield warning because the audit
+  waited on the ChesterWorld root before Bootstrap created it; fixed by
+  waiting for Bootstrap completion first.
+- The log's "RoadFinalAudit seconds=273" included city build waiting
+  time. It is now reported as auditSeconds from the actual audit start.
+
+## Dry-land grade repair (new code, unverified until next Studio run)
+
+The new src/server/World/RoadGapRepair.server.lua runs AFTER terrain clearing,
+local bridges and baked-water verification. It only considers contiguous
+omitted STEEP road segments, not no-terrain shoreline segments. It may add
+asphalt when ALL of the following hold:
+
+- Segment chain <=48 studs and exactly two nonbranching terminals;
+- same-name, comparable-width, nonbridge road Parts exist at BOTH ends;
+- connected endpoints have a combined gradient <=11%;
+- every source path segment and both shoulders have real dry terrain,
+  neither a mapped water polygon nor visible native Terrain water;
+- projected asphalt demands <=2.5 studs local excavation and sits
+  <=3 studs above the source terrain;
+- no nearby profiled highway, bridge, rail or tunnel occupies the patch.
+
+Only after these checks does it add Part asphalt and clear up to a shallow
+road-surface trench using the same local Terrain approach as the original
+RoadTerrainClear. The repair is *conservative by design*: it is expected
+to reject many large and geographically ambiguous problems. It does not
+rewrite GIS, bridge geometry, or the saved Studio water bake.
+
+Expected NEW logs:
+  [ChesterWorld RoadGapRepaired] ...
+  [ChesterWorld RoadGapRepair] evaluatedChains=... fixedChains=...
+  [ChesterWorld RoadFinalAudit] ... STILL_OPEN=... auditSeconds=...
+      repairStatus=complete repairParts=...
+
+The final integrity audit waits for RoadGapRepair to finish. If it fails,
+the failure is printed and the audit still runs on the original surfaces.
+The unchanged 202 open-gap baseline is what the next result must beat;
+do not claim improvements until the next Studio test.
+
+Priority AFTER confirming actual repairs: riverfront GIS/DEM road footprint,
+Macdade/Crum Lynne long-grade profiles, and per-crossing bridge elevation
+surveys. The remaining first-pass code changes are not a license to publish
+before the unverified missing roads are resolved.

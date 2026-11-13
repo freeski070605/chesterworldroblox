@@ -21,7 +21,7 @@ local omissions=TileBuilder.Stats()
 local fragments=omissions and omissions.missingFragments or {}
 local overlap=OverlapParams.new()
 overlap.FilterType=Enum.RaycastFilterType.Include
-overlap.MaxParts=100
+overlap.MaxParts=0 -- unlimited: prevent false open-road reports in dense junctions
 local roadFolders={}
 local roadParts={}
 for _,tile in ipairs(World:GetChildren()) do
@@ -98,8 +98,7 @@ for i,part in ipairs(roadParts) do
     local isHighway=part:GetAttribute("CW_HighwayProfiled")==true
     if isHighway then
         highwayPieces+=1
-        local cls=tostring(part:GetAttribute("CW_RoadClass") or "")
-        local max=(cls=="motorway_link" or cls=="trunk_link") and 0.11 or 0.08
+        local max=(part:GetAttribute("CW_HighwayLink")==true) and 0.11 or 0.08
         if grade>max then
             highwayGradeOverLimit+=1
             if #badHighways<20 then table.insert(badHighways,{

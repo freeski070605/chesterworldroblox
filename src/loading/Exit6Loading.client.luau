@@ -95,6 +95,12 @@ while not worldReady() do
  elseif not waterDone then
   if waterStatus=="failed" then
    progress(.95,"Water build failed - check Studio Output for [EXIT6 Water]")
+  elseif waterStatus=="waiting-for-road-terrain-clear" then
+   progress(.95,"Clearing terrain from finished road surfaces..."..suffix)
+  elseif waterStatus=="waiting-for-landmarks" then
+   progress(.95,"Finishing Chester landmarks..."..suffix)
+  elseif waterStatus=="waiting-for-local-bridges" then
+   progress(.95,"Finishing local bridge structures..."..suffix)
   else
    local done=Workspace:GetAttribute("CW_WaterPatchesDone") or 0
    local totalPatches=Workspace:GetAttribute("CW_WaterPatchesTotal") or 0
@@ -110,9 +116,10 @@ while not worldReady() do
  end
  task.wait(.35)
 end
-print(("[EXIT6] World ready: tiles=%d/%d roads/highway/parks/gas/water complete after %.1fs")
+print(("[EXIT6] World ready: tiles=%d/%d roads/highway/parks/gas ready waterStatus=%s after %.1fs")
  :format(Workspace:GetAttribute("CW_TilesBuilt") or 0,
-  Workspace:GetAttribute("CW_TilesTotal") or 0,os.clock()-started))
+  Workspace:GetAttribute("CW_TilesTotal") or 0,
+  tostring(Workspace:GetAttribute("CW_WaterStatus") or "unknown"),os.clock()-started))
 progress(.9,"Preparing your character...")
 local character=player.Character or player.CharacterAdded:Wait()
 local root=character:WaitForChild("HumanoidRootPart",20)

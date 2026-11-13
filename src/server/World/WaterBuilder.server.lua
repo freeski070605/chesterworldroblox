@@ -19,7 +19,20 @@ local function readyForWater()
         and Workspace:GetAttribute("CW_LandmarksComplete") == true
         and Workspace:GetAttribute("CW_LocalBridgesDressed") == true
 end
+local previousStage = ""
 while not readyForWater() do
+    local stage = "waiting-for-structures"
+    if Workspace:GetAttribute("CW_RoadTerrainCleared") ~= true then
+        stage = "waiting-for-road-terrain-clear"
+    elseif Workspace:GetAttribute("CW_LandmarksComplete") ~= true then
+        stage = "waiting-for-landmarks"
+    elseif Workspace:GetAttribute("CW_LocalBridgesDressed") ~= true then
+        stage = "waiting-for-local-bridges"
+    end
+    if stage ~= previousStage then
+        Workspace:SetAttribute("CW_WaterStatus", stage)
+        previousStage = stage
+    end
     task.wait(0.5)
 end
 

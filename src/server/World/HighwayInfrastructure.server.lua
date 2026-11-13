@@ -664,8 +664,78 @@ do
                 end
             end
         end
-        print(("[ChesterWorld IndustrialCutFinalAudit] roadPieces=%d samples=%d obstructed=%d missingTerrain=%d maxIntrusion=%.2f")
+        print(("[ChesterWorld IndustrialCutInitialAudit] roadPieces=%d samples=%d obstructed=%d missingTerrain=%d maxIntrusion=%.2f")
             :format(#candidates,checked,blocked,unknown,worstOverlap))
+        -- A single rotated FillBlock can leave coarse 4-stud terrain
+        -- voxels protruding above a sloping road. If it does, cut compact
+        -- vertical columns centered ONLY on sampled points within this
+        -- five-piece approved approach. Use an absolute Y column, so its
+        -- bottom and roof cannot inherit the road's pitch/rotation.
+        local spotCuts, rejected = 0, 0
+        if blocked>0 and #candidates==5 and maximum<=16 then
+            for pass=1,2 do
+                local passCuts=0
+                for _,entry in ipairs(candidates) do
+                    local road=entry.road
+                    local right=road.CFrame.RightVector
+                    for _,t in ipairs({0.1,0.25,0.5,0.75,0.9}) do
+                        local p=entry.a:Lerp(entry.b,t)
+                        local roadTop=p.Y+road.Size.Y/2
+                        for _,side in ipairs({-1,0,1}) do
+                            local q=p+right*(road.Size.X*0.45)*side
+                            local gy=terrainY(q.X,q.Z)
+                            local penetration=gy and gy-roadTop or 0
+                            if penetration>0.5 then
+                                if penetration>16 then
+                                    rejected+=1
+                                else
+                                    -- Six-stud footprint only: keep this
+                                    -- below road shoulder cut width.
+                                    local bottom=roadTop-4.5
+                                    local top=gy+7
+                                    local h=top-bottom
+                                    if h>0 then
+                                        Terrain:FillBlock(CFrame.new(q.X,(bottom+top)/2,q.Z),
+                                            Vector3.new(6,h,6),Enum.Material.Air)
+                                        spotCuts+=1
+                                        passCuts+=1
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+                if passCuts==0 then break end
+            end
+        end
+        local finalBlocked,finalUnknown,finalWorst,finalSamples=0,0,0,0
+        for _,entry in ipairs(candidates) do
+            local road=entry.road
+            local right=road.CFrame.RightVector
+            for _,t in ipairs({0.1,0.25,0.5,0.75,0.9}) do
+                local p=entry.a:Lerp(entry.b,t)
+                for _,side in ipairs({-1,0,1}) do
+                    local q=p+right*(road.Size.X*0.45)*side
+                    local gy=terrainY(q.X,q.Z)
+                    finalSamples+=1
+                    if not gy then
+                        finalUnknown+=1
+                    else
+                        local intrusion=gy-(p.Y+road.Size.Y/2)
+                        if intrusion>0.5 then
+                            finalBlocked+=1
+                            finalWorst=math.max(finalWorst,intrusion)
+                            if finalBlocked<=6 then
+                                warn(("[ChesterWorld IndustrialCutRemaining] x=%.1f z=%.1f aboveRoad=%.2f")
+                                    :format(q.X,q.Z,intrusion))
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        print(("[ChesterWorld IndustrialCutFinalAudit] roadPieces=%d samples=%d obstructed=%d missingTerrain=%d maxIntrusion=%.2f spotCuts=%d rejected=%d")
+            :format(#candidates,finalSamples,finalBlocked,finalUnknown,finalWorst,spotCuts,rejected))
     end
 end
 

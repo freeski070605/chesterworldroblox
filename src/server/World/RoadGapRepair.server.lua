@@ -168,7 +168,11 @@ local function run()
         if start.part==finish.part then rejected("same-anchor-road") return end
         local grade=math.abs(finish.y-start.y)/total
         if grade>0.11 then rejected("unsafe-anchor-grade") return end
-        if math.abs(start.y-first.f.ay)>18 or math.abs(finish.y-last.f.by)>18 then
+        local sourceStartY=first.a.X==first.f.ax and first.a.Z==first.f.az
+            and first.f.ay or first.f.by
+        local sourceEndY=last.b.X==last.f.bx and last.b.Z==last.f.bz
+            and last.f.by or last.f.ay
+        if math.abs(start.y-sourceStartY)>18 or math.abs(finish.y-sourceEndY)>18 then
             -- Guard against a road at an entirely different elevation.
             rejected("layer-mismatch") return
         end
@@ -183,7 +187,22 @@ local function run()
                 local p=seg.a:Lerp(seg.b,t)
                 local roadY=start.y+(finish.y-start.y)*(walked+seg.length*t)/total
                 local roadTop=roadY+0.23
-                for _,side in ipairs({-0.35,0,0.35}) do
+                -- Do not insert an at-grade patch across an elevated
+                -- overpass, motorway, tunnel or rail crossing.
+                if t==0.5 then
+                    local nearby=Workspace:GetPartBoundsInBox(
+                        CFrame.new(p.X,roadY,p.Z),
+                        Vector3.new(math.max(3,seg.f.width),18,3),overlap)
+                    for _,other in ipairs(nearby) do
+                        if other:GetAttribute("CW_HighwayProfiled")==true
+                            or other:GetAttribute("CW_Bridge")==true
+                            or other:GetAttribute("CW_Tunnel")==true
+                            or other:GetAttribute("CW_Rail")==true then
+                            rejected("grade-separated-crossing") return
+                        end
+                    end
+                end
+                for _,side in ipairs({-0.55,-0.35,0,0.35,0.55}) do
                     local x,z=p.X+right.X*seg.f.width*side,
                         p.Z+right.Z*seg.f.width*side
                     if not confirmedDry(x,z) then

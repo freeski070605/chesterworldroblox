@@ -127,9 +127,20 @@ local function run()
     end
     local totalGroups,repairedGroups,repairedFragments=0,0,0
     local insertedParts=0
+    local printedRejected=0
 
     local function tryGroup(fragments)
         totalGroups+=1
+        local function rejectChain(why)
+            rejected(why)
+            if printedRejected<35 then
+                printedRejected+=1
+                local f=fragments[1]
+                print(("[ChesterWorld RoadGapRepairRejected] reason=%s road=%s class=%s fragments=%d sample=(%.1f,%.1f)")
+                    :format(why,tostring(f.road),tostring(f.class),#fragments,
+                        (f.ax+f.bx)/2,(f.az+f.bz)/2))
+            end
+        end
         local adj,ends={},{}
         for index,f in ipairs(fragments) do
             local ka,kb=key(f.ax,f.az),key(f.bx,f.bz)
@@ -141,10 +152,10 @@ local function run()
         end
         local terminals={}
         for k,items in pairs(adj) do
-            if #items>2 then rejected("junction-ambiguous") return end
+            if #items>2 then rejectChain("junction-ambiguous") return end
             if #items==1 then table.insert(terminals,k) end
         end
-        if #terminals~=2 then rejected("not-a-simple-open-chain") return end
+        if #terminals~=2 then rejectChain("not-a-simple-open-chain") return end
         table.sort(terminals)
         local current=terminals[1]
         local used,ordered={},{}
@@ -164,27 +175,27 @@ local function run()
             current=reversed and ka or kb
         end
         if current~=terminals[2] or #ordered~=#fragments then
-            rejected("chain-not-contiguous") return
+            rejectChain("chain-not-contiguous") return
         end
         local total=0
         for _,seg in ipairs(ordered) do total+=seg.length end
-        if total<1 or total>48 then rejected("too-long-for-local-repair") return end
+        if total<1 or total>48 then rejectChain("too-long-for-local-repair") return end
         local first,last=ordered[1],ordered[#ordered]
         local dxA=(first.b-first.a).Unit
         local dxB=(last.b-last.a).Unit
         local start=anchorFor(first.a.X,first.a.Z,-dxA,first.f.road,first.f.width)
         local finish=anchorFor(last.b.X,last.b.Z,dxB,last.f.road,last.f.width)
-        if not start or not finish then rejected("missing-two-road-anchors") return end
-        if start.part==finish.part then rejected("same-anchor-road") return end
+        if not start or not finish then rejectChain("missing-two-road-anchors") return end
+        if start.part==finish.part then rejectChain("same-anchor-road") return end
         local grade=math.abs(finish.y-start.y)/total
-        if grade>0.11 then rejected("unsafe-anchor-grade") return end
+        if grade>0.11 then rejectChain("unsafe-anchor-grade") return end
         local sourceStartY=first.a.X==first.f.ax and first.a.Z==first.f.az
             and first.f.ay or first.f.by
         local sourceEndY=last.b.X==last.f.bx and last.b.Z==last.f.bz
             and last.f.by or last.f.ay
         if math.abs(start.y-sourceStartY)>18 or math.abs(finish.y-sourceEndY)>18 then
             -- Guard against a road at an entirely different elevation.
-            rejected("layer-mismatch") return
+            rejectChain("layer-mismatch") return
         end
 
         -- Validate the actual road corridor BEFORE changing terrain. Reject
@@ -208,7 +219,7 @@ local function run()
                             or other:GetAttribute("CW_Bridge")==true
                             or other:GetAttribute("CW_Tunnel")==true
                             or other:GetAttribute("CW_Rail")==true then
-                            rejected("grade-separated-crossing") return
+                            rejectChain("grade-separated-crossing") return
                         end
                     end
                 end
@@ -216,15 +227,15 @@ local function run()
                     local x,z=p.X+right.X*seg.f.width*side,
                         p.Z+right.Z*seg.f.width*side
                     if not confirmedDry(x,z) then
-                        rejected("water-or-missing-land") return
+                        rejectChain("water-or-missing-land") return
                     end
                     local gy=terrainHeight(x,z)
-                    if not gy then rejected("no-ground-elevation") return end
+                    if not gy then rejectChain("no-ground-elevation") return end
                     if gy-roadTop>2.5 then
-                        rejected("requires-deep-excavation") return
+                        rejectChain("requires-deep-excavation") return
                     end
                     if roadTop-gy>3 then
-                        rejected("floating-above-terrain") return
+                        rejectChain("floating-above-terrain") return
                     end
                 end
             end

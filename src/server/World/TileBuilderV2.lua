@@ -43,6 +43,13 @@ local function noteOmission(kind, x, z, extra, street, length, grade)
 		end
 		entry.pieces += 1
 		entry.length += length or 0
+		if (length or 0) > (entry.longestPiece or -1) then
+			entry.longestPiece = length or 0
+			entry.sampleX, entry.sampleZ = x, z
+		end
+		if grade and grade > entry.maxGrade then
+			entry.gradeX, entry.gradeZ = x, z
+		end
 		entry.maxGrade = math.max(entry.maxGrade, grade or 0)
 	end
 end

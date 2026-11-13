@@ -117,7 +117,8 @@ function TileBuilderV3.Build(tileModule)
             for _,entry in ipairs(areas) do
                 if entry.kind=="no-terrain" and surveyed<12 then
                     surveyed+=1
-                    local x,z=(entry.gx+0.5)*80,(entry.gz+0.5)*80
+                    local x,z=entry.sampleX or (entry.gx+0.5)*80,
+                        entry.sampleZ or (entry.gz+0.5)*80
                     local near,far,water=0,0,0
                     local lo,hi=math.huge,-math.huge
                     local center=surfaceAt(x,z)
@@ -151,6 +152,37 @@ function TileBuilderV3.Build(tileModule)
                     print(("[ChesterWorld PavementTerrainSurvey] road=%s center=(%.0f,%.0f) centerHit=%s near24=%d/8 far64=%d/8 waterHits=%d ringY=%s mappedWater=%s status=%s")
                         :format(entry.street,x,z,tostring(center~=nil),
                             near,far,water,span,mappedWater,status))
+                end
+            end
+            -- Read-only steep-grade probe at the ACTUAL omitted road
+            -- fragment, not the center of an 80-stud reporting grid.
+            -- Especially important for Macdade / Walnut / Crosby / Incinerator.
+            -- Do not generate asphalt on a grade this steep.
+            local solidOnly = RaycastParams.new()
+            solidOnly.FilterType = Enum.RaycastFilterType.Include
+            solidOnly.FilterDescendantsInstances = {workspace.Terrain}
+            solidOnly.IgnoreWater = true
+            local function terrainHeight(x,z)
+                local hit = workspace:Raycast(Vector3.new(x,5000,z),
+                    Vector3.new(0,-10000,0),solidOnly)
+                return hit and hit.Position.Y or nil
+            end
+            local gradeSurveys=0
+            for _,entry in ipairs(areas) do
+                if entry.kind=="steep" and gradeSurveys<15 then
+                    gradeSurveys+=1
+                    local x=entry.gradeX or entry.sampleX or (entry.gx+0.5)*80
+                    local z=entry.gradeZ or entry.sampleZ or (entry.gz+0.5)*80
+                    local values={}
+                    for _,p in ipairs({{0,0},{-8,0},{8,0},{0,-8},{0,8},
+                        {-24,0},{24,0},{0,-24},{0,24},
+                        {-48,0},{48,0},{0,-48},{0,48}}) do
+                        local y=terrainHeight(x+p[1],z+p[2])
+                        table.insert(values,y and string.format("%.1f",y) or "none")
+                    end
+                    print(("[ChesterWorld PavementGradeSurvey] road=%s probe=(%.1f,%.1f) length=%.1f maxGrade=%.1f%% mappedWater=%s Y(center,W8,E8,N8,S8,W24,E24,N24,S24,W48,E48,N48,S48)=%s")
+                        :format(entry.street,x,z,entry.length,entry.maxGrade*100,
+                            WaterMap.Classify(x,z),table.concat(values,",")))
                 end
             end
             workspace:SetAttribute("CW_HighwayProfiledPieces", highway.profiledPieces)

@@ -47,24 +47,31 @@ for _,tile in ipairs(World:GetChildren()) do
 end
 overlap.FilterDescendantsInstances=roadFolders
 
+-- Preserve the previous midpoint check for comparison, but ALSO test
+-- multiple longitudinal stations on the SAME named road. An overlapping
+-- cross street / elevated bridge is not proof of a drivable repair.
 local sameRoadCovered,otherRoadCovered,openCount=0,0,0
+local fullOwnRoad,partialOwnRoad,otherRoadOnly,unverified=0,0,0,0
 local openLand,openMappedWater,openStream=0,0,0
 local exactOpen={}
 local function actualPavementAt(x,z,roadName)
     local candidates=Workspace:GetPartBoundsInBox(
-        CFrame.new(x,0,z),Vector3.new(2,1000,2),overlap)
+        CFrame.new(x,0,z),Vector3.new(1.2,1000,1.2),overlap)
     local any,same=false,false
     for _,part in ipairs(candidates) do
-        if part:IsA("BasePart") and part.Transparency < 1 then
-            -- GetPartBoundsInBox is a broad phase. Confirm point against
-            -- the actual local part footprint so AABB overlap cannot
-            -- falsely mark an uncovered diagonal gap as paved.
-            local q=part.CFrame:PointToObjectSpace(Vector3.new(x,part.Position.Y,z))
-            if math.abs(q.X) <= part.Size.X/2+0.4
-                and math.abs(q.Z) <= part.Size.Z/2+0.4 then
+        if part:IsA("BasePart") and part.Transparency < 1
+            and part.CanCollide and part.Size.X>2 then
+            -- AABB is only the broadphase. Confirm the local footprint;
+            -- terrain and elevated crossing parts must not masquerade as
+            -- physical road continuity on a different source street.
+            local q=part.CFrame:PointToObjectSpace(
+                Vector3.new(x,part.Position.Y,z))
+            if math.abs(q.X)<=part.Size.X/2+0.15
+                and math.abs(q.Z)<=part.Size.Z/2+0.15 then
                 any=true
-                if part.Name == roadName
-                    or part:GetAttribute("ChesterStreet") == roadName then
+                if part.Parent and part.Parent.Name=="Roads"
+                    and (part.Name==roadName
+                        or part:GetAttribute("ChesterStreet")==roadName) then
                     same=true
                 end
             end
@@ -75,19 +82,39 @@ end
 
 for i,f in ipairs(fragments) do
     local x,z=(f.ax+f.bx)/2,(f.az+f.bz)/2
-    local same,any=actualPavementAt(x,z,f.road)
-    if same then
+    local middleSame,middleAny=actualPavementAt(x,z,f.road)
+    -- Keep original 202-open-baseline semantics for measured comparisons.
+    if middleSame then
         sameRoadCovered+=1
-    elseif any then
+    elseif middleAny then
         otherRoadCovered+=1
     else
         openCount+=1
+    end
+    local ownStations,anyStations=0,0
+    for _,t in ipairs({0.25,0.5,0.75}) do
+        local sx=f.ax+(f.bx-f.ax)*t
+        local sz=f.az+(f.bz-f.az)*t
+        local own,any=actualPavementAt(sx,sz,f.road)
+        if own then ownStations+=1 end
+        if any then anyStations+=1 end
+    end
+    if ownStations==3 then
+        fullOwnRoad+=1
+    else
+        unverified+=1
+        if ownStations>0 then
+            partialOwnRoad+=1
+        elseif anyStations>0 then
+            otherRoadOnly+=1
+        end
         local water=WaterMap.Classify(x,z)
         if water=="mappedPolygon" then openMappedWater+=1
         elseif water=="approxStream" then openStream+=1
         else openLand+=1 end
         table.insert(exactOpen,{
-            f=f,x=x,z=z,water=water,impact=f.length*(f.width or 1)
+            f=f,x=x,z=z,water=water,impact=f.length*(f.width or 1),
+            ownStations=ownStations,anyStations=anyStations
         })
     end
     if i%30==0 then task.wait() end
@@ -129,21 +156,23 @@ table.sort(exactOpen,function(a,b) return a.impact>b.impact end)
 for i=1,math.min(#exactOpen,30) do
     local d=exactOpen[i]
     local f=d.f
-    print(("[ChesterWorld RoadFinalOpenGap] rank=%d road=%s kind=%s center=(%.1f,%.1f) length=%.1f width=%.1f GIS=%s gradePct=%s from=(%.1f,%.1f) to=(%.1f,%.1f)")
+    print(("[ChesterWorld RoadFinalOpenGap] rank=%d road=%s kind=%s center=(%.1f,%.1f) length=%.1f width=%.1f GIS=%s gradePct=%s ownStations=%d/3 anyRoadStations=%d/3 from=(%.1f,%.1f) to=(%.1f,%.1f)")
         :format(i,tostring(f.road),f.kind,d.x,d.z,f.length,f.width,d.water,
             f.grade and string.format("%.1f",f.grade*100) or "unknown",
-            f.ax,f.az,f.bx,f.bz))
+            d.ownStations,d.anyStations,f.ax,f.az,f.bx,f.bz))
 end
 for _,h in ipairs(badHighways) do
     warn(("[ChesterWorld RoadFinalHighwayGrade] road=%s center=(%.1f,%.1f) grade=%.1f%% threshold=%.1f%%")
         :format(h.name,h.x,h.z,h.grade*100,h.max*100))
 end
-print(("[ChesterWorld RoadFinalAudit] fragmentCandidates=%d coveredSameRoad=%d coveredOtherRoad=%d STILL_OPEN=%d openOnUnmappedTerrain=%d openOnMappedWater=%d openOnApproxStream=%d checkedRoadParts=%d highwayParts=%d highwayAboveGradeLimit=%d nonHighwaySteep=%d bridgeFlagged=%d bridgeStillSteep=%d auditSeconds=%.1f repairStatus=%s repairParts=%d")
+print(("[ChesterWorld RoadFinalAudit] fragmentCandidates=%d coveredSameRoad=%d coveredOtherRoad=%d STILL_OPEN=%d fullyCoveredSameRoad3of3=%d partialSameRoad=%d otherRoadOnly=%d NOT_VERIFIED=%d unverifiedOnUnmappedGIS=%d unverifiedOnMappedWater=%d unverifiedOnApproxStream=%d checkedRoadParts=%d highwayParts=%d highwayAboveGradeLimit=%d nonHighwaySteep=%d bridgeFlagged=%d bridgeStillSteep=%d auditSeconds=%.1f repairStatus=%s repairParts=%d")
     :format(#fragments,sameRoadCovered,otherRoadCovered,openCount,
+        fullOwnRoad,partialOwnRoad,otherRoadOnly,unverified,
         openLand,openMappedWater,openStream,#roadParts,
         highwayPieces,highwayGradeOverLimit,unsafeStreetPieces,
         gradeLimited,gradeLimitedSteep,os.clock()-auditStarted,repairStatus,
         Workspace:GetAttribute("CW_RoadGapRepairParts") or 0))
+Workspace:SetAttribute("CW_RoadFinalUnverifiedFragments",unverified)
 Workspace:SetAttribute("CW_RoadFinalOpenGaps",openCount)
 Workspace:SetAttribute("CW_RoadFinalHighwaySteep",highwayGradeOverLimit)
 Workspace:SetAttribute("CW_RoadFinalAuditComplete",true)

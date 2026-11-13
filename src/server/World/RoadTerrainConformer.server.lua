@@ -403,6 +403,7 @@ local stats = {
     terrainClearanceWarnings = 0, terrainEndpointEstimates = 0,
     insufficientApproachLength = 0, gradeLimitedParts = 0,
     actualSteepParts = 0, baselineSteepGroups = 0,
+    unresolvedCrossings = {}, unresolvedTerrain = {},
 }
 
 local function conformComponent(parts, groupKey)
@@ -585,6 +586,7 @@ local function conformComponent(parts, groupKey)
                     + (Config.HIGHWAY_DECK_THICKNESS_STUDS or 1.6) - baseline
                 targetLift = math.max(targetLift, needed)
                 table.insert(crossings, {t = station, needed = needed,
+                    x=position.X, z=position.Z,
                     label = "over " .. attr(lower, "ChesterStreet")})
             end
         end
@@ -652,6 +654,7 @@ local function conformComponent(parts, groupKey)
                         + ROAD_OFFSET-rec.part.Size.Y/2-deckDepth
                     table.insert(terrainRequirements,{
                         t=t,needed=gy+1.0-baseline,label="terrain",
+                        x=point.X,z=point.Z,
                     })
                 end
             end
@@ -816,12 +819,21 @@ local function conformComponent(parts, groupKey)
     for _, requirement in ipairs(terrainRequirements) do
         if liftAt(requirement.t) + 0.25 < requirement.needed then
             terrainUnresolved += 1
+            table.insert(stats.unresolvedTerrain,{
+                name=bridgeName,group=groupKey,x=requirement.x,z=requirement.z,
+                deficit=requirement.needed-liftAt(requirement.t),t=requirement.t,
+            })
         end
     end
     stats.terrainClearanceWarnings += terrainUnresolved
     for _, crossing in ipairs(crossings) do
         if liftAt(crossing.t) + 0.5 < crossing.needed then
             stats.clearanceWarnings += 1
+            table.insert(stats.unresolvedCrossings,{
+                name=bridgeName,group=groupKey,x=crossing.x,z=crossing.z,
+                lower=crossing.label,
+                deficit=crossing.needed-liftAt(crossing.t),t=crossing.t,
+            })
         end
     end
 
@@ -2297,6 +2309,22 @@ print(("[ChesterWorld RoadTerrainConformer] final=%d groundPreserved=%d bridgeCo
     stats.terrainEndpointEstimates,stats.steepGroups,
     stats.insufficientApproachLength,stats.gradeLimitedParts,
     stats.actualSteepParts,stats.baselineSteepGroups))
+-- Source-profile requirements are evaluated BEFORE registry follower ramps
+-- and highway finishing. Do not claim these are final physical collisions.
+local function printDeficits(label,entries)
+    table.sort(entries,function(a,b) return a.deficit>b.deficit end)
+    for i=1,math.min(#entries,30) do
+        local v=entries[i]
+        warn(("[ChesterWorld %s] sourceProfile=unresolved road=%s group=%s lower=%s at (%.1f,%.1f) deficit=%.2f studs station=%.3f; verify surveyed deck/approach levels")
+            :format(label,tostring(v.name),tostring(v.group),
+                tostring(v.lower or "terrain"),v.x or 0,v.z or 0,v.deficit,v.t))
+    end
+end
 if stats.clearanceWarnings > 0 then
-    warn(("[ChesterWorld Highway] %d bridge crossings need additional surveyed vertical data / ramp length to guarantee clearance."):format(stats.clearanceWarnings))
+    warn(("[ChesterWorld Highway] %d PRE-REGISTRY crossing-height constraints remain unresolved; compare with FINAL measured HighwayFinish lowClearance."):format(stats.clearanceWarnings))
+    printDeficits("BridgeSourceHeightDeficit",stats.unresolvedCrossings)
+end
+if stats.terrainClearanceWarnings > 0 then
+    warn(("[ChesterWorld Highway] %d PRE-REGISTRY terrain-height constraints remain unresolved; compare with FINAL bridgeTerrainIntrusions."):format(stats.terrainClearanceWarnings))
+    printDeficits("BridgeTerrainSourceDeficit",stats.unresolvedTerrain)
 end

@@ -99,7 +99,7 @@ for i,part in ipairs(roadParts) do
     if isHighway then
         highwayPieces+=1
         local cls=tostring(part:GetAttribute("CW_RoadClass") or "")
-        local max=cls=="motorway_link" or cls=="trunk_link" and 0.11 or 0.08
+        local max=(cls=="motorway_link" or cls=="trunk_link") and 0.11 or 0.08
         if grade>max then
             highwayGradeOverLimit+=1
             if #badHighways<20 then table.insert(badHighways,{

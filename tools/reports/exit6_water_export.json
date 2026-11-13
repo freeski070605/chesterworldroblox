@@ -1,0 +1,10 @@
+{
+  "source": "E:\\ChesterWorld\\Data\\16_RegionalTiles\\Tiles",
+  "source_tiles": 102,
+  "water_tiles": 52,
+  "voxel_studs": 4,
+  "water_rectangles": 16749,
+  "mapped_polygon_cells": 2926977,
+  "approximate_stream_cells": 59699,
+  "notes": "Polygons follow mapped GIS banks; stream widths without measured polygons are approximations. Existing roads are not altered."
+}

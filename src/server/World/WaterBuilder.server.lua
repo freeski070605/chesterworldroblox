@@ -15,6 +15,9 @@ local function readyForWater()
         and Workspace:GetAttribute("CW_HighwayFinishComplete") == true
         and Workspace:GetAttribute("CW_ParksComplete") == true
         and Workspace:GetAttribute("CW_GasStationsComplete") == true
+        and Workspace:GetAttribute("CW_RoadTerrainCleared") == true
+        and Workspace:GetAttribute("CW_LandmarksComplete") == true
+        and Workspace:GetAttribute("CW_LocalBridgesDressed") == true
 end
 while not readyForWater() do
     task.wait(0.5)

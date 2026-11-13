@@ -48,29 +48,59 @@ local function waitUntil(check,seconds)
 end
 progress(.04,"Connecting to EXIT 6...")
 waitUntil(function() return game:IsLoaded() end,25)
--- The city is built by the server after it starts (ChesterWorld bootstrap:
--- 102 tiles, then highways, terrain and street dressing). Follow that build
--- (Workspace attributes CW_TilesBuilt / CW_TilesTotal / CW_SpawnReady /
--- CW_BootstrapComplete / CW_HighwayFinishComplete) so nobody lands in a
--- half-built city; a joiner on a finished server passes straight through.
-local WORLD_TIMEOUT=180
+-- All major world phases build on the server, after a player joins.
+-- Follow replicated completion flags instead of a wall-clock timeout.
+-- In particular, highway finishing and gas stations can take longer
+-- than 180 seconds on a cold Studio/server startup. NEVER dismiss the
+-- loading screen with those phases incomplete.
 local started=os.clock()
+local warnedSlow=false
 local function worldReady()
- return Workspace:GetAttribute("CW_SpawnReady")==true and Workspace:GetAttribute("CW_HighwayFinishComplete")==true
+ return Workspace:GetAttribute("CW_SpawnReady")==true
+  and Workspace:GetAttribute("CW_BootstrapComplete")==true
+  and Workspace:GetAttribute("CW_RoadConformComplete")==true
+  and Workspace:GetAttribute("CW_HighwayFinishComplete")==true
+  and Workspace:GetAttribute("CW_ParksComplete")==true
+  and Workspace:GetAttribute("CW_GasStationsComplete")==true
 end
-while not worldReady() and os.clock()-started<WORLD_TIMEOUT do
+while not worldReady() do
+ local elapsed=os.clock()-started
  local total=Workspace:GetAttribute("CW_TilesTotal") or 0
  local built=Workspace:GetAttribute("CW_TilesBuilt") or 0
- if Workspace:GetAttribute("CW_BootstrapComplete")==true then
-  progress(.86,"Laying the highways and bridges...")
- elseif total>0 then
-  progress(.08+.74*built/total,string.format("Building the city...  %d / %d",built,total))
+ local tilesDone=Workspace:GetAttribute("CW_BootstrapComplete")==true
+ local roadsDone=Workspace:GetAttribute("CW_RoadConformComplete")==true
+ local highwayDone=Workspace:GetAttribute("CW_HighwayFinishComplete")==true
+ local parksDone=Workspace:GetAttribute("CW_ParksComplete")==true
+ local gasDone=Workspace:GetAttribute("CW_GasStationsComplete")==true
+ local slow=elapsed>240
+ local suffix=slow and " — large world, still working" or ""
+ if not tilesDone then
+  if total>0 then
+   progress(.08+.65*math.clamp(built/total,0,1),
+    string.format("Building Chester...  %d / %d tiles",built,total)..suffix)
+  else
+   progress(.06,"Waiting for the city server..."..suffix)
+  end
+ elseif not roadsDone then
+  progress(.78,"Connecting roads and bridge approaches..."..suffix)
+ elseif not highwayDone then
+  progress(.86,"Finishing highways and clearing underpasses..."..suffix)
+ elseif not parksDone then
+  progress(.91,"Opening parks and playgrounds..."..suffix)
+ elseif not gasDone then
+  progress(.94,"Finishing gas stations and storefronts..."..suffix)
  else
-  progress(.06,"Waiting for the city...")
+  progress(.96,"Syncing your neighborhood..."..suffix)
  end
- task.wait(.25)
+ if slow and not warnedSlow then
+  warnedSlow=true
+  warn("[EXIT6] City build exceeded 240s; waiting for server completion rather than entering an unfinished world")
+ end
+ task.wait(.35)
 end
-if not worldReady() then warn("[EXIT6] World build still running after "..WORLD_TIMEOUT.."s; entering anyway") end
+print(("[EXIT6] World ready: tiles=%d/%d roads/highway/parks/gas complete after %.1fs")
+ :format(Workspace:GetAttribute("CW_TilesBuilt") or 0,
+  Workspace:GetAttribute("CW_TilesTotal") or 0,os.clock()-started))
 progress(.9,"Preparing your character...")
 local character=player.Character or player.CharacterAdded:Wait()
 local root=character:WaitForChild("HumanoidRootPart",20)

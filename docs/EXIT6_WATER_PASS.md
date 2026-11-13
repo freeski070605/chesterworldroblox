@@ -27,8 +27,11 @@ Safety:
 - Deepening the mapped riverbed must be a separate, backed-up, reviewed
   operation. Shallow or partially dry areas may remain where DEM terrain
   occupies the expected water volume.
-- The water build currently runs on each server. After Studio verification
-  it should be baked into the saved place to avoid runtime work.
+- Once the one-time Studio bake is verified, runtime skips all water generation.
+  Run `require(game.ServerScriptService.Server.World.WaterBake).Run()` in the
+  Studio **Edit-mode** Command Bar only, then save the place. First make a
+  separate backup of the original terrain; see `docs/EXIT6_STUDIO_WATER_BAKE.md`.
+  Until a bake exists, runtime generation remains available as a fallback.
 - If water polygon source coverage is empty, export fails rather than
   inventing features. No data installed yet is a nonbreaking warning;
   if water generation fails with data, loading remains up with an error.

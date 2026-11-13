@@ -146,3 +146,50 @@ Priority AFTER confirming actual repairs: riverfront GIS/DEM road footprint,
 Macdade/Crum Lynne long-grade profiles, and per-crossing bridge elevation
 surveys. The remaining first-pass code changes are not a license to publish
 before the unverified missing roads are resolved.
+
+
+## Nov 13 late Studio run — repair results and next stage
+
+The uploaded 14:28–14:33 Studio log confirms:
+- RoadGapRepair: 26 chains evaluated; 0 chains/0 fragments/0 Parts repaired.
+- 15 unsafe anchor grades, 6 missing two anchors, 3 layer mismatches,
+  1 too long for local repair, 1 above unsupported terrain.
+- Final midpoint audit: 229 omissions, 3 covered by same-named road, 24
+  by other-road footprints, 202 open at midpoint. 193 are GIS notMapped,
+  which does not prove they are dry land; nine are mapped water.
+- Mainline profile: 0 grade violations; final HighwayFinish 245 crossings,
+  0 actual low clearance, 0 tunnel obstruction and 0 bridge intrusion.
+- Tagged bridge source warning count still 69, but 0 of 69 had excessive
+  final measured grade. Early 20 crossing and 42 terrain constraints still
+  need surveyed reconciliation before calling every bridge verified.
+
+Safety and accuracy changes now pushed:
+1. Gap filler no longer modifies native Terrain with FillBlock. It only
+   adds real Parts after an entirely dry, supported safe grade is proven.
+2. Rejected chains now print measured start/end heights, required extra
+   approach length, or exactly which anchor/source elevation is missing.
+3. Final audit now checks three longitudinal points of the SAME ROAD.
+   Overlapping pavement of a different road cannot certify continuity.
+   New NOT_VERIFIED count is separate from legacy STILL_OPEN baseline.
+4. Top 40 steep and top 40 no-terrain omitted fragments are printed
+   independently, so Macdade/Crum Lynne source endpoints are visible.
+5. Aerial-backed registry crossing CRUM_LYNNE_OVER_CSX at
+   Roblox (14420,-10378) is allowed one exceptional elevated-deck
+   restoration. It is only eligible if same-road ends align, <=11%
+   grade holds, real CSX ballast Parts exist underneath, >=14-stud
+   vertical clearance holds, terrain does not invade the road, all
+   sample probes avoid native water, and no incompatible overpass
+   overlaps. The bridge uses a Part deck plus edge parapets and does not
+   modify baked Terrain. Rejected if any check fails.
+
+This new bridge exception is NOT YET VERIFIED IN STUDIO. It is a
+specific source-supported attempt, not a claim Crum Lynne was repaired.
+Macdade around (7666,-7719), (7783,-7790), (9980,-9818) needs
+longitudinal road approaches from surveyed road heights; Riverfront
+X -1400..-900, Z 9850..10350 needs GIS shoreline/DEM alignment.
+
+Next run must report:
+[ChesterWorld RoadGapRepairRejected] details=...
+[ChesterWorld RoadGapRepair] ... verifiedRailBridgeChains=...
+[ChesterWorld RoadFinalAudit] ... STILL_OPEN=... NOT_VERIFIED=...
+[ChesterWorld RoadGapDetail] kind=steep ...

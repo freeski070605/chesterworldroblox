@@ -145,7 +145,8 @@ function TileBuilderV3.Build(tileModule)
                     elseif near>=6 and hi-lo<=4 then
                         status="possibleSmallSeam"
                     elseif near<=2 then
-                        status="extendedNoTerrainOrWater"
+                        status=(mappedWater=="notMapped") and "unmappedNoTerrainRequiresGISReview"
+                            or "extendedNoTerrainWaterSourceUnknown"
                     else
                         status="mixedBankNeedsSurvey"
                     end

@@ -9,6 +9,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+Workspace:SetAttribute("CW_Exit6TrafficReady", false)
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local WorldConfig = require(Shared:WaitForChild("WorldConfig"))
@@ -17,7 +18,11 @@ local Catalog = require(Shared:WaitForChild("Exit6Catalog"))
 local Builder = require(script.Parent:WaitForChild("Exit6CarBuilder"))
 local TR = Config.Traffic or {}
 local COUNT = TR.cars or 14
-if COUNT <= 0 then return end
+if COUNT <= 0 then
+    Workspace:SetAttribute("CW_Exit6TrafficStatus", "disabled")
+    Workspace:SetAttribute("CW_Exit6TrafficReady", true)
+    return
+end
 local REGION = TR.region or WorldConfig.REAL_BUILDINGS_REGION
 
 local JOIN = 5
@@ -31,7 +36,12 @@ local rng = Random.new()
 local t0 = os.clock()
 while not Workspace:GetAttribute("CW_StreetFurnitureComplete") and os.clock() - t0 < 400 do task.wait(2) end
 local world = Workspace:FindFirstChild("ChesterWorld")
-if not world then return end
+if not world then
+    warn("[EXIT6 Traffic] ChesterWorld was not found")
+    Workspace:SetAttribute("CW_Exit6TrafficStatus", "world-unavailable")
+    Workspace:SetAttribute("CW_Exit6TrafficReady", true)
+    return
+end
 
 -- ------------------------------------------------------------------ road graph
 local nodes = {}
@@ -158,7 +168,12 @@ for id in ipairs(nodes) do
 	if comp[id] == best and degree(id) >= 2 then table.insert(usable, id) end
 end
 print(string.format("[EXIT6 Traffic] roadNodes=%d network=%d", #nodes, #usable))
-if #usable < 20 then return end
+if #usable < 20 then
+    warn("[EXIT6 Traffic] Road network too small to spawn traffic")
+    Workspace:SetAttribute("CW_Exit6TrafficStatus", "network-unavailable")
+    Workspace:SetAttribute("CW_Exit6TrafficReady", true)
+    return
+end
 
 -- ------------------------------------------------------------------ cars
 local folder = Instance.new("Folder")
@@ -276,6 +291,8 @@ for i = 1, COUNT do
 	spawnCar(i)
 	task.wait(0.1)
 end
+Workspace:SetAttribute("CW_Exit6TrafficStatus", "ready")
+Workspace:SetAttribute("CW_Exit6TrafficReady", true)
 
 -- obstacles ahead: player characters, every vehicle, pedestrians
 local function obstacleAhead(car, pos, dir)

@@ -33,7 +33,10 @@ once verified water is baked into the saved Roblox place.
        [EXIT6] World ready: ... waterStatus=baked-verified
    The second verification happens AFTER land clearing, landmarks and local
    bridge construction (which can modify Terrain). The loading screen waits
-   for road terrain clearing, landmarks, bridges, street furniture and trees.
+   for road terrain clearing, landmarks, bridges, street furniture and trees,
+   plus completed gameplay setup for EXIT 6 Motors, Exit 6 Sound,
+   city traffic, pedestrians and Subaru Park/time trials. Unavailable
+   features report explicit status warnings instead of silently succeeding.
    There must be no [EXIT6 Water] COMPLETE ... fallback build message.
    If post-build proof fails, runtime rebuilds missing water before entry;
    do not publish until visually checked.

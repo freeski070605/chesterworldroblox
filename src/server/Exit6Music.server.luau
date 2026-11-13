@@ -10,6 +10,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
 local Workspace = game:GetService("Workspace")
+Workspace:SetAttribute("CW_Exit6MusicReady", false)
 
 local Profile = require(script.Parent:WaitForChild("Exit6Profile"))
 local Lots = require(script.Parent:WaitForChild("Exit6Lots"))
@@ -167,7 +168,12 @@ task.spawn(function()
 	local W, D, H = 34, 26, 13
 	local cf, street = Lots.Find({ near = Vector3.new(2700, 60, 1700), size = Vector3.new(W + 6, 0, D + 8),
 		keepClear = dealer and { { dealer, 120 } } or nil })
-	if not cf then warn("[EXIT6 Music] no lot for the studio") return end
+	if not cf then
+        warn("[EXIT6 Music] no lot for the studio")
+        Workspace:SetAttribute("CW_Exit6MusicStatus", "lot-unavailable")
+        Workspace:SetAttribute("CW_Exit6MusicReady", true)
+        return
+    end
 	local m = Instance.new("Model")
 	m.Name = "Exit 6 Sound"
 	local base = cf * CFrame.new(0, 0, 2)
@@ -259,4 +265,6 @@ task.spawn(function()
 	Workspace:SetAttribute("Exit6StudioAt", base.Position)
 	Workspace:SetAttribute("Exit6StudioMic", mic.Position)
 	print(string.format("[EXIT6 Music] Exit 6 Sound on %s at (%.0f, %.0f, %.0f)", tostring(street), base.X, base.Y, base.Z))
+    Workspace:SetAttribute("CW_Exit6MusicStatus", "ready")
+    Workspace:SetAttribute("CW_Exit6MusicReady", true)
 end)

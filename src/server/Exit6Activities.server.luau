@@ -9,6 +9,7 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+Workspace:SetAttribute("CW_Exit6ActivitiesReady", false)
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local WorldConfig = require(Shared:WaitForChild("WorldConfig"))
@@ -257,7 +258,12 @@ local function setupPens()
 	local t0 = os.clock()
 	while not Workspace:GetAttribute("Exit6SubaruPitch") and os.clock() - t0 < 120 do task.wait(2) end
 	local frame = Workspace:GetAttribute("Exit6SubaruPitch")
-	if typeof(frame) ~= "CFrame" then return end
+	if typeof(frame) ~= "CFrame" then
+        warn("[EXIT6 Activities] Penalty shootout pitch unavailable; entering without this activity")
+        Workspace:SetAttribute("CW_Exit6ActivitiesStatus", "shootout-unavailable")
+        Workspace:SetAttribute("CW_Exit6ActivitiesReady", true)
+        return
+    end
 	local L = Workspace:GetAttribute("Exit6SubaruPitchL") or 330
 	-- the goal at one end of the pitch, facing down the field (-X)
 	local goalCf = frame * CFrame.new(L / 2 - 6, 0.7, 0) * CFrame.Angles(0, math.rad(90), 0)
@@ -371,6 +377,8 @@ local function setupPens()
 		lastPens[player.UserId] = nil
 	end)
 	print("[EXIT6 Activities] penalty shootout at Subaru Park")
+    Workspace:SetAttribute("CW_Exit6ActivitiesStatus", "ready")
+    Workspace:SetAttribute("CW_Exit6ActivitiesReady", true)
 end
 task.spawn(setupPens)
 Players.PlayerRemoving:Connect(function(player) trials[player] = nil end)

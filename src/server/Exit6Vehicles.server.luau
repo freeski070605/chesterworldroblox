@@ -12,6 +12,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+Workspace:SetAttribute("CW_Exit6DealershipReady", false)
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Catalog = require(Shared:WaitForChild("Exit6Catalog"))
@@ -355,7 +356,12 @@ local function buildDealership()
 	local t0 = os.clock()
 	while not Workspace:GetAttribute("CW_StreetFurnitureComplete") and os.clock() - t0 < 400 do task.wait(2) end
 	local lotCf, street = findLot(Vector3.new(2810, 60, 1518))
-	if not lotCf then warn("[EXIT6 Vehicles] no free lot for the dealership") return end
+	if not lotCf then
+        warn("[EXIT6 Vehicles] no free lot for the dealership")
+        Workspace:SetAttribute("CW_Exit6DealershipStatus", "lot-unavailable")
+        Workspace:SetAttribute("CW_Exit6DealershipReady", true)
+        return
+    end
 	local m = Instance.new("Model")
 	m.Name = DEALER_NAME
 	-- lot: asphalt, painted bays, kerb lights
@@ -445,5 +451,7 @@ local function buildDealership()
 	CollectionService:AddTag(m, "Exit6Store")
 	Workspace:SetAttribute("Exit6DealershipAt", lotCf.Position)
 	print(string.format("[EXIT6 Vehicles] %s on %s at (%.0f, %.0f, %.0f)", DEALER_NAME, tostring(street), lotCf.X, lotCf.Y, lotCf.Z))
+    Workspace:SetAttribute("CW_Exit6DealershipStatus", "ready")
+    Workspace:SetAttribute("CW_Exit6DealershipReady", true)
 end
 task.spawn(buildDealership)

@@ -8,6 +8,7 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+Workspace:SetAttribute("CW_Exit6PedestriansReady", false)
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local WorldConfig = require(Shared:WaitForChild("WorldConfig"))
@@ -15,7 +16,11 @@ local Config = require(Shared:WaitForChild("Exit6Config"))
 local P = Config.Pedestrians or {}
 local WALKERS = P.walkers or 22
 local HANGERS = P.hangers or 8
-if WALKERS + HANGERS <= 0 then return end
+if WALKERS + HANGERS <= 0 then
+    Workspace:SetAttribute("CW_Exit6PedestriansStatus", "disabled")
+    Workspace:SetAttribute("CW_Exit6PedestriansReady", true)
+    return
+end
 local REGION = P.region or WorldConfig.REAL_BUILDINGS_REGION
 
 local JOIN = 4           -- strip ends this close are one walkway
@@ -37,7 +42,12 @@ local rng = Random.new()
 local t0 = os.clock()
 while not Workspace:GetAttribute("CW_StreetFurnitureComplete") and os.clock() - t0 < 400 do task.wait(2) end
 local world = Workspace:FindFirstChild("ChesterWorld")
-if not world then return end
+if not world then
+    warn("[EXIT6 Pedestrians] ChesterWorld was not found")
+    Workspace:SetAttribute("CW_Exit6PedestriansStatus", "world-unavailable")
+    Workspace:SetAttribute("CW_Exit6PedestriansReady", true)
+    return
+end
 
 -- ------------------------------------------------------------- sidewalk graph
 local nodes = {}      -- id -> { pos, links = {id = kind} }
@@ -177,7 +187,12 @@ for c, s in ipairs(sizes) do if s > mainSize then mainComp, mainSize = c, s end 
 local usable = {}
 for id in ipairs(nodes) do if comp[id] == mainComp then table.insert(usable, id) end end
 print(string.format("[EXIT6 Pedestrians] strips=%d nodes=%d crossings=%d network=%d", strips, #nodes, crossings, #usable))
-if #usable < 20 then return end
+if #usable < 20 then
+    warn("[EXIT6 Pedestrians] Walkable network too small")
+    Workspace:SetAttribute("CW_Exit6PedestriansStatus", "network-unavailable")
+    Workspace:SetAttribute("CW_Exit6PedestriansReady", true)
+    return
+end
 
 -- ------------------------------------------------------------- people
 local folder = Instance.new("Folder")
@@ -376,3 +391,5 @@ for i = 1, math.min(HANGERS, #spots) do
 	task.spawn(hanger, spot, look)
 	task.wait(0.15)
 end
+Workspace:SetAttribute("CW_Exit6PedestriansStatus", "ready")
+Workspace:SetAttribute("CW_Exit6PedestriansReady", true)

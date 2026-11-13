@@ -68,6 +68,11 @@ local function worldReady()
   and Workspace:GetAttribute("CW_StreetFurnitureComplete")==true
   and Workspace:GetAttribute("CW_TreesComplete")==true
   and Workspace:GetAttribute("CW_WaterComplete")==true
+  and Workspace:GetAttribute("CW_Exit6DealershipReady")==true
+  and Workspace:GetAttribute("CW_Exit6MusicReady")==true
+  and Workspace:GetAttribute("CW_Exit6TrafficReady")==true
+  and Workspace:GetAttribute("CW_Exit6PedestriansReady")==true
+  and Workspace:GetAttribute("CW_Exit6ActivitiesReady")==true
 end
 while not worldReady() do
  local elapsed=os.clock()-started
@@ -84,6 +89,11 @@ while not worldReady() do
  local furnitureDone=Workspace:GetAttribute("CW_StreetFurnitureComplete")==true
  local treesDone=Workspace:GetAttribute("CW_TreesComplete")==true
  local waterDone=Workspace:GetAttribute("CW_WaterComplete")==true
+ local dealershipDone=Workspace:GetAttribute("CW_Exit6DealershipReady")==true
+ local musicDone=Workspace:GetAttribute("CW_Exit6MusicReady")==true
+ local trafficDone=Workspace:GetAttribute("CW_Exit6TrafficReady")==true
+ local pedestriansDone=Workspace:GetAttribute("CW_Exit6PedestriansReady")==true
+ local activitiesDone=Workspace:GetAttribute("CW_Exit6ActivitiesReady")==true
  local waterStatus=Workspace:GetAttribute("CW_WaterStatus")
  local slow=elapsed>240
  local suffix=slow and " — large world, still working" or ""
@@ -127,8 +137,18 @@ while not worldReady() do
    progress(.95+.03*(totalPatches>0 and math.clamp(done/totalPatches,0,1) or 0),
     string.format("Adding rivers and creeks... %d / %d",done,totalPatches)..suffix)
   end
+ elseif not dealershipDone then
+  progress(.98,"Opening EXIT 6 Motors..."..suffix)
+ elseif not musicDone then
+  progress(.982,"Setting up EXIT 6 Sound..."..suffix)
+ elseif not trafficDone then
+  progress(.984,"Spawning city traffic..."..suffix)
+ elseif not pedestriansDone then
+  progress(.986,"Bringing Chester pedestrians into town..."..suffix)
+ elseif not activitiesDone then
+  progress(.988,"Preparing time trials and Subaru Park..."..suffix)
  else
-  progress(.96,"Syncing your neighborhood..."..suffix)
+  progress(.99,"Syncing your neighborhood..."..suffix)
  end
  if slow and not warnedSlow then
   warnedSlow=true
@@ -136,10 +156,27 @@ while not worldReady() do
  end
  task.wait(.35)
 end
-print(("[EXIT6] World ready: tiles=%d/%d structures/roads/terrain/bridges/furniture/trees complete waterStatus=%s after %.1fs")
+local systems = {
+ {"dealership", "CW_Exit6DealershipStatus"},
+ {"music", "CW_Exit6MusicStatus"},
+ {"traffic", "CW_Exit6TrafficStatus"},
+ {"pedestrians", "CW_Exit6PedestriansStatus"},
+ {"activities", "CW_Exit6ActivitiesStatus"},
+}
+local serviceStatuses = {}
+for _, pair in ipairs(systems) do
+ local state = tostring(Workspace:GetAttribute(pair[2]) or "unknown")
+ table.insert(serviceStatuses, pair[1] .. "=" .. state)
+ if state ~= "ready" and state ~= "disabled" then
+  warn("[EXIT6] Gameplay system unavailable at world-ready: " .. pair[1] .. "=" .. state)
+ end
+end
+print(("[EXIT6] World ready: tiles=%d/%d terrain/bridges/furniture/trees/services finished waterStatus=%s services={%s} after %.1fs")
  :format(Workspace:GetAttribute("CW_TilesBuilt") or 0,
   Workspace:GetAttribute("CW_TilesTotal") or 0,
-  tostring(Workspace:GetAttribute("CW_WaterStatus") or "unknown"),os.clock()-started))
+  tostring(Workspace:GetAttribute("CW_WaterStatus") or "unknown"),
+  table.concat(serviceStatuses, ","),
+  os.clock()-started))
 progress(.9,"Preparing your character...")
 local character=player.Character or player.CharacterAdded:Wait()
 local root=character:WaitForChild("HumanoidRootPart",20)

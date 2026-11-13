@@ -8,6 +8,7 @@ local Registry = require(Shared:WaitForChild("HighwayStructureRegistry"))
 local HighwayProfile = require(script.Parent:WaitForChild("HighwayProfile"))
 local RailProfile = require(script.Parent:WaitForChild("RailProfile"))
 local RealBuildings = require(script.Parent:WaitForChild("RealBuildings"))
+local WaterMap = require(script.Parent:WaitForChild("WaterMap"))
 RealBuildings.stats = { frontDoors = 0, backDoors = 0, sideDoors = 0, storefronts = 0, shops = 0, homes = 0, stores = 0 }
 
 local TileBuilderV2 = {}
@@ -17,6 +18,7 @@ local TileBuilderV2 = {}
 -- again be silent.
 local omissions = {
 	steepPieces = 0, steepLength = 0, noTerrainPieces = 0, terrainRecovered = 0,
+    seam4Recovered = 0, seamWaterRejected = 0, missingFragments = {},
 	trimConsumed = 0, trimConsumedHighway = 0, samples = {},
 }
 local highwayStats = {
@@ -107,26 +109,56 @@ end
 
 -- Only fill small, nearly level holes at a terrain tile seam. Do not
 -- extrapolate across a cliff, excavation, river or elevated structure.
-local function terrainYForStripEndpoint(x, z)
-	local exact = terrainY(x, z)
-	if exact ~= nil then return exact end
-	for _, radius in ipairs({ 8, 16 }) do
-		local n, sum, lo, hi = 0, 0, math.huge, -math.huge
-		for _, dir in ipairs({ {1,0}, {-1,0}, {0,1}, {0,-1},
-			{0.707,0.707}, {-0.707,0.707}, {0.707,-0.707}, {-0.707,-0.707} }) do
-			local y = terrainY(x + dir[1] * radius, z + dir[2] * radius)
-			if y then
-				n += 1
-				sum += y
-				lo, hi = math.min(lo, y), math.max(hi, y)
-			end
-		end
-		if n >= 4 and hi - lo <= 3 then
-			omissions.terrainRecovered = (omissions.terrainRecovered or 0) + 1
-			return sum / n
-		end
-	end
-	return nil
+local seamDirections = {
+    {1,0}, {-1,0}, {0,1}, {0,-1},
+    {0.70710678,0.70710678}, {-0.70710678,0.70710678},
+    {0.70710678,-0.70710678}, {-0.70710678,-0.70710678},
+}
+local seamWetParams = RaycastParams.new()
+seamWetParams.FilterType = Enum.RaycastFilterType.Include
+seamWetParams.FilterDescendantsInstances = {workspace.Terrain}
+seamWetParams.IgnoreWater = false
+local function wetSurface(x,z)
+    local hit = workspace:Raycast(Vector3.new(x,5000,z),Vector3.new(0,-10000,0),seamWetParams)
+    return hit ~= nil and hit.Material == Enum.Material.Water
+end
+local function terrainYForStripEndpoint(x,z)
+    local exact = terrainY(x,z)
+    if exact ~= nil then return exact end
+    -- Only fill isolated, nearly level, DRY gaps. Never infer shoreline
+    -- elevations from the bare-earth DEM or invent floating river roads.
+    if WaterMap.Classify(x,z) ~= "notMapped" or wetSurface(x,z) then
+        omissions.seamWaterRejected += 1
+        return nil
+    end
+    for _,radius in ipairs({4,8,16}) do
+        local n,sum,lo,hi = 0,0,math.huge,-math.huge
+        local waterMargin = false
+        for _,dir in ipairs(seamDirections) do
+            local xx,zz = x+dir[1]*radius,z+dir[2]*radius
+            if WaterMap.Classify(xx,zz) ~= "notMapped" or wetSurface(xx,zz) then
+                waterMargin = true
+                break
+            end
+            local y=terrainY(xx,zz)
+            if y then
+                n+=1
+                sum+=y
+                lo,hi=math.min(lo,y),math.max(hi,y)
+            end
+        end
+        if waterMargin then
+            omissions.seamWaterRejected += 1
+            return nil
+        end
+        if n >= (radius==4 and 6 or 4)
+            and hi-lo <= (radius==4 and 1 or 3) then
+            omissions.terrainRecovered += 1
+            if radius==4 then omissions.seam4Recovered += 1 end
+            return sum/n
+        end
+    end
+    return nil
 end
 
 local function makeFolder(parent, name)
@@ -763,6 +795,7 @@ function TileBuilderV2.Prepare(tileModules)
 	globalIntersectionNodes = {}
 	omissions = {
 		steepPieces = 0, steepLength = 0, noTerrainPieces = 0, terrainRecovered = 0,
+    seam4Recovered = 0, seamWaterRejected = 0, missingFragments = {},
 		trimConsumed = 0, trimConsumedHighway = 0, samples = {},
 	}
 	highwayStats = {
@@ -983,6 +1016,11 @@ local function buildAdaptiveCenterStrip(parent, name, x1, z1, x2, z2, width, thi
 	if not a or not b then
 		if parent.Name == "Roads" and math.abs(x2 - x1) + math.abs(z2 - z1) > 0.1 then
 			omissions.noTerrainPieces += 1
+            table.insert(omissions.missingFragments, {
+                kind="no-terrain", road=name, class=attributes and attributes.CW_RoadClass,
+                ax=x1, az=z1, bx=x2, bz=z2, width=width,
+                length=math.sqrt((x2-x1)^2+(z2-z1)^2),
+            })
 			noteOmission("no-terrain", (x1 + x2) / 2, (z1 + z2) / 2, " " .. tostring(name), name, math.sqrt((x2-x1)^2+(z2-z1)^2))
 		end
 		return
@@ -1010,6 +1048,11 @@ local function buildAdaptiveCenterStrip(parent, name, x1, z1, x2, z2, width, thi
 	if steep and not allowSteepHighway then
 		if parent.Name == "Roads" then
 			omissions.steepPieces += 1
+            table.insert(omissions.missingFragments, {
+                kind="steep", road=name, class=attributes and attributes.CW_RoadClass,
+                ax=x1, az=z1, bx=x2, bz=z2, width=width,
+                ay=a.Y, by=b.Y, grade=grade, length=horizontalLength(a,b),
+            })
 			omissions.steepLength += horizontalLength(a, b)
 			noteOmission("steep", (x1 + x2) / 2, (z1 + z2) / 2,
 				string.format(" grade=%.0f%% %s", grade * 100, tostring(name)), name, horizontalLength(a,b), grade)

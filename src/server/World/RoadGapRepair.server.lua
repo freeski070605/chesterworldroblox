@@ -6,6 +6,14 @@ local Workspace=game:GetService("Workspace")
 local Terrain=Workspace.Terrain
 local Builder=require(script.Parent:WaitForChild("TileBuilderV2"))
 local WaterMap=require(script.Parent:WaitForChild("WaterMap"))
+local Registry=require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("HighwayStructureRegistry"))
+local crumRailRegistry
+for _,entry in ipairs(Registry.NAMED or {}) do
+    if entry.id=="CRUM_LYNNE_OVER_CSX" then
+        crumRailRegistry=entry
+        break
+    end
+end
 
 Workspace:SetAttribute("CW_RoadGapRepairComplete",false)
 Workspace:SetAttribute("CW_RoadGapRepairStatus","waiting")
@@ -127,7 +135,7 @@ local function run()
         reasonCounts[why]=(reasonCounts[why] or 0)+1
     end
     local totalGroups,repairedGroups,repairedFragments=0,0,0
-    local insertedParts=0
+    local insertedParts,railDeckChains,railDeckParts=0,0,0
     local printedRejected=0
 
     local function tryGroup(fragments)
@@ -185,6 +193,21 @@ local function run()
                 "length=%.1f permittedMax=48.0",total)) return
         end
         local first,last=ordered[1],ordered[#ordered]
+        -- This is an aerial-backed, explicitly named CSX crossing, not
+        -- an inference based on steep terrain. It may use an elevated deck.
+        local registryCenter=crumRailRegistry and crumRailRegistry.center
+        local railroadBridge=registryCenter~=nil
+            and string.lower(tostring(first.f.road))=="crum lynne"
+        if railroadBridge then
+            for _,seg in ipairs(ordered) do
+                local mx,mz=(seg.a.X+seg.b.X)/2,(seg.a.Z+seg.b.Z)/2
+                local dx,dz=mx-registryCenter[1],mz-registryCenter[2]
+                if dx*dx+dz*dz>(crumRailRegistry.radius+20)^2 then
+                    railroadBridge=false
+                    break
+                end
+            end
+        end
         local dxA=(first.b-first.a).Unit
         local dxB=(last.b-last.a).Unit
         local start=anchorFor(first.a.X,first.a.Z,-dxA,first.f.road,first.f.width)
@@ -208,15 +231,47 @@ local function run()
             and first.f.ay or first.f.by
         local sourceEndY=last.b.X==last.f.bx and last.b.Z==last.f.bz
             and last.f.by or last.f.ay
-        if math.abs(start.y-sourceStartY)>18 or math.abs(finish.y-sourceEndY)>18 then
+        if not railroadBridge and
+            (math.abs(start.y-sourceStartY)>18 or math.abs(finish.y-sourceEndY)>18) then
             -- Guard against a road at an entirely different elevation.
             rejectChain("layer-mismatch",string.format(
                 "startY=%.2f sourceStartY=%.2f endY=%.2f sourceEndY=%.2f; likely grade-separated road requiring bridge profile",
                 start.y,sourceStartY,finish.y,sourceEndY)) return
         end
 
-        -- Validate the actual road corridor BEFORE changing terrain. Reject
-        -- any water or missing ground at center and both pavement shoulders.
+        -- A missing rail bridge must have a real CSX bed BELOW the proposed
+        -- deck. No generic "river" or inferred rail structure qualifies.
+        local railTop=nil
+        if railroadBridge then
+            local wx,wz=registryCenter[1],registryCenter[2]
+            local nearby=Workspace:GetPartBoundsInBox(
+                CFrame.new(wx,70,wz),
+                Vector3.new(crumRailRegistry.radius*2,150,
+                    crumRailRegistry.radius*2),overlap)
+            for _,part in ipairs(nearby) do
+                if part:IsA("BasePart") and part:GetAttribute("CW_Rail")==true
+                    and tostring(part.Name):lower()=="csx phila subdivision" then
+                    local dx,dz=part.Position.X-wx,part.Position.Z-wz
+                    if dx*dx+dz*dz<crumRailRegistry.radius^2 then
+                        local top=part.Position.Y+part.Size.Y/2
+                        railTop=math.max(railTop or -math.huge,top)
+                    end
+                end
+            end
+            if railTop==nil then
+                rejectChain("rail-deck-source-not-present") return
+            end
+            local underside=math.min(start.y,finish.y)-0.45/2
+            local clearance=underside-railTop
+            if clearance < 14 then
+                rejectChain("rail-clearance-insufficient",string.format(
+                    "lowerRailY=%.2f deckUnderside=%.2f clearance=%.2f required=14",
+                    railTop,underside,clearance))
+                return
+            end
+        end
+
+        -- Validate the entire road corridor BEFORE making any changes.
         local walked=0
         for _,seg in ipairs(ordered) do
             local dir=(seg.b-seg.a).Unit
@@ -235,7 +290,9 @@ local function run()
                         if other:GetAttribute("CW_HighwayProfiled")==true
                             or other:GetAttribute("CW_Bridge")==true
                             or other:GetAttribute("CW_Tunnel")==true
-                            or other:GetAttribute("CW_Rail")==true then
+                            or (other:GetAttribute("CW_Rail")==true
+                                and not (railroadBridge
+                                    and tostring(other.Name):lower()=="csx phila subdivision")) then
                             rejectChain("grade-separated-crossing") return
                         end
                     end
@@ -256,9 +313,10 @@ local function run()
                             "at=(%.1f,%.1f) terrain=%.2f proposedTop=%.2f cut=%.2f",
                             x,z,gy,roadTop,gy-roadTop)) return
                     end
-                    if roadTop-gy>0.85 then
-                        rejectChain("floating-above-terrain",string.format(
-                            "at=(%.1f,%.1f) terrain=%.2f proposedTop=%.2f fill=%.2f",
+                    if roadTop-gy>(railroadBridge and 32 or 0.85) then
+                        rejectChain(railroadBridge and "rail-deck-height-excess"
+                            or "floating-above-terrain",string.format(
+                            "at=(%.1f,%.1f) terrain=%.2f proposedTop=%.2f lift=%.2f",
                             x,z,gy,roadTop,roadTop-gy)) return
                     end
                 end
@@ -289,12 +347,37 @@ local function run()
             newPart:SetAttribute("RoadWidthStuds",seg.f.width)
             newPart:SetAttribute("CW_RoadGapRepair",true)
             newPart:SetAttribute("CW_RepairAnchorGrade",grade)
+            if railroadBridge then
+                newPart:SetAttribute("CW_Bridge",true)
+                newPart:SetAttribute("CW_RailOverpassRepair",true)
+                newPart:SetAttribute("CW_StructureId",crumRailRegistry.id)
+                newPart:SetAttribute("CW_DeckClearanceStuds",math.min(start.y,finish.y)-0.225-railTop)
+            end
             newPart.Parent=start.part.Parent
             -- Never edit native Terrain from a heuristic gap filler.
             -- Verified water must remain untouched, including outside
             -- the sparse probe positions.
+            if railroadBridge then
+                -- Side parapets only on validated missing pieces; never
+                -- cover the drive lane with a rail across its width.
+                for _,side in ipairs({-1,1}) do
+                    local wall=Instance.new("Part")
+                    wall.Name="CrumLynneRailOverpassParapet"
+                    wall.Size=Vector3.new(0.7,3.2,newPart.Size.Z)
+                    wall.CFrame=newPart.CFrame*CFrame.new(
+                        side*(seg.f.width/2+0.35),1.6,0)
+                    wall.Anchored=true
+                    wall.Material=Enum.Material.Concrete
+                    wall.Color=Color3.fromRGB(146,146,142)
+                    wall:SetAttribute("CW_RailOverpassRepair",true)
+                    wall:SetAttribute("CW_StructureId",crumRailRegistry.id)
+                    wall.Parent=start.part.Parent
+                end
+                railDeckParts+=1
+            end
             insertedParts+=1
         end
+        if railroadBridge then railDeckChains+=1 end
         repairedGroups+=1
         repairedFragments+=#fragments
         print(("[ChesterWorld RoadGapRepaired] road=%s fragments=%d length=%.1f grade=%.1f%% from=(%.1f,%.1f) to=(%.1f,%.1f)")
@@ -344,10 +427,12 @@ local function run()
     Workspace:SetAttribute("CW_RoadGapRepairGroups",repairedGroups)
     Workspace:SetAttribute("CW_RoadGapRepairFragments",repairedFragments)
     Workspace:SetAttribute("CW_RoadGapRepairParts",insertedParts)
+    Workspace:SetAttribute("CW_RailBridgeRecoveredChains",railDeckChains)
+    Workspace:SetAttribute("CW_RailBridgeRecoveredPieces",railDeckParts)
     Workspace:SetAttribute("CW_RoadGapRepairStatus","complete")
-    print(("[ChesterWorld RoadGapRepair] evaluatedChains=%d fixedChains=%d fixedFragments=%d newAsphaltParts=%d rejected={%s}")
+    print(("[ChesterWorld RoadGapRepair] evaluatedChains=%d fixedChains=%d fixedFragments=%d newAsphaltParts=%d verifiedRailBridgeChains=%d verifiedRailBridgePieces=%d rejected={%s}")
         :format(totalGroups,repairedGroups,repairedFragments,
-            insertedParts,table.concat(reasonList,",")))
+            insertedParts,railDeckChains,railDeckParts,table.concat(reasonList,",")))
 end
 
 local ok,err=pcall(run)

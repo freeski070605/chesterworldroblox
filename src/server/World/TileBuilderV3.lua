@@ -100,6 +100,53 @@ function TileBuilderV3.Build(tileModule)
                     :format(index, entry.street, entry.kind, entry.pieces, entry.length,
                         entry.maxGrade * 100, (entry.gx + 0.5) * 80, (entry.gz + 0.5) * 80))
             end
+            -- Diagnose missing pavement over the riverfront without
+            -- generating floating asphalt. A raycast at the reported
+            -- cluster midpoint plus two rings distinguishes isolated
+            -- tile seams from extended no-terrain areas.
+            local terrainOnly = RaycastParams.new()
+            terrainOnly.FilterType = Enum.RaycastFilterType.Include
+            terrainOnly.FilterDescendantsInstances = {workspace.Terrain}
+            terrainOnly.IgnoreWater = false
+            local function surfaceAt(x,z)
+                return workspace:Raycast(Vector3.new(x,5000,z),
+                    Vector3.new(0,-10000,0),terrainOnly)
+            end
+            local surveyed=0
+            for _,entry in ipairs(areas) do
+                if entry.kind=="no-terrain" and surveyed<12 then
+                    surveyed+=1
+                    local x,z=(entry.gx+0.5)*80,(entry.gz+0.5)*80
+                    local near,far,water=0,0,0
+                    local lo,hi=math.huge,-math.huge
+                    local center=surfaceAt(x,z)
+                    local directions={{1,0},{-1,0},{0,1},{0,-1},
+                        {0.707,0.707},{-0.707,0.707},{0.707,-0.707},{-0.707,-0.707}}
+                    for _,radius in ipairs({24,64}) do
+                        for _,d in ipairs(directions) do
+                            local hit=surfaceAt(x+d[1]*radius,z+d[2]*radius)
+                            if hit then
+                                if radius==24 then near+=1 else far+=1 end
+                                if hit.Material==Enum.Material.Water then water+=1 end
+                                lo=math.min(lo,hit.Position.Y)
+                                hi=math.max(hi,hit.Position.Y)
+                            end
+                        end
+                    end
+                    local span=lo==math.huge and "none" or string.format("%.1f..%.1f",lo,hi)
+                    local status
+                    if near>=6 and hi-lo<=4 then
+                        status="possibleSmallSeam"
+                    elseif near<=2 then
+                        status="extendedNoTerrainOrWater"
+                    else
+                        status="mixedBankNeedsSurvey"
+                    end
+                    print(("[ChesterWorld PavementTerrainSurvey] road=%s center=(%.0f,%.0f) centerHit=%s near24=%d/8 far64=%d/8 waterHits=%d ringY=%s status=%s")
+                        :format(entry.street,x,z,tostring(center~=nil),
+                            near,far,water,span,status))
+                end
+            end
             workspace:SetAttribute("CW_HighwayProfiledPieces", highway.profiledPieces)
             workspace:SetAttribute("CW_PavementSteepOmissions", omissions.steepPieces)
             workspace:SetAttribute("CW_PavementNoTerrainOmissions", omissions.noTerrainPieces)

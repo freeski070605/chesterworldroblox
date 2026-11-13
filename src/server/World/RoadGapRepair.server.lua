@@ -1,5 +1,6 @@
 -- EXIT 6: conservative repair of SHORT, DRY, physically anchored road gaps.
--- This does not extrapolate over mapped/visible water or invent steep ramps.
+-- This does not extrapolate over mapped/visible water, invent steep ramps,
+-- or excavate baked Terrain. Only supported road Parts may be added.
 -- Constructed only AFTER all terrain, highways and local bridges finish.
 local Workspace=game:GetService("Workspace")
 local Terrain=Workspace.Terrain
@@ -131,14 +132,14 @@ local function run()
 
     local function tryGroup(fragments)
         totalGroups+=1
-        local function rejectChain(why)
+        local function rejectChain(why,detail)
             rejected(why)
             if printedRejected<35 then
                 printedRejected+=1
                 local f=fragments[1]
-                print(("[ChesterWorld RoadGapRepairRejected] reason=%s road=%s class=%s fragments=%d sample=(%.1f,%.1f)")
+                print(("[ChesterWorld RoadGapRepairRejected] reason=%s road=%s class=%s fragments=%d sample=(%.1f,%.1f) details=%s")
                     :format(why,tostring(f.road),tostring(f.class),#fragments,
-                        (f.ax+f.bx)/2,(f.az+f.bz)/2))
+                        (f.ax+f.bx)/2,(f.az+f.bz)/2,tostring(detail or "-")))
             end
         end
         local adj,ends={},{}
@@ -179,23 +180,39 @@ local function run()
         end
         local total=0
         for _,seg in ipairs(ordered) do total+=seg.length end
-        if total<1 or total>48 then rejectChain("too-long-for-local-repair") return end
+        if total<1 or total>48 then
+            rejectChain("too-long-for-local-repair",string.format(
+                "length=%.1f permittedMax=48.0",total)) return
+        end
         local first,last=ordered[1],ordered[#ordered]
         local dxA=(first.b-first.a).Unit
         local dxB=(last.b-last.a).Unit
         local start=anchorFor(first.a.X,first.a.Z,-dxA,first.f.road,first.f.width)
         local finish=anchorFor(last.b.X,last.b.Z,dxB,last.f.road,last.f.width)
-        if not start or not finish then rejectChain("missing-two-road-anchors") return end
+        if not start or not finish then
+            rejectChain("missing-two-road-anchors",string.format(
+                "startFound=%s endFound=%s chainLength=%.1f starts=(%.1f,%.1f) ends=(%.1f,%.1f)",
+                tostring(start~=nil),tostring(finish~=nil),total,
+                first.a.X,first.a.Z,last.b.X,last.b.Z)) return
+        end
         if start.part==finish.part then rejectChain("same-anchor-road") return end
         local grade=math.abs(finish.y-start.y)/total
-        if grade>0.11 then rejectChain("unsafe-anchor-grade") return end
+        if grade>0.11 then
+            rejectChain("unsafe-anchor-grade",string.format(
+                "startY=%.2f endY=%.2f deltaY=%.2f chainLength=%.1f observedGradePct=%.1f requiredLengthAt11Pct=%.1f additionalApproachNeeded=%.1f",
+                start.y,finish.y,math.abs(finish.y-start.y),total,
+                grade*100,math.abs(finish.y-start.y)/0.11,
+                math.max(0,math.abs(finish.y-start.y)/0.11-total))) return
+        end
         local sourceStartY=first.a.X==first.f.ax and first.a.Z==first.f.az
             and first.f.ay or first.f.by
         local sourceEndY=last.b.X==last.f.bx and last.b.Z==last.f.bz
             and last.f.by or last.f.ay
         if math.abs(start.y-sourceStartY)>18 or math.abs(finish.y-sourceEndY)>18 then
             -- Guard against a road at an entirely different elevation.
-            rejectChain("layer-mismatch") return
+            rejectChain("layer-mismatch",string.format(
+                "startY=%.2f sourceStartY=%.2f endY=%.2f sourceEndY=%.2f; likely grade-separated road requiring bridge profile",
+                start.y,sourceStartY,finish.y,sourceEndY)) return
         end
 
         -- Validate the actual road corridor BEFORE changing terrain. Reject
@@ -231,11 +248,18 @@ local function run()
                     end
                     local gy=terrainHeight(x,z)
                     if not gy then rejectChain("no-ground-elevation") return end
-                    if gy-roadTop>2.5 then
-                        rejectChain("requires-deep-excavation") return
+                    -- Never excavate Terrain in an automatic post-water repair.
+                    -- A roadway resting below the terrain would require
+                    -- a separately audited cut and bank/utility clearance.
+                    if gy-roadTop>0.18 then
+                        rejectChain("requires-surveyed-terrain-cut",string.format(
+                            "at=(%.1f,%.1f) terrain=%.2f proposedTop=%.2f cut=%.2f",
+                            x,z,gy,roadTop,gy-roadTop)) return
                     end
-                    if roadTop-gy>3 then
-                        rejectChain("floating-above-terrain") return
+                    if roadTop-gy>0.85 then
+                        rejectChain("floating-above-terrain",string.format(
+                            "at=(%.1f,%.1f) terrain=%.2f proposedTop=%.2f fill=%.2f",
+                            x,z,gy,roadTop,roadTop-gy)) return
                     end
                 end
             end
@@ -266,10 +290,9 @@ local function run()
             newPart:SetAttribute("CW_RoadGapRepair",true)
             newPart:SetAttribute("CW_RepairAnchorGrade",grade)
             newPart.Parent=start.part.Parent
-            -- Small <2.5-stud local terrain bumps only; no new water fill.
-            Terrain:FillBlock(newPart.CFrame*CFrame.new(0,2.1,0),
-                Vector3.new(seg.f.width+0.5,4.0,newPart.Size.Z+0.2),
-                Enum.Material.Air)
+            -- Never edit native Terrain from a heuristic gap filler.
+            -- Verified water must remain untouched, including outside
+            -- the sparse probe positions.
             insertedParts+=1
         end
         repairedGroups+=1

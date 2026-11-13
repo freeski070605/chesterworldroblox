@@ -83,6 +83,23 @@ function TileBuilderV3.Build(tileModule)
             for index = 1, math.min(12, #omissions.samples) do
                 print("[ChesterWorld PavementOmission] " .. omissions.samples[index])
             end
+            -- Prioritize real missing length rather than raw subdivision
+            -- counts; omit geometry changes until each hotspot is surveyed.
+            local areas = {}
+            for _, entry in pairs(omissions.byArea or {}) do
+                table.insert(areas, entry)
+            end
+            table.sort(areas, function(a, b)
+                if a.length ~= b.length then return a.length > b.length end
+                return a.pieces > b.pieces
+            end)
+            print(("[ChesterWorld PavementHotspots] clusters=%d top=%d"):format(#areas, math.min(20, #areas)))
+            for index = 1, math.min(20, #areas) do
+                local entry = areas[index]
+                print(("[ChesterWorld PavementHotspot] rank=%d road=%s kind=%s pieces=%d missingLength=%.1f maxGrade=%.1f%% center=(%.0f,%.0f)")
+                    :format(index, entry.street, entry.kind, entry.pieces, entry.length,
+                        entry.maxGrade * 100, (entry.gx + 0.5) * 80, (entry.gz + 0.5) * 80))
+            end
             workspace:SetAttribute("CW_HighwayProfiledPieces", highway.profiledPieces)
             workspace:SetAttribute("CW_PavementSteepOmissions", omissions.steepPieces)
             workspace:SetAttribute("CW_PavementNoTerrainOmissions", omissions.noTerrainPieces)

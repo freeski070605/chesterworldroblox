@@ -57,7 +57,17 @@ local function run()
     local all=omissions and omissions.missingFragments or {}
     local groups={}
     for _,f in ipairs(all) do
-        if f.kind=="steep" and f.length>=0.3 then
+        -- Footways, pedestrian routes, and motorway profiles require their
+        -- own materials and separate engineering rules; never turn them
+        -- into generic street asphalt during this repair pass.
+        local cls=string.lower(tostring(f.class or ""))
+        local roadName=string.lower(tostring(f.road or ""))
+        local isVehicleStreet=cls~="footway" and cls~="path"
+            and cls~="pedestrian" and cls~="cycleway"
+            and cls~="motorway" and cls~="motorway_link"
+            and cls~="trunk" and cls~="trunk_link"
+            and not roadName:find("pedestrian",1,true)
+        if f.kind=="steep" and f.length>=0.3 and isVehicleStreet then
             -- Avoid joining roads with different width or source class.
             local gkey=tostring(f.road).."|"..tostring(f.class).."|"
                 ..tostring(math.floor(f.width+0.5))

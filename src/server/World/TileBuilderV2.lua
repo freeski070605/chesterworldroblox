@@ -23,9 +23,27 @@ local highwayStats = {
 	profiledPieces = 0, profiledLength = 0, spanPieces = 0, fillPieces = 0,
 	markingParts = 0, suppressedHighwayPads = 0, fallbackHighwayRoads = 0,
 }
-local function noteOmission(kind, x, z, extra)
+local function noteOmission(kind, x, z, extra, street, length, grade)
 	if #omissions.samples < 60 then
 		table.insert(omissions.samples, string.format("%s at (%.1f, %.1f)%s", kind, x, z, extra or ""))
+	end
+	-- Group fragments by street and 80-stud neighborhood. Count their
+	-- actual missing LENGTH as well as pieces: steep subdivision makes a
+	-- tiny terrain seam look like dozens of unrelated broken roads.
+	if kind == "steep" or kind == "no-terrain" then
+		omissions.byArea = omissions.byArea or {}
+		local roadName = tostring(street or "unnamed")
+		local gx, gz = math.floor(x / 80), math.floor(z / 80)
+		local key = roadName .. "|" .. gx .. ":" .. gz .. "|" .. kind
+		local entry = omissions.byArea[key]
+		if not entry then
+			entry = { street = roadName, kind = kind, gx = gx, gz = gz,
+				pieces = 0, length = 0, maxGrade = 0 }
+			omissions.byArea[key] = entry
+		end
+		entry.pieces += 1
+		entry.length += length or 0
+		entry.maxGrade = math.max(entry.maxGrade, grade or 0)
 	end
 end
 
@@ -958,7 +976,7 @@ local function buildAdaptiveCenterStrip(parent, name, x1, z1, x2, z2, width, thi
 	if not a or not b then
 		if parent.Name == "Roads" and math.abs(x2 - x1) + math.abs(z2 - z1) > 0.1 then
 			omissions.noTerrainPieces += 1
-			noteOmission("no-terrain", (x1 + x2) / 2, (z1 + z2) / 2, " " .. tostring(name))
+			noteOmission("no-terrain", (x1 + x2) / 2, (z1 + z2) / 2, " " .. tostring(name), name, math.sqrt((x2-x1)^2+(z2-z1)^2))
 		end
 		return
 	end
@@ -987,7 +1005,7 @@ local function buildAdaptiveCenterStrip(parent, name, x1, z1, x2, z2, width, thi
 			omissions.steepPieces += 1
 			omissions.steepLength += horizontalLength(a, b)
 			noteOmission("steep", (x1 + x2) / 2, (z1 + z2) / 2,
-				string.format(" grade=%.0f%% %s", grade * 100, tostring(name)))
+				string.format(" grade=%.0f%% %s", grade * 100, tostring(name)), name, horizontalLength(a,b), grade)
 		end
 		return
 	end

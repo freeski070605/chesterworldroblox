@@ -152,6 +152,68 @@ for i,part in ipairs(roadParts) do
     if i%1000==0 then task.wait() end
 end
 
+-- Independently check any new Crum Lynne asphalt against nearby CSX
+-- ballast. The builder's original clearance estimate is not enough to
+-- certify rail passability. This uses bounding volumes conservatively;
+-- final vehicle/rail driving tests remain required.
+local repairedDecks,railOverlapSamples,railClearanceFailures=0,0,0
+local minimumRailClearance=math.huge
+local function bottomY(p)
+    local cf,s=p.CFrame,p.Size
+    return p.Position.Y-
+        math.abs(cf.RightVector.Y)*s.X/2-
+        math.abs(cf.UpVector.Y)*s.Y/2-
+        math.abs(cf.LookVector.Y)*s.Z/2
+end
+local function topY(p)
+    local cf,s=p.CFrame,p.Size
+    return p.Position.Y+
+        math.abs(cf.RightVector.Y)*s.X/2+
+        math.abs(cf.UpVector.Y)*s.Y/2+
+        math.abs(cf.LookVector.Y)*s.Z/2
+end
+for _,deck in ipairs(roadParts) do
+    if deck:GetAttribute("CW_RailOverpassRepair")==true
+        and deck.Name=="Crum Lynne" then
+        repairedDecks+=1
+        local nearby=Workspace:GetPartBoundsInBox(
+            deck.CFrame*CFrame.new(0,-18,0),
+            Vector3.new(deck.Size.X+4,80,deck.Size.Z+4),overlap)
+        local worstAtDeck=math.huge
+        for _,part in ipairs(nearby) do
+            if part~=deck and part:IsA("BasePart")
+                and part:GetAttribute("CW_Rail")==true
+                and part.Name=="Csx Phila Subdivision" then
+                -- Constrain broadphase to the actual local X/Z footprint.
+                local q=deck.CFrame:PointToObjectSpace(
+                    Vector3.new(part.Position.X,deck.Position.Y,part.Position.Z))
+                if math.abs(q.X)<=deck.Size.X/2+part.Size.X/2+1
+                    and math.abs(q.Z)<=deck.Size.Z/2+part.Size.Z/2+1 then
+                    local clearance=bottomY(deck)-topY(part)
+                    worstAtDeck=math.min(worstAtDeck,clearance)
+                end
+            end
+        end
+        if worstAtDeck<math.huge then
+            railOverlapSamples+=1
+            minimumRailClearance=math.min(minimumRailClearance,worstAtDeck)
+            if worstAtDeck<14 then
+                railClearanceFailures+=1
+                warn(("[ChesterWorld RoadFinalRailClearance] FAIL road=%s at (%.1f,%.1f) conservativeRailClearance=%.2f required=14.00")
+                    :format(deck.Name,deck.Position.X,deck.Position.Z,
+                        worstAtDeck))
+            end
+        end
+    end
+end
+Workspace:SetAttribute("CW_RailDeckClearanceFailures",railClearanceFailures)
+print(("[ChesterWorld RoadFinalRailDeck] repairedDeckParts=%d intersectingCSXBed=%d minConservativeClearanceStuds=%s clearanceBelow14=%d NOTE=final-vehicle-and-rail-driving-test-still-required")
+    :format(repairedDecks,railOverlapSamples,
+        minimumRailClearance<math.huge
+            and string.format("%.2f",minimumRailClearance)
+            or "not-sampled-at-deck",
+        railClearanceFailures))
+
 table.sort(exactOpen,function(a,b) return a.impact>b.impact end)
 for i=1,math.min(#exactOpen,30) do
     local d=exactOpen[i]

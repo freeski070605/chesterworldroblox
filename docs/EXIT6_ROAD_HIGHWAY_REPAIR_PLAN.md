@@ -193,3 +193,87 @@ Next run must report:
 [ChesterWorld RoadGapRepair] ... verifiedRailBridgeChains=...
 [ChesterWorld RoadFinalAudit] ... STILL_OPEN=... NOT_VERIFIED=...
 [ChesterWorld RoadGapDetail] kind=steep ...
+
+
+## Nov 13 21:33 Studio result — physical first successes
+
+The pasted 709-line Studio Output has real post-build repairs:
+- RoadGapRepair evaluated 26 chains, fixed 2 chains, 20 asphalt
+  fragments/pieces, all Crum Lynne near the verified CSX overpass.
+  22.3-stud chain at (14453.6,-10348.7)..(14470.3,-10333.9):
+  grade 6.1%; 17.3-stud chain at
+  (14378.8,-10414.9)..(14391.7,-10403.4): grade 0.0%.
+- 20/20 recovered pieces have 3/3 same-name pavement coverage in
+  RoadIntegrityFinalAudit. This is a STATIC geometry pass, NOT a
+  full drive certification or measured proof of track clearance.
+- Legacy midpoint STILL_OPEN remains 202: previously 17 of these
+  locations were hidden under "other-road" overlap. Compare
+  coveredSameRoad=20 (was 3), coveredOtherRoad=7 (was 24).
+- New full-length stricter 3-point verification:
+  NOT_VERIFIED=209 of 229 candidate fragments. The 209 remaining
+  include 200 with unknown GIS-water mapping, nine on mapped water;
+  neither count proves a segment is dry or actually drivable.
+- Highway: 7,305 profiled parts, 0 profile grade violations, final 245
+  crossings with 0 measured low-clearance / bridge intrusion / tunnel
+  obstruction; 69 source-flagged bridge parts had 0 final steep parts.
+  Twenty *early* height deficits and 42 terrain constraints remain.
+- Saved water signature verified 52/52 probes. Full loading 234.4s.
+  RoadTerrainClear 52.2s for 117,234 surfaces.
+- Remaining auto-repair blockers: 15 unsafe anchor-grade, six missing
+  real pavement anchors, one layer mismatch, one terrain-float, and
+  one chain too long.
+
+Read-only independent post-build check:
+  [ChesterWorld RoadFinalRailDeck] ... intersectingCSXBed=...
+  minConservativeClearanceStuds=... clearanceBelow14=...
+The independent value is not guaranteed to be a whole-crossing
+clearance measurement when an individual repaired approach slab does not
+geometrically overlap a CSX bed. Drive across the entire crossing in
+Studio and check the real bridge deck and approach joints.
+
+## MacDade bridge inventory and profile engineering
+
+DO NOT fill Macdade's 50.8-stud hole by extending the 48-stud generic
+repair threshold. A 50.8-stud dip at (7665,-7719) changes source elevation
+abruptly; another 13.4-stud dip at (9979,-9818) has 9.09 studs difference
+between the existing road anchors. The latter requires ~82.6 studs at an
+11% game-grade instead of the currently missing 13.4 studs; the actual
+road and bridge must be profiled over a longer chain.
+
+External bridge-inventory evidence:
+- Macdade Boulevard over Ridley Creek, NBI 15224, concrete deck arch,
+  100-foot length, coordinates 39.86958,-75.35671. Source:
+  https://usbridges.org/bridge/pa-county-045-bridge-000000000015224
+- Macdade Boulevard over Crum Creek, NBI 15226, culvert, 95-foot length,
+  just east of I-476. Source:
+  https://usbridges.org/states/pennsylvania/delaware-county
+- PennDOT confirms a separate pedestrian bridge across Crum Creek next
+  to MacDade Boulevard was replaced/repositioned as part of the I-476
+  interchange project. Do NOT mistake it for an asphalt carriageway:
+  https://www.pa.gov/agencies/penndot/news-and-media/newsroom/district-6/2026/pavement-marking-installation-tuesday-on-macdade-boulevard-in-ri
+
+NEW read-only Road survey module:
+  src/server/World/MacdadeBridgeProfileSurvey.server.lua
+
+It samples rendered same-road pavement top vs actual Terrain bank and
+native water at 15 longitudinal stations around the two candidate
+source breaks. The center X/Z are approximate **missing-fragment
+coordinates**, not surveyed bridge-center positions. This records
+whether enough dry bank/pavement exists across 320 studs each direction
+to design a long profile and real structure. It does not alter existing
+road Parts, water or Terrain, and does not invent deck heights.
+
+Logs to inspect in next Studio run:
+  [ChesterWorld MacdadeBridgeSurvey] id=MACDADE_RIDLEY_CREEK ...
+  [ChesterWorld MacdadeBridgeStations] id=MACDADE_RIDLEY_CREEK ...
+  [ChesterWorld MacdadeBridgeSurvey] id=MACDADE_CRUM_CREEK ...
+  [ChesterWorld MacdadeBridgeStations] id=MACDADE_CRUM_CREEK ...
+  [ChesterWorld RoadFinalRailDeck] ...
+
+Next geometry work (after profile proof):
+- Rebuild Macdade's continuous longitudinal road centerline over the
+  documented bridge/culvert footprints, grade-limited across the FULL
+  approach, with real abutments / existing road joining.
+- Restore Pennell over NEC and other surveyed rail-grade crossings.
+- Resolve 9 mapped-water and 39 other no-terrain omitted fragments
+  using verified riverbank GIS/DEM, not fill blocks on unknown shoreline.

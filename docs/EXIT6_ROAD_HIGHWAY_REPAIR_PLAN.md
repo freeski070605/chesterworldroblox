@@ -277,3 +277,77 @@ Next geometry work (after profile proof):
 - Restore Pennell over NEC and other surveyed rail-grade crossings.
 - Resolve 9 mapped-water and 39 other no-terrain omitted fragments
   using verified riverbank GIS/DEM, not fill blocks on unknown shoreline.
+
+
+## November 14 evening / next Studio bridge-profile pass
+
+Latest uploaded Studio run (20:55-21:01, 2026-11-14):
+- RoadGapRepair still fixed 2 Crum Lynne rail approach chains, 20 new
+  asphalt pieces. 229 source pavement candidates; 202 legacy midpoint
+  open and 209 not verified by three-station same-road audit.
+- Current CSX "RoadFinalRailDeck" readout showed 20 repaired approach
+  parts but **intersectingCSXBed=0 and no measured clearance**. It does
+  NOT prove rail clearance. New audit measures the existing road deck
+  directly above the named CSX crossing at (14411,-10367), sampling
+  railbed and road elevation in a 12-stud roadway core. Prints
+  actualRailSamples, roadDeckSamples, missingRoadOverRail,
+  minActualClearanceStuds, clearanceBelow14 and status. If no usable
+  samples it marks clearance UNVERIFIED instead of counting 0 failures
+  as a pass.
+- Macdade source survey:
+  - RIDLEY_CREEK, source bridge 15224: 29 source omitted fragments,
+    72.5 studs missing. Inferred bridge section near (7637,-7702)
+    jumps from visible Macdade road top 49.6 at station -140 to 4.5
+    at +140, 16.1% observed far-bank grade. A long structure cannot
+    be inferred from the 100ft bridge inventory alone; it still
+    requires surveyed banks, actual roadway approach geometry and
+    joint/shoreline verification. NO auto repair.
+  - CRUM_CREEK, source culvert 15226: four omitted source fragments,
+    13.4 studs missing. Road tops at +/-140 are 20.4 and 24.4
+    studs, measured overall grade ~1.4%. The old short sections
+    dive to ~10.8 at station -30, while the opposite bank sits
+    at 22.1 at +30. Filling 13.4 studs directly would be undrivable.
+
+New src/server/World/MacdadeCrumDeck.server.lua:
+- Roblox Studio ONLY until a real drivable test passes; published
+  servers do not apply the new bridge without approval.
+- Waits for finished world, water and Macdade bridge survey. Derives
+  road axis from the exact GIS missing source piece.
+- Re-measures same-name Macdade physical road tops at stations
+  -180/-140 and +140/+180; requires outer approach grades <=9%,
+  continuous profile <=8%, measured source width and distinct
+  anchors. Designs a 280-stud approach-inclusive continuous grade
+  line over the NBI bridge 15226 corridor (95ft source culvert
+  length, NOT an invented 280-stud water span).
+- Safety-checks every 10 studs along 3 wheel-track/shoulder samples:
+  no terrain intrusion, <=30 stud lift, no existing Macdade
+  slab rising above candidate, no conflicting at-grade road,
+  no water outside documented central creek span, and verified
+  bank support on both outer approaches.
+- If ALL pass: creates 14 named asphalt segments, central guard
+  parapets, matching road metadata, and logs
+  [ChesterWorld MacdadeCrumDeck] status=built ...
+- If ANY fail: leaves the entire area unchanged, logs
+  [ChesterWorld MacdadeCrumDeck] status=rejected reason=...
+- Never modifies or rebakes native Terrain or water.
+- RoadIntegrityFinalAudit now waits for this module and independently
+  verifies its bridge-piece count and rendered piece grades:
+  [ChesterWorld MacdadeFinalDeckAudit]
+
+Next test:
+  cd E:\code\chesterworld-roblox
+  git pull --ff-only origin main
+  rojo serve default.project.json
+
+Then fresh Roblox Studio Play. Check:
+  [ChesterWorld MacdadeBridgeStations] id=MACDADE_CRUM_CREEK
+  [ChesterWorld MacdadeCrumDeck] status=built/rejected
+  [ChesterWorld MacdadeFinalDeckAudit] ...
+  [ChesterWorld RoadFinalRailDeck] ... status=...
+  [ChesterWorld RoadFinalAudit] ... NOT_VERIFIED=...
+
+A "built" result is a static geometry candidate, not certification.
+Drive across the entire Crum Creek candidate, inspect both bank
+joins, creek clearance, terrain/shoulder intrusion, traffic and
+parapet collisions, and compare with orthophoto before making the
+module production-active. No water rebake required.

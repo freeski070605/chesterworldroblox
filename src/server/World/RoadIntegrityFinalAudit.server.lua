@@ -14,6 +14,7 @@ local stages={
     "CW_BootstrapComplete","CW_RoadConformComplete","CW_HighwayFinishComplete",
     "CW_RoadTerrainCleared","CW_LocalBridgesDressed",
     "CW_LandmarksComplete","CW_WaterComplete","CW_RoadGapRepairComplete",
+    "CW_MacdadeCrumDeckComplete",
 }
 for _,stage in ipairs(stages) do
     while Workspace:GetAttribute(stage) ~= true do task.wait(0.5) end
@@ -268,6 +269,31 @@ print(("[ChesterWorld RoadFinalRailDeck] repairedApproachParts=%d atNamedCSXCros
 if worstPosition then
     print(("[ChesterWorld RoadFinalRailDeckWorst] at=(%.1f,%.1f) clearance=%.2f studs")
         :format(worstPosition.X,worstPosition.Y,minClearance))
+end
+
+-- Independently summarize any new Macdade Crum Creek highway-free
+-- carriageway bridge. A generated deck is not by itself a driving test.
+local macdadePieces=0
+local maxMacdadeGrade=0
+local macdadeSteep=0
+for _,part in ipairs(roadParts) do
+    if part.Name=="Macdade"
+        and part:GetAttribute("CW_MacdadeCrumDeck")==true then
+        macdadePieces+=1
+        local a=part.CFrame*Vector3.new(0,0,-part.Size.Z/2)
+        local b=part.CFrame*Vector3.new(0,0,part.Size.Z/2)
+        local run=math.sqrt((b.X-a.X)^2+(b.Z-a.Z)^2)
+        local pct=run>0.1 and math.abs(b.Y-a.Y)/run*100 or 999
+        maxMacdadeGrade=math.max(maxMacdadeGrade,pct)
+        if pct>8.1 then macdadeSteep+=1 end
+    end
+end
+local macdadeStatus=tostring(
+    Workspace:GetAttribute("CW_MacdadeCrumDeckStatus") or "not-run")
+print(("[ChesterWorld MacdadeFinalDeckAudit] status=%s builtPieces=%d maxGradePct=%.2f above8Pct=%d sourceInventory=15226")
+    :format(macdadeStatus,macdadePieces,maxMacdadeGrade,macdadeSteep))
+if macdadeStatus=="built" and (macdadePieces~=14 or macdadeSteep>0) then
+    warn("[ChesterWorld MacdadeFinalDeckAudit] Bridge profile parts failed independent grade/part-count check")
 end
 
 table.sort(exactOpen,function(a,b) return a.impact>b.impact end)

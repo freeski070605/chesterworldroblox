@@ -7,6 +7,8 @@ local Workspace = game:GetService("Workspace")
 -- infinite yield warning while the first tile is being prepared.
 local TileBuilder = require(script.Parent:WaitForChild("TileBuilderV2"))
 local WaterMap = require(script.Parent:WaitForChild("WaterMap"))
+local StructureRegistry = require(game:GetService("ReplicatedStorage")
+    :WaitForChild("Shared"):WaitForChild("HighwayStructureRegistry"))
 
 Workspace:SetAttribute("CW_RoadFinalAuditComplete",false)
 local started=os.clock()
@@ -156,9 +158,20 @@ end
 -- The 20 repaired Crum Lynne pieces are APPROACH pieces on either side
 -- of the CSX bridge. Querying only beneath those approach Parts found no
 -- rail at all, and "0 failures" was not a legitimate clearance check.
--- Independently measure the ACTUAL named crossing at (14411,-10367)
--- where the elevated original Crum Lynne deck passes over CSX.
-local railRegistryX,railRegistryZ=14411,-10367
+-- Survey the registered, aerial-backed road-over-rail center,
+-- NOT the offset previous guess at (14411,-10367). Samples outside
+-- the actual roadway footprint must not be counted as deck holes.
+local railEntry=nil
+for _,entry in ipairs(StructureRegistry.NAMED or {}) do
+    if entry.id=="CRUM_LYNNE_OVER_CSX" then
+        railEntry=entry
+        break
+    end
+end
+if not railEntry or not railEntry.center then
+    error("Road rail audit: named Crum Lynne / CSX registry missing")
+end
+local railRegistryX,railRegistryZ=railEntry.center[1],railEntry.center[2]
 local repairedDecks=0
 for _,part in ipairs(roadParts) do
     if part.Name=="Crum Lynne"
@@ -180,7 +193,38 @@ local function slabTopAtXZ(part,x,z)
     return y
 end
 
-local railSamples,overlappingDeckSamples,clearanceFailures=0,0,0
+-- Resolve the road-centerline projection using rendered SAME-STREET
+-- slab geometry. Extending at most 75 studs from a slab endpoint lets
+-- us identify an actual missing deck without mistaking the railbed
+-- beside a narrow road for a missing pavement section.
+local crumRoads={}
+for _,part in ipairs(roadParts) do
+    if part.Name=="Crum Lynne" and part:IsA("BasePart")
+        and part.CanCollide and part.Transparency<1
+        and part.Size.Z>2 then
+        local dx=part.Position.X-railRegistryX
+        local dz=part.Position.Z-railRegistryZ
+        if dx*dx+dz*dz<150*150 then
+            table.insert(crumRoads,part)
+        end
+    end
+end
+local function centerlineDistance(x,z)
+    local best=math.huge
+    local width=0
+    for _,part in ipairs(crumRoads) do
+        local q=part.CFrame:PointToObjectSpace(
+            Vector3.new(x,part.Position.Y,z))
+        if math.abs(q.Z)<=part.Size.Z/2+75
+            and math.abs(q.X)<best then
+            best=math.abs(q.X)
+            width=part.Size.X
+        end
+    end
+    return best,width
+end
+
+local railSamples,offRoadRailSamples,overlappingDeckSamples,clearanceFailures=0,0,0,0
 local noRoadAtRailSamples=0
 local minClearance=math.huge
 local worstPosition=nil
@@ -207,6 +251,15 @@ for _,rail in ipairs(roadParts) do
                         checked[key]=true
                         local railTop=slabTopAtXZ(rail,x,z)
                         if railTop then
+                            local centerDistance,roadWidth=centerlineDistance(x,z)
+                            if roadWidth==0 then
+                                warn(("[ChesterWorld RoadRailProbe] cannot establish Crum Lynne roadline near rail=(%.2f,%.2f)")
+                                    :format(x,z))
+                            elseif centerDistance>roadWidth/2+1.2 then
+                                offRoadRailSamples+=1
+                                print(("[ChesterWorld RoadRailOffRoadProbe] rail=(%.2f,%.2f,%.2f) distanceFromRoadCenter=%.2f halfRoadWidth=%.2f notCountedAsDeckGap=true")
+                                    :format(x,railTop,z,centerDistance,roadWidth/2))
+                            else
                             railSamples+=1
                             local candidates=Workspace:GetPartBoundsInBox(
                                 CFrame.new(x,90,z),
@@ -231,9 +284,10 @@ for _,rail in ipairs(roadParts) do
                                 -- Sampled rail may extend outside the true
                                 -- road footprint, or be a real missing deck.
                                 -- Exact XYZ is needed to tell those apart.
-                                warn(("[ChesterWorld RoadRailUncoveredProbe] rail=(%.2f,%.2f,%.2f) sourceRoad=Crum Lynne registry=(%d,%d) noCollidableDeckAtXZ=true")
+                                warn(("[ChesterWorld RoadRailUncoveredProbe] rail=(%.2f,%.2f,%.2f) sourceRoad=Crum Lynne registry=(%d,%d) distanceFromRoadCenter=%.2f halfRoadWidth=%.2f noCollidableDeckAtXZ=true")
                                     :format(x,railTop,z,
-                                        railRegistryX,railRegistryZ))
+                                        railRegistryX,railRegistryZ,
+                                        centerDistance,roadWidth/2))
                             else
                                 overlappingDeckSamples+=1
                                 local clearance=lowestDeckUnderside-railTop
@@ -243,6 +297,7 @@ for _,rail in ipairs(roadParts) do
                                 end
                                 if clearance<14 then clearanceFailures+=1 end
                             end
+                            end -- sample aligned with the named road
                         end
                     end
                 end
@@ -251,27 +306,28 @@ for _,rail in ipairs(roadParts) do
     end
 end
 
-local clearanceVerified=railSamples>0
-    and overlappingDeckSamples>0
+local clearanceVerified=railSamples>=3
+    and overlappingDeckSamples>=3
     and noRoadAtRailSamples==0
     and clearanceFailures==0
-local status=clearanceVerified and "measured-passing"
-    or (railSamples==0 and "no-rail-samples"
+local status=clearanceVerified and "measured-local-clearance-passing"
+    or (railSamples==0 and "no-on-road-rail-samples"
         or overlappingDeckSamples==0 and "no-road-over-rail"
         or noRoadAtRailSamples>0 and "road-gaps-over-rail"
+        or overlappingDeckSamples<3 and "too-few-road-rail-overlap-samples"
         or "insufficient-clearance")
 Workspace:SetAttribute("CW_RailDeckClearanceVerified",clearanceVerified)
 Workspace:SetAttribute("CW_RailDeckClearanceStatus",status)
 Workspace:SetAttribute("CW_RailDeckClearanceFailures",clearanceFailures)
 Workspace:SetAttribute("CW_RailDeckUncoveredRailSamples",noRoadAtRailSamples)
 if not clearanceVerified then
-    warn(("[ChesterWorld RoadFinalRailDeck] NOT VERIFIED status=%s railSamples=%d deckSamples=%d uncoveredSamples=%d clearanceFailures=%d")
+    warn(("[ChesterWorld RoadFinalRailDeck] NOT VERIFIED status=%s onRoadRailSamples=%d deckSamples=%d uncoveredSamples=%d offRoadSamples=%d clearanceFailures=%d")
         :format(status,railSamples,overlappingDeckSamples,
-            noRoadAtRailSamples,clearanceFailures))
+            noRoadAtRailSamples,offRoadRailSamples,clearanceFailures))
 end
-print(("[ChesterWorld RoadFinalRailDeck] repairedApproachParts=%d atNamedCSXCrossing=(%d,%d) actualRailSamples=%d roadDeckSamples=%d missingRoadOverRail=%d minActualClearanceStuds=%s clearanceBelow14=%d status=%s NOTE=driving-test-still-required")
+print(("[ChesterWorld RoadFinalRailDeck] repairedApproachParts=%d atNamedCSXCrossing=(%d,%d) onRoadRailSamples=%d offRoadRailSamples=%d roadDeckSamples=%d missingRoadOverRail=%d minActualClearanceStuds=%s clearanceBelow14=%d status=%s NOTE=driving-test-still-required")
     :format(repairedDecks,railRegistryX,railRegistryZ,railSamples,
-        overlappingDeckSamples,noRoadAtRailSamples,
+        offRoadRailSamples,overlappingDeckSamples,noRoadAtRailSamples,
         minClearance<math.huge and string.format("%.2f",minClearance)
             or "unmeasured",clearanceFailures,status))
 if worstPosition then

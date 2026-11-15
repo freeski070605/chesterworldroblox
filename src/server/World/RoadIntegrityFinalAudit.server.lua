@@ -362,11 +362,59 @@ for _,part in ipairs(roadParts) do
         end
     end
 end
+-- Real geometric connection check at BOTH edges of a built culvert.
+-- A count of 12 nice-looking pavement Parts cannot prove the joins.
+local jointFailures=0
+local jointDetails={}
+local function macdadeSurfaceAt(x,z,wantDeck)
+    local found=nil
+    for _,part in ipairs(roadParts) do
+        if part.Name=="Macdade" and part:IsA("BasePart")
+            and part.CanCollide and part.Transparency<1
+            and (part:GetAttribute("CW_MacdadeCrumDeck")==true)==wantDeck
+            and (part.Position.X-x)^2+(part.Position.Z-z)^2<90*90 then
+            local top=slabTopAtXZ(part,x,z)
+            if top and (not found or top>found) then found=top end
+        end
+    end
+    return found
+end
+if macdadePieces>0 then
+    local cx=Workspace:GetAttribute("CW_MacdadeCrumCenterX")
+    local cz=Workspace:GetAttribute("CW_MacdadeCrumCenterZ")
+    local ax=Workspace:GetAttribute("CW_MacdadeCrumAxisX")
+    local az=Workspace:GetAttribute("CW_MacdadeCrumAxisZ")
+    if cx and cz and ax and az then
+        for _,bank in ipairs({-1,1}) do
+            local outer=bank*60+bank*0.65
+            local inner=bank*60-bank*0.65
+            local outX,outZ=cx+ax*outer,cz+az*outer
+            local inX,inZ=cx+ax*inner,cz+az*inner
+            local outsideY=macdadeSurfaceAt(outX,outZ,false)
+            local insideY=macdadeSurfaceAt(inX,inZ,true)
+            if not outsideY or not insideY
+                or math.abs(outsideY-insideY)>0.65 then
+                jointFailures+=1
+                local msg=string.format(
+                    "bank=%d exterior=(%.1f,%.1f) oldY=%s interior=(%.1f,%.1f) newY=%s gapTolerance=0.65",
+                    bank,outX,outZ,outsideY and string.format("%.2f",outsideY) or "missing",
+                    inX,inZ,insideY and string.format("%.2f",insideY) or "missing")
+                table.insert(jointDetails,msg)
+                warn("[ChesterWorld MacdadeBankJoint] FAIL "..msg)
+            end
+        end
+    else
+        jointFailures=2
+        warn("[ChesterWorld MacdadeBankJoint] Missing built-deck station frame")
+    end
+end
+Workspace:SetAttribute("CW_MacdadeBankJointFailures",jointFailures)
+
 local macdadeStatus=tostring(
     Workspace:GetAttribute("CW_MacdadeCrumDeckStatus") or "not-run")
-print(("[ChesterWorld MacdadeFinalDeckAudit] status=%s builtPieces=%d maxGradePct=%.2f above10Pct=%d oldRoadPartsRetired=%d sourceInventory=15226")
-    :format(macdadeStatus,macdadePieces,maxMacdadeGrade,macdadeSteep,retiredPieces))
-if macdadeStatus=="built" and (macdadePieces~=12 or macdadeSteep>0) then
+print(("[ChesterWorld MacdadeFinalDeckAudit] status=%s builtPieces=%d maxGradePct=%.2f above10Pct=%d oldRoadPartsRetired=%d badBankJoints=%d sourceInventory=15226")
+    :format(macdadeStatus,macdadePieces,maxMacdadeGrade,macdadeSteep,retiredPieces,jointFailures))
+if macdadeStatus=="built" and (macdadePieces~=12 or macdadeSteep>0 or jointFailures>0) then
     warn("[ChesterWorld MacdadeFinalDeckAudit] Bridge profile parts failed independent grade/part-count check")
 end
 

@@ -193,13 +193,15 @@ for _,rail in ipairs(roadParts) do
         local distX,distZ=rail.Position.X-railRegistryX,
             rail.Position.Z-railRegistryZ
         if distX*distX+distZ*distZ<100*100 then
-            for _,fraction in ipairs({-0.45,-0.25,0,0.25,0.45}) do
+            for _,fraction in ipairs({-0.45,-0.36,-0.27,-0.18,-0.09,0,0.09,0.18,0.27,0.36,0.45}) do
                 local p=rail.CFrame*Vector3.new(
                     0,0,rail.Size.Z*fraction*2)
                 local x,z=p.X,p.Z
                 local dx,dz=x-railRegistryX,z-railRegistryZ
                 -- Only the named crossing, not nearby rail alongside.
-                if dx*dx+dz*dz<=24*24 then
+                -- A 12-stud survey core stays inside the named road
+                -- corridor; 24 studs included rail beyond its edges.
+                if dx*dx+dz*dz<=12*12 then
                     local key=math.floor(x*2)..":"..math.floor(z*2)
                     if not checked[key] then
                         checked[key]=true

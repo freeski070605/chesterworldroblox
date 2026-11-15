@@ -91,6 +91,9 @@ while not worldReady() do
  local treesDone=Workspace:GetAttribute("CW_TreesComplete")==true
  local waterDone=Workspace:GetAttribute("CW_WaterComplete")==true
  local roadAuditDone=Workspace:GetAttribute("CW_RoadFinalAuditComplete")==true
+ local roadAuditStatus=tostring(Workspace:GetAttribute("CW_RoadFinalAuditStatus") or "not-started")
+ local macdadeDone=Workspace:GetAttribute("CW_MacdadeCrumDeckComplete")==true
+ local macdadeStatus=tostring(Workspace:GetAttribute("CW_MacdadeCrumDeckStatus") or "not-started")
  local dealershipDone=Workspace:GetAttribute("CW_Exit6DealershipReady")==true
  local musicDone=Workspace:GetAttribute("CW_Exit6MusicReady")==true
  local trafficDone=Workspace:GetAttribute("CW_Exit6TrafficReady")==true
@@ -140,7 +143,11 @@ while not worldReady() do
     string.format("Adding rivers and creeks... %d / %d",done,totalPatches)..suffix)
   end
  elseif not roadAuditDone then
-  progress(.975,"Verifying road and highway surfaces..."..suffix)
+  if not macdadeDone then
+   progress(.975,"Checking Macdade bridge geometry ("..macdadeStatus..")..."..suffix)
+  else
+   progress(.975,"Verifying road and highway surfaces ("..roadAuditStatus..")..."..suffix)
+  end
  elseif not dealershipDone then
   progress(.98,"Opening EXIT 6 Motors..."..suffix)
  elseif not musicDone then
@@ -167,6 +174,11 @@ local systems = {
  {"pedestrians", "CW_Exit6PedestriansStatus"},
  {"activities", "CW_Exit6ActivitiesStatus"},
 }
+local auditStatus=tostring(Workspace:GetAttribute("CW_RoadFinalAuditStatus") or "unknown")
+if auditStatus~="complete" then
+ warn("[EXIT6] Road final diagnostic did not pass: status="..auditStatus..
+  " — city may be playable, but road safety is NOT certified; check Server Output.")
+end
 local serviceStatuses = {}
 for _, pair in ipairs(systems) do
  local state = tostring(Workspace:GetAttribute(pair[2]) or "unknown")

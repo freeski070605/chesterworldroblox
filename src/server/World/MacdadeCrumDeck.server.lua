@@ -6,6 +6,7 @@
 -- Published structure: PA Delaware County bridge 15226 over Crum Creek.
 -- Inventory length 95ft: central guarded 130-stud corridor; the full
 -- 280-stud profiled stretch includes its road approaches.
+local RunService=game:GetService("RunService")
 local Workspace=game:GetService("Workspace")
 local Terrain=Workspace.Terrain
 local Builder=require(script.Parent:WaitForChild("TileBuilderV2"))
@@ -255,6 +256,14 @@ local function run()
             pointAt(-140).X,pointAt(-140).Z,
             pointAt(140).X,pointAt(140).Z))
     return "built"
+end
+
+-- This is a new 280-stud physical road change. Keep it in Studio
+-- until visual/vehicle tests confirm real bridge and sidewalk connections.
+if not RunService:IsStudio() then
+    Workspace:SetAttribute(STATUS,"studio-only-awaiting-driving-verification")
+    Workspace:SetAttribute("CW_MacdadeCrumDeckComplete",true)
+    return
 end
 
 local ok,status=pcall(run)

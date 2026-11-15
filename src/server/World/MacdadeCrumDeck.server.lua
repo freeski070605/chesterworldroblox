@@ -35,7 +35,8 @@ local function slabTop(part,x,z)
 end
 
 local function run()
-    while Workspace:GetAttribute("CW_MacdadeSurveyComplete")~=true do
+    while Workspace:GetAttribute("CW_MacdadeSurveyComplete")~=true
+        or Workspace:GetAttribute("CW_StreetFurnitureComplete")~=true do
         task.wait(0.5)
     end
     local world=Workspace:FindFirstChild("ChesterWorld")

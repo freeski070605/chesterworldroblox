@@ -24,7 +24,20 @@ local stages={
     "CW_MacdadeCrumDeckComplete",
 }
 for _,stage in ipairs(stages) do
-    while Workspace:GetAttribute(stage) ~= true do task.wait(0.5) end
+    local deadline=os.clock()+720 -- cold 102-tile Studio starts can be slow
+    local nextNotice=os.clock()+60
+    while Workspace:GetAttribute(stage) ~= true do
+        if os.clock()>deadline then
+            error("road audit timed out waiting for "..stage..
+                "; all finished stages must explicitly set their own flags")
+        end
+        if os.clock()>nextNotice then
+            warn("[ChesterWorld RoadFinalAudit] Waiting for stage "..stage..
+                " (audit still pending)")
+            nextNotice=os.clock()+60
+        end
+        task.wait(0.5)
+    end
 end
 
 local World=Workspace:FindFirstChild("ChesterWorld")

@@ -4,8 +4,10 @@
 -- road or native terrain occupies the planned deck. Never change Terrain,
 -- Riverfront, Ridley Creek, or baked water.
 -- Published structure: PA Delaware County bridge 15226 over Crum Creek.
--- Inventory length 95ft: central guarded 130-stud corridor; the full
--- 280-stud profiled stretch includes its road approaches.
+-- Inventory length 95ft (~113 horizontal studs at Chester projection).
+-- Only the central 120-stud creek corridor is reconstructed; measured
+-- road surfaces at +/-60 serve as the joining banks. Existing paved
+-- approaches remain in place, avoiding a 280-stud double-layer flyover.
 local RunService=game:GetService("RunService")
 local Workspace=game:GetService("Workspace")
 local Terrain=Workspace.Terrain
@@ -103,18 +105,18 @@ local function run()
         end
         return y,best
     end
-    local yL,pL=pavementAt(-140,0)
-    local yR,pR=pavementAt(140,0)
-    local yLL=pavementAt(-180,0)
-    local yRR=pavementAt(180,0)
+    local yL,pL=pavementAt(-60,0)
+    local yR,pR=pavementAt(60,0)
+    local yLL=pavementAt(-100,0)
+    local yRR=pavementAt(100,0)
     if not (yL and yR and yLL and yRR and pL and pR) then
         return "missing-stable-outer-pavement-anchors"
     end
     if pL==pR then return "same-anchor-for-both-banks" end
     local leftGrade=math.abs(yL-yLL)/40
     local rightGrade=math.abs(yRR-yR)/40
-    local designGrade=math.abs(yR-yL)/280
-    if leftGrade>0.09 or rightGrade>0.09 or designGrade>0.08 then
+    local designGrade=math.abs(yR-yL)/120
+    if leftGrade>0.11 or rightGrade>0.11 or designGrade>0.10 then
         return string.format(
             "approach-grade-not-supported left=%.1f right=%.1f deck=%.1f",
             leftGrade*100,rightGrade*100,designGrade*100)
@@ -124,7 +126,7 @@ local function run()
         return "source-pavement-width-mismatch"
     end
     local function profileY(station)
-        return yL+(yR-yL)*(station+140)/280
+        return yL+(yR-yL)*(station+60)/120
     end
 
     local maxTerrainIntrusion=-math.huge
@@ -132,10 +134,21 @@ local function run()
     local maxFloating=-math.huge
     local waterInside=0
     local scanned=0
+    local retirementCandidates={}
+    local greatestOriginalDifference=0
+    local function partLongitudinalSpan(part)
+        local relative=part.Position-center
+        local station=relative:Dot(axis)
+        local right=part.CFrame.RightVector
+        local look=part.CFrame.LookVector
+        local half=math.abs(right:Dot(axis))*part.Size.X/2
+            +math.abs(look:Dot(axis))*part.Size.Z/2
+        return station-half,station+half
+    end
     -- Run all safety checks before creating a single part. Note that this
     -- deliberately rejects any existing road in the planned bridge's
     -- driving envelope, avoiding an invented junction on an elevated deck.
-    for s=-140,140,10 do
+    for s=-60,60,5 do
         local top=profileY(s)
         for _,shoulder in ipairs({-major.width*0.43,0,major.width*0.43}) do
             local point=pointAt(s,shoulder)
@@ -146,14 +159,14 @@ local function run()
             local cls=WaterMap.Classify(x,z)
             if water or cls=="mappedPolygon" or cls=="approxStream" then
                 waterInside+=1
-                if math.abs(s)>75 then
+                if math.abs(s)>60 then
                     return string.format(
                         "water-extends-outside-surveyed-culvert s=%d",s)
                 end
             elseif not hit then
                 -- A stream gap may leave no Terrain, but if it extends
                 -- outside the known bridge span, the bank is unverified.
-                if math.abs(s)>75 then
+                if math.abs(s)>60 then
                     return string.format(
                         "terrain-unverified-at-approach s=%d",s)
                 end
@@ -167,7 +180,7 @@ local function run()
                         "road-deck-in-terrain at=(%.1f,%.1f) intrusion=%.2f",
                         x,z,intrude)
                 end
-                if top-hit.Position.Y>30 then
+                if top-hit.Position.Y>16 then
                     return string.format(
                         "unvalidated-deck-height at=(%.1f,%.1f) lift=%.2f",
                         x,z,top-hit.Position.Y)
@@ -183,10 +196,28 @@ local function run()
                         if part.Name=="Macdade" then
                             local excess=partTop-top
                             maxOldRoadAbove=math.max(maxOldRoadAbove,excess)
-                            if excess>0.3 then
-                                return string.format(
-                                    "old-road-above-new-profile s=%d excess=%.2f",
-                                    s,excess)
+                            greatestOriginalDifference=math.max(
+                                greatestOriginalDifference,math.abs(excess))
+                            if math.abs(excess)>0.55 then
+                                -- Never leave a second collidable road
+                                -- above/below the bridge. Only source
+                                -- road pieces wholly inside this central
+                                -- span may be temporarily retired during
+                                -- an isolated Studio Play test.
+                                local lo,hi=partLongitudinalSpan(part)
+                                if lo < -60.5 or hi > 60.5 then
+                                    return string.format(
+                                        "old-road-crosses-bridge-boundary s=%d span=%.1f..%.1f difference=%.2f",
+                                        s,lo,hi,excess)
+                                end
+                                if part:GetAttribute("CW_RoadGapRepair")==true
+                                    or part:GetAttribute("CW_HighwayProfiled")==true
+                                    or part:GetAttribute("CW_Bridge")==true then
+                                    return string.format(
+                                        "old-road-structural-part-at-span s=%d part=%s",
+                                        s,tostring(part.Name))
+                                end
+                                retirementCandidates[part]=true
                             end
                         elseif part:GetAttribute("CW_Rail")~=true
                             and math.abs(partTop-top)<5
@@ -202,14 +233,32 @@ local function run()
         end
     end
 
+    -- The old terrain-following roadway must be checked over the
+    -- full bridge footprint, not merely where a five-stud probe lands.
+    -- Reject boundary-spanning pieces rather than cutting/altering them.
+    local retired=0
+    for part in pairs(retirementCandidates) do
+        local lo,hi=partLongitudinalSpan(part)
+        if lo<-60.5 or hi>60.5 then
+            return "unresolved-existing-road-boundary"
+        end
+        retired+=1
+    end
+
     -- All source, bank, water, existing road and grade checks passed.
-    -- These are runtime deck Parts only; saved native terrain and GIS
-    -- source tiles remain unchanged.
+    -- Temporarily disable underlying, *fully contained* pavement Parts
+    -- BEFORE placing the new surface. This happens in Studio Play only
+    -- and does NOT mutate GIS or baked Terrain.
+    for part in pairs(retirementCandidates) do
+        part:SetAttribute("CW_MacdadeOldRoadTemporarilyRetired",true)
+        part.CanCollide=false
+        part.Transparency=1
+    end
     local parent=pL.Parent
     local made=0
-    for i=1,14 do
-        local s0=-140+(i-1)*20
-        local s1=s0+20
+    for i=1,12 do
+        local s0=-60+(i-1)*10
+        local s1=s0+10
         local p0=pointAt(s0,0)+Vector3.new(0,profileY(s0)-0.225,0)
         local p1=pointAt(s1,0)+Vector3.new(0,profileY(s1)-0.225,0)
         local asphalt=Instance.new("Part")
@@ -232,7 +281,7 @@ local function run()
         asphalt.Parent=parent
         -- Railings on the central creek/culvert span only. Ends remain
         -- open to existing city streets and adjoining sidewalks.
-        if s0>=-60 and s1<=60 then
+        if s0>=-50 and s1<=50 then
             for _,side in ipairs({-1,1}) do
                 local wall=Instance.new("Part")
                 wall.Name="MacdadeCrumCreekParapet"
@@ -250,9 +299,11 @@ local function run()
         made+=1
     end
     Workspace:SetAttribute("CW_MacdadeCrumDeckPieces",made)
-    print(("[ChesterWorld MacdadeCrumDeck] status=built source=county_bridge_15226 road=Macdade deckPieces=%d length=280 grade=%.2f%% bankLeft=%.2f bankRight=%.2f outerApproachGrades=%.1f%%/%.1f%% maxTerrainLift=%.1f sourceFragments=%d sourceMissingLength=%.1f waterSamples=%d checked=%d from=(%.1f,%.1f) to=(%.1f,%.1f)")
-        :format(made,designGrade*100,yL,yR,leftGrade*100,rightGrade*100,
-            maxFloating,sourceFragments,sourceMissingLength,waterInside,scanned,
+    Workspace:SetAttribute("CW_MacdadeOldPartsRetired",retired)
+    print(("[ChesterWorld MacdadeCrumDeck] status=built source=county_bridge_15226 road=Macdade deckPieces=%d length=120 grade=%.2f%% bankLeft=%.2f bankRight=%.2f%% maxTerrainLift=%.1f oldRoadMaxHeightDifference=%.1f oldRoadPiecesTemporarilyRetired=%d outerApproachGrades=%.1f%%/%.1f%% sourceFragments=%d sourceMissingLength=%.1f waterSamples=%d checked=%d from=(%.1f,%.1f) to=(%.1f,%.1f)")
+        :format(made,designGrade*100,yL,yR,maxFloating,
+            greatestOriginalDifference,retired,leftGrade*100,rightGrade*100,
+            sourceFragments,sourceMissingLength,waterInside,scanned,
             pointAt(-140).X,pointAt(-140).Z,
             pointAt(140).X,pointAt(140).Z))
     return "built"

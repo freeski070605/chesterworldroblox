@@ -126,6 +126,20 @@ local function run()
         or math.abs(pR.Size.X-major.width)>4 then
         return "source-pavement-width-mismatch"
     end
+    -- Both real banks must remain dry and solid at and beyond the
+    -- proposed culvert; missing creekbed Terrain is allowed only IN
+    -- the documented central crossing.
+    for _,s in ipairs({-70,-60,60,70}) do
+        for _,side in ipairs({-major.width*0.43,0,major.width*0.43}) do
+            local p=pointAt(s,side)
+            local land=Workspace:Raycast(Vector3.new(p.X,5000,p.Z),
+                Vector3.new(0,-10000,0),groundRay)
+            if not land or land.Material==Enum.Material.Water
+                or WaterMap.Classify(p.X,p.Z)~="notMapped" then
+                return string.format("bank-not-grounded-at-s=%d side=%.1f",s,side)
+            end
+        end
+    end
     local function profileY(station)
         return yL+(yR-yL)*(station+60)/120
     end
@@ -250,13 +264,20 @@ local function run()
     -- Temporarily disable underlying, *fully contained* pavement Parts
     -- BEFORE placing the new surface. This happens in Studio Play only
     -- and does NOT mutate GIS or baked Terrain.
-    for part in pairs(retirementCandidates) do
-        part:SetAttribute("CW_MacdadeOldRoadTemporarilyRetired",true)
-        part.CanCollide=false
-        part.Transparency=1
-    end
-    local parent=pL.Parent
-    local made=0
+    local savedOld={}
+    local newObjects={}
+    local ok,madeOrError=pcall(function()
+        for part in pairs(retirementCandidates) do
+            savedOld[part]={
+                collide=part.CanCollide,
+                transparency=part.Transparency,
+            }
+            part:SetAttribute("CW_MacdadeOldRoadTemporarilyRetired",true)
+            part.CanCollide=false
+            part.Transparency=1
+        end
+        local parent=pL.Parent
+        local made=0
     for i=1,12 do
         local s0=-60+(i-1)*10
         local s1=s0+10
@@ -280,6 +301,7 @@ local function run()
         asphalt:SetAttribute("CW_InventoryStructure","15226")
         asphalt:SetAttribute("CW_ProfileGrade",designGrade)
         asphalt.Parent=parent
+        table.insert(newObjects,asphalt)
         -- Railings on the central creek/culvert span only. Ends remain
         -- open to existing city streets and adjoining sidewalks.
         if s0>=-50 and s1<=50 then
@@ -295,10 +317,27 @@ local function run()
                 wall.Color=Color3.fromRGB(148,148,144)
                 wall:SetAttribute("CW_StructureId","MACDADE_CRUM_CREEK")
                 wall.Parent=parent
+                table.insert(newObjects,wall)
             end
         end
-        made+=1
+            made+=1
+        end
+        return made
+    end)
+    if not ok then
+        for _,obj in ipairs(newObjects) do
+            if obj.Parent then obj:Destroy() end
+        end
+        for part,previous in pairs(savedOld) do
+            if part.Parent then
+                part.CanCollide=previous.collide
+                part.Transparency=previous.transparency
+                part:SetAttribute("CW_MacdadeOldRoadTemporarilyRetired",nil)
+            end
+        end
+        return "construction-failed-rolled-back: "..tostring(madeOrError)
     end
+    local made=madeOrError
     Workspace:SetAttribute("CW_MacdadeCrumDeckPieces",made)
     Workspace:SetAttribute("CW_MacdadeOldPartsRetired",retired)
     print(("[ChesterWorld MacdadeCrumDeck] status=built source=county_bridge_15226 road=Macdade deckPieces=%d length=120 grade=%.2f%% bankLeft=%.2f bankRight=%.2f maxTerrainLift=%.1f oldRoadMaxHeightDifference=%.1f oldRoadPiecesTemporarilyRetired=%d outerApproachGrades=%.1f%%/%.1f%% sourceFragments=%d sourceMissingLength=%.1f waterSamples=%d checked=%d from=(%.1f,%.1f) to=(%.1f,%.1f)")
@@ -310,7 +349,7 @@ local function run()
     return "built"
 end
 
--- This is a new 280-stud physical road change. Keep it in Studio
+-- This is a new 120-stud physical road change. Keep it in Studio
 -- until visual/vehicle tests confirm real bridge and sidewalk connections.
 if not RunService:IsStudio() then
     Workspace:SetAttribute(STATUS,"studio-only-awaiting-driving-verification")

@@ -363,7 +363,7 @@ for _,part in ipairs(roadParts) do
     end
 end
 -- Real geometric connection check at BOTH edges of a built culvert.
--- A count of 12 nice-looking pavement Parts cannot prove the joins.
+-- A count of 14 rendered deck Parts cannot prove the two bank joins.
 local jointFailures=0
 local jointDetails={}
 local function macdadeSurfaceAt(x,z,wantDeck)
@@ -386,8 +386,8 @@ if macdadePieces>0 then
     local az=Workspace:GetAttribute("CW_MacdadeCrumAxisZ")
     if cx and cz and ax and az then
         for _,bank in ipairs({-1,1}) do
-            local outer=bank*60+bank*0.65
-            local inner=bank*60-bank*0.65
+            local outer=bank*140+bank*0.65
+            local inner=bank*140-bank*0.65
             local outX,outZ=cx+ax*outer,cz+az*outer
             local inX,inZ=cx+ax*inner,cz+az*inner
             local outsideY=macdadeSurfaceAt(outX,outZ,false)
@@ -410,11 +410,52 @@ if macdadePieces>0 then
 end
 Workspace:SetAttribute("CW_MacdadeBankJointFailures",jointFailures)
 
+-- Re-sample central driving positions for a stacked, collidable
+-- second copy of Macdade. A still-collidable old lower road is a
+-- collision issue even if the top deck looks smooth from above.
+local duplicateLayers=0
+if macdadePieces>0 then
+    local cx=Workspace:GetAttribute("CW_MacdadeCrumCenterX")
+    local cz=Workspace:GetAttribute("CW_MacdadeCrumCenterZ")
+    local ax=Workspace:GetAttribute("CW_MacdadeCrumAxisX")
+    local az=Workspace:GetAttribute("CW_MacdadeCrumAxisZ")
+    if cx and cz and ax and az then
+        for s=-130,130,10 do
+            local x,z=cx+ax*s,cz+az*s
+            local original=macdadeSurfaceAt(x,z,false)
+            local newDeck=macdadeSurfaceAt(x,z,true)
+            if original and newDeck and math.abs(original-newDeck)>0.65 then
+                duplicateLayers+=1
+                if duplicateLayers<=12 then
+                    warn(("[ChesterWorld MacdadeDoubleRoad] station=%d oldY=%.2f newDeckY=%.2f bothCollidable=true")
+                        :format(s,original,newDeck))
+                end
+            end
+        end
+    end
+end
+local pierCount=0
+for _,tile in ipairs(world:GetChildren()) do
+    local folder=tile:FindFirstChild("Roads")
+    if folder then
+        for _,part in ipairs(folder:GetChildren()) do
+            if part:IsA("BasePart")
+                and part:GetAttribute("CW_MacdadeCrumSupport")==true then
+                pierCount+=1
+            end
+        end
+    end
+end
+Workspace:SetAttribute("CW_MacdadeDoubleRoadSamples",duplicateLayers)
+Workspace:SetAttribute("CW_MacdadeDryBankSupportsAudited",pierCount)
 local macdadeStatus=tostring(
     Workspace:GetAttribute("CW_MacdadeCrumDeckStatus") or "not-run")
-print(("[ChesterWorld MacdadeFinalDeckAudit] status=%s builtPieces=%d maxGradePct=%.2f above10Pct=%d oldRoadPartsRetired=%d badBankJoints=%d sourceInventory=15226")
-    :format(macdadeStatus,macdadePieces,maxMacdadeGrade,macdadeSteep,retiredPieces,jointFailures))
-if macdadeStatus=="built" and (macdadePieces~=12 or macdadeSteep>0 or jointFailures>0) then
+print(("[ChesterWorld MacdadeFinalDeckAudit] status=%s builtPieces=%d maxGradePct=%.2f above10Pct=%d oldRoadPartsRetired=%d badBankJoints=%d duplicateCollidableRoadSamples=%d dryBankSupports=%d sourceInventory=15226")
+    :format(macdadeStatus,macdadePieces,maxMacdadeGrade,macdadeSteep,
+        retiredPieces,jointFailures,duplicateLayers,pierCount))
+if macdadeStatus=="built" and (macdadePieces~=14 or macdadeSteep>0
+    or jointFailures>0 or duplicateLayers>0
+    or pierCount~=(Workspace:GetAttribute("CW_MacdadeDryBankSupports") or -1)) then
     warn("[ChesterWorld MacdadeFinalDeckAudit] Bridge profile parts failed independent grade/part-count check")
 end
 

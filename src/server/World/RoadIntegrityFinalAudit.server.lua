@@ -2,6 +2,12 @@
 -- AFTER highway dressing, terrain clearing, local bridges, landmarks and water.
 -- It does NOT bridge uncertain riverbanks or raise roads to invented heights.
 local Workspace = game:GetService("Workspace")
+-- An audit error is diagnostic, not grounds for an infinite loading screen.
+-- World-build and bridge construction have their own completion flags.
+Workspace:SetAttribute("CW_RoadFinalAuditComplete",false)
+Workspace:SetAttribute("CW_RoadFinalAuditStatus","running")
+
+local function runAudit()
 -- The city root is created by Bootstrap AFTER this script starts.
 -- Wait for the stage attribute first so Studio does not report a false
 -- infinite yield warning while the first tile is being prepared.
@@ -10,7 +16,6 @@ local WaterMap = require(script.Parent:WaitForChild("WaterMap"))
 local StructureRegistry = require(game:GetService("ReplicatedStorage")
     :WaitForChild("Shared"):WaitForChild("HighwayStructureRegistry"))
 
-Workspace:SetAttribute("CW_RoadFinalAuditComplete",false)
 local started=os.clock()
 local stages={
     "CW_BootstrapComplete","CW_RoadConformComplete","CW_HighwayFinishComplete",
@@ -435,7 +440,7 @@ if macdadePieces>0 then
     end
 end
 local pierCount=0
-for _,tile in ipairs(world:GetChildren()) do
+for _,tile in ipairs(World:GetChildren()) do
     local folder=tile:FindFirstChild("Roads")
     if folder then
         for _,part in ipairs(folder:GetChildren()) do
@@ -482,4 +487,17 @@ print(("[ChesterWorld RoadFinalAudit] fragmentCandidates=%d coveredSameRoad=%d c
 Workspace:SetAttribute("CW_RoadFinalUnverifiedFragments",unverified)
 Workspace:SetAttribute("CW_RoadFinalOpenGaps",openCount)
 Workspace:SetAttribute("CW_RoadFinalHighwaySteep",highwayGradeOverLimit)
+end -- runAudit
+
+local ok,err=xpcall(runAudit,function(message)
+    return debug.traceback(tostring(message),2)
+end)
+if not ok then
+    warn("[ChesterWorld RoadFinalAudit] FAILED: "..tostring(err))
+    Workspace:SetAttribute("CW_RoadFinalAuditStatus","failed")
+else
+    Workspace:SetAttribute("CW_RoadFinalAuditStatus","complete")
+end
+-- A failed optional diagnostic must not block players for hours.
+-- Never label it a successful audit: inspect Status, and the error above.
 Workspace:SetAttribute("CW_RoadFinalAuditComplete",true)

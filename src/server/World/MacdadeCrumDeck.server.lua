@@ -40,10 +40,13 @@ local function run()
     local stats=Builder.Stats()
     local fragments=stats and stats.missingFragments or {}
     local major=nil
+    local sourceFragments,sourceMissingLength=0,0
     for _,f in ipairs(fragments) do
         if f.kind=="steep" and f.road=="Macdade"
             and horizontal((f.ax+f.bx)/2,(f.az+f.bz)/2,
                 9979.6,-9818.2)<40 then
+            sourceFragments+=1
+            sourceMissingLength+=f.length
             if not major or f.length>major.length then major=f end
         end
     end
@@ -58,7 +61,6 @@ local function run()
         return "source-geometry-not-at-inventory-crossing"
     end
 
-    local roads={}
     local folders={}
     for _,tile in ipairs(world:GetChildren()) do
         local folder=tile:FindFirstChild("Roads")
@@ -247,9 +249,9 @@ local function run()
         made+=1
     end
     Workspace:SetAttribute("CW_MacdadeCrumDeckPieces",made)
-    print(("[ChesterWorld MacdadeCrumDeck] status=built source=county_bridge_15226 road=Macdade deckPieces=%d length=280 grade=%.2f%% bankLeft=%.2f bankRight=%.2f outerApproachGrades=%.1f%%/%.1f%% maxTerrainLift=%.1f sourceMissingLength=13.4 waterSamples=%d checked=%d from=(%.1f,%.1f) to=(%.1f,%.1f)")
+    print(("[ChesterWorld MacdadeCrumDeck] status=built source=county_bridge_15226 road=Macdade deckPieces=%d length=280 grade=%.2f%% bankLeft=%.2f bankRight=%.2f outerApproachGrades=%.1f%%/%.1f%% maxTerrainLift=%.1f sourceFragments=%d sourceMissingLength=%.1f waterSamples=%d checked=%d from=(%.1f,%.1f) to=(%.1f,%.1f)")
         :format(made,designGrade*100,yL,yR,leftGrade*100,rightGrade*100,
-            maxFloating,waterInside,scanned,
+            maxFloating,sourceFragments,sourceMissingLength,waterInside,scanned,
             pointAt(-140).X,pointAt(-140).Z,
             pointAt(140).X,pointAt(140).Z))
     return "built"

@@ -553,3 +553,73 @@ approximate length, not final Roblox vertical road engineering.
 If any bank geometry or dry-support gate fails, keep original road
 unchanged and require better source geometry instead of lowering
 safety constraints.
+
+
+## 2026-11-15, 10:58–11:02 Studio PLAY: first complete post-audit-fix loading and supported Macdade crossing
+
+Evidence: user-supplied Roblox Studio Output saved 20261115-160836.
+This is the VERIFIED local test baseline for the next road work.
+Do not imply vehicle-passability, road-network completeness, or
+production-readiness from these static automated measurements alone.
+
+RESULT: The previous 98%-forever loading bug IS RESOLVED in this
+test: EXIT6Loading reports World ready at 11:02:45.791, after
+270.4 seconds (102 of 102 tiles). The World final audit waits
+normally for legitimate build stages, then completes; no
+CW_RoadFinalAudit failure or indefinite wait appears.
+
+Road and creek test:
+- Macdade / Crum Creek 15226: status=built with 14 paved pieces
+  across 280 studs; design grade 1.42%, left bank top 20.39
+  studs, right bank top 24.37 studs. Native terrain lift up to
+  15.2 studs. Eight old Macdade pavement pieces temporarily
+  deactivated for Studio-only test; zero full bank-part trims
+  necessary. Twelve DRY bank support pillars created.
+- Separate post-build RoadIntegrityFinalAudit verifies
+  14 deck pieces; 1.42% maximum rendered deck grade,
+  above10Pct=0; both outer bank joints present and height-matched
+  within 0.65 studs (badBankJoints=0). It finds zero
+  duplicate collidable-road samples; counted pillars=12.
+  This is a geometry/collision sampling pass, NOT an actual
+  vehicle traversability or bridge structural validation.
+- Crum Lynne / CSX: 20 previously recovered asphalt approach
+  pieces; 4 on-road track/deck overlaps sampled, 0 uncovered
+  samples, minimum deck underside clearance 22.38 studs,
+  no under-14-stud samples, status=measured-local-clearance-passing.
+  Final vehicle and track/intersection verification pending.
+- Road final audit: original 229 omitted pavement fragments,
+  24 fully same-road covered, 205 NOT_VERIFIED (including
+  196 GIS=notMapped and nine mapped-water). Legacy midpoint
+  STILL_OPEN 198. New 280-stud Macdade recovers four source
+  fragments; two Crum Lynne rail approaches restore 20.
+- Profiled highway parts 7,305; 0 late highway parts over
+  grade limits, 0 final bridge-flagged steep parts. Some earlier
+  road conformer clearance/terrain warnings and 12 unresolved
+  profile crossings remain: do not declare total highway safety.
+
+Gameplay: dealership, music, traffic, pedestrians, activities
+all reported "ready". Baked water signature
+exit6-water-v2:52:16749:1946581529 was verified with existing
+52 water tiles, no rebake.
+
+Residual small Studio-only warnings:
+- DataStoreService studio API disabled: test progress unsaved;
+  does not prevent world-ready.
+- A ContentId type mismatch on rbxassetid://203785492.
+- PlayerModule unavailable for menu movement-lock; menu remains
+  functional without that optional lock.
+
+Next priorities (DO NOT treat as already fixed):
+1. Physically drive or walk both directions through Macdade /
+   Crum Creek at approx (9978, 24, -9815), including both
+   road joints and shoulders. Check support/guardrail clearance.
+2. Reconstruct the separate Macdade / Ridley Creek source-backed
+   profile: 29 fragments, 72.5 studs omitted, observed outer-bank
+   grade ~16.1%, with 100ft structural inventory; do not fill
+   simply by relaxing the generic 11% grade guard.
+3. Survey Chester Riverfront's no-terrain/water conflicts:
+   48 missing native-terrain fragments, nine mapped-water;
+   do not overwrite the saved water voxels.
+4. Remaining high-grade streets and mapped-but-unverified bridge
+   structures including Pennell, 6th and Incinerator.
+5. Re-run final audits and vehicle tests before production release.

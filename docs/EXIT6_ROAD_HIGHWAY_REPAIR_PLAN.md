@@ -351,3 +351,58 @@ Drive across the entire Crum Creek candidate, inspect both bank
 joins, creek clearance, terrain/shoulder intrusion, traffic and
 parapet collisions, and compare with orthophoto before making the
 module production-active. No water rebake required.
+
+
+## Nov 14, 21:31 Studio: Macdade profile double-layer correction
+
+This Studio run:
+- 14 new Macdade / Crum Creek pieces in a 280-stud 1.42% profile,
+  15.2 studs above ground at its highest gap. This is a
+  static road-coverage result and can create a stacked collision
+  layer because the old terrain-following Macdade was still under it.
+- Strict three-position road audit: 205 not verified of 229 (down
+  from 209), midpoint gaps 198 (down from 202).
+- Crum Lynne: 20 restored approach parts. Actual rail crossing
+  had 5 rail stations, 2 overlaid by collidable road at 22.38
+  minimum measured clearance, 3 with no collidable deck
+  detected: status road-gaps-over-rail, NOT CERTIFIED.
+- 7,305 profiled highway parts, zero corridor grade violations.
+  HighwayFinish: 245 checked crossings, zero low clearance,
+  tunnel obstructions or bridge terrain intrusions.
+
+CORRECTIVE SCRIPT UPDATE (awaiting Studio Play run):
+- MacdadeCrumDeck now spans 120 studs (12 x 10-stud asphalt)
+  instead of building a 280-stud road over existing approaches.
+  The inventory says 95ft Crum Creek culvert (~113 projected
+  studs). Existing same-name pavement is measured at +/-60,
+  and the bank approaches at +/-100.
+- Requires <=10% bridge grade, <=11% outer approaches, dry
+  grounded banks on both sides, matched original road width,
+  no conflicting roads or terrain intrusion, and no more than
+  16 studs lift above native solid ground.
+- Where old Macdade parts disagree with the smooth profile by
+  >0.55 studs, it can temporarily hide and disable collisions
+  only for nonbridge old parts FULLY inside the 120-stud span.
+  Any original road part crossing a profile boundary aborts
+  with an explicit rejection reason. A failed build rolls back
+  generated parts and restores old-road visibility/collision.
+- Requires StreetFurniture completion before evaluating collision.
+  Still ONLY active in Roblox Studio; not on published servers.
+  Does not change source GIS, native Terrain, or water bake.
+- Independent MacdadeFinalDeckAudit now checks 12 parts / <=10%
+  and counts temporarily retired originals.
+- RoadFinalRailDeck prints exact XYZ of the previously uncovered
+  CSX track samples for real classification, rather than
+  treating missing overlaps as successful clearances.
+
+NEXT OUTPUT:
+  [ChesterWorld MacdadeCrumDeck] status=built/rejected...
+  [ChesterWorld MacdadeFinalDeckAudit] builtPieces=...
+  [ChesterWorld RoadRailUncoveredProbe] rail=(...)
+  [ChesterWorld RoadFinalRailDeck] status=...
+  [ChesterWorld RoadFinalAudit] NOT_VERIFIED=...
+
+If Macdade is rejected, DO NOT loosen constraints without inspecting
+the exact failed bank, grade or boundary. If built, inspect/drivetrain
+test the complete span and both joints. Neither a static geometry pass
+nor source bridge inventory alone certifies a real drivable roadway.

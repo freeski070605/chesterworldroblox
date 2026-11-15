@@ -5,9 +5,12 @@
 -- Riverfront, Ridley Creek, or baked water.
 -- Published structure: PA Delaware County bridge 15226 over Crum Creek.
 -- Inventory length 95ft (~113 horizontal studs at Chester projection).
--- Only the central 120-stud creek corridor is reconstructed; measured
--- road surfaces at +/-60 serve as the joining banks. Existing paved
--- approaches remain in place, avoiding a 280-stud double-layer flyover.
+-- The local 120-stud attempt was rejected by 3.16 studs of native
+-- hillside at the outer creek shoulder. The 280-stud approach
+-- cleared that notch at ~1.4% in an earlier Studio run, but generated
+-- a second road level. We now retire conflicting old asphalt and
+-- preserve adjoining bank pavement using measured bank-edge clips.
+-- Dry-bank support locations are validated before any build.
 local RunService=game:GetService("RunService")
 local Workspace=game:GetService("Workspace")
 local Terrain=Workspace.Terrain
@@ -106,17 +109,17 @@ local function run()
         end
         return y,best
     end
-    local yL,pL=pavementAt(-60,0)
-    local yR,pR=pavementAt(60,0)
-    local yLL=pavementAt(-100,0)
-    local yRR=pavementAt(100,0)
+    local yL,pL=pavementAt(-140,0)
+    local yR,pR=pavementAt(140,0)
+    local yLL=pavementAt(-180,0)
+    local yRR=pavementAt(180,0)
     if not (yL and yR and yLL and yRR and pL and pR) then
         return "missing-stable-outer-pavement-anchors"
     end
     if pL==pR then return "same-anchor-for-both-banks" end
     local leftGrade=math.abs(yL-yLL)/40
     local rightGrade=math.abs(yRR-yR)/40
-    local designGrade=math.abs(yR-yL)/120
+    local designGrade=math.abs(yR-yL)/280
     if leftGrade>0.11 or rightGrade>0.11 or designGrade>0.10 then
         return string.format(
             "approach-grade-not-supported left=%.1f right=%.1f deck=%.1f",
@@ -129,7 +132,7 @@ local function run()
     -- Both real banks must remain dry and solid at and beyond the
     -- proposed culvert; missing creekbed Terrain is allowed only IN
     -- the documented central crossing.
-    for _,s in ipairs({-70,-60,60,70}) do
+    for _,s in ipairs({-180,-140,140,180}) do
         for _,side in ipairs({-major.width*0.43,0,major.width*0.43}) do
             local p=pointAt(s,side)
             local land=Workspace:Raycast(Vector3.new(p.X,5000,p.Z),
@@ -141,7 +144,7 @@ local function run()
         end
     end
     local function profileY(station)
-        return yL+(yR-yL)*(station+60)/120
+        return yL+(yR-yL)*(station+140)/280
     end
 
     local maxTerrainIntrusion=-math.huge
@@ -164,7 +167,7 @@ local function run()
     -- Run all safety checks before creating a single part. Note that this
     -- deliberately rejects any existing road in the planned bridge's
     -- driving envelope, avoiding an invented junction on an elevated deck.
-    for s=-60,60,5 do
+    for s=-140,140,5 do
         local top=profileY(s)
         for _,shoulder in ipairs({-major.width*0.43,0,major.width*0.43}) do
             local point=pointAt(s,shoulder)
@@ -175,14 +178,14 @@ local function run()
             local cls=WaterMap.Classify(x,z)
             if water or cls=="mappedPolygon" or cls=="approxStream" then
                 waterInside+=1
-                if math.abs(s)>60 then
+                if math.abs(s)>70 then
                     return string.format(
                         "water-extends-outside-surveyed-culvert s=%d",s)
                 end
             elseif not hit then
                 -- A stream gap may leave no Terrain, but if it extends
                 -- outside the known bridge span, the bank is unverified.
-                if math.abs(s)>60 then
+                if math.abs(s)>70 then
                     return string.format(
                         "terrain-unverified-at-approach s=%d",s)
                 end
@@ -221,7 +224,7 @@ local function run()
                                 -- span may be temporarily retired during
                                 -- an isolated Studio Play test.
                                 local lo,hi=partLongitudinalSpan(part)
-                                if lo < -60.5 or hi > 60.5 then
+                                if lo < -140.5 or hi > 140.5 then
                                     -- Preserve the OUTSIDE bank asphalt.
                                     -- Plan a mathematically aligned cut;
                                     -- do not hide an entire approach Part.
@@ -278,15 +281,15 @@ local function run()
         local stationPos=centerStation+half*slope
         local lo,hi=math.min(stationNeg,stationPos),
             math.max(stationNeg,stationPos)
-        if lo<-60.5 and hi>60.5 then
+        if lo<-140.5 and hi>140.5 then
             return nil,"single-old-part-spans-both-banks"
         end
         local boundary,outsideStation=nil,nil
-        if lo<-60.5 and hi>-60+0.5 then
-            boundary=-60
+        if lo<-140.5 and hi>-140+0.5 then
+            boundary=-140
             outsideStation=lo
-        elseif hi>60.5 and lo<60-0.5 then
-            boundary=60
+        elseif hi>140.5 and lo<140-0.5 then
+            boundary=140
             outsideStation=hi
         else
             return nil,string.format(
@@ -314,7 +317,7 @@ local function run()
     local cutCount=0
     for part in pairs(retirementCandidates) do
         local lo,hi=partLongitudinalSpan(part)
-        if trimPlans[part] or lo<-60.5 or hi>60.5 then
+        if trimPlans[part] or lo<-140.5 or hi>140.5 then
             local plan,why=planBankCut(part)
             if not plan then
                 return string.format("bank-trim-rejected %s originalSpan=%.1f..%.1f",
@@ -330,6 +333,51 @@ local function run()
     -- Temporarily disable underlying, *fully contained* pavement Parts
     -- BEFORE placing the new surface. This happens in Studio Play only
     -- and does NOT mutate GIS or baked Terrain.
+    -- Under the longer road reconstruction, support the elevated
+    -- approaches on native DRY ground. No pier enters the central
+    -- creek span and no terrain or water is changed.
+    local supportPlan={}
+    for _,s in ipairs({-120,-95,-75,75,95,120}) do
+        for _,side in ipairs({-major.width*0.34,major.width*0.34}) do
+            local p=pointAt(s,side)
+            local land=Workspace:Raycast(
+                Vector3.new(p.X,5000,p.Z),
+                Vector3.new(0,-10000,0),groundRay)
+            if not land or land.Material==Enum.Material.Water
+                or WaterMap.Classify(p.X,p.Z)~="notMapped" then
+                return string.format("support-on-unverified-bank s=%d side=%.1f",
+                    s,side)
+            end
+            local underside=profileY(s)-0.48
+            local height=underside-land.Position.Y
+            if height>16 then
+                return string.format(
+                    "support-too-high station=%d height=%.2f",
+                    s,height)
+            end
+            if height>1.0 then
+                local midpoint=(underside+land.Position.Y)/2
+                local shapeCFrame=CFrame.new(p.X,midpoint,p.Z)
+                local blocked=Workspace:GetPartBoundsInBox(
+                    shapeCFrame,
+                    Vector3.new(3.2,height,3.2),overlap)
+                for _,other in ipairs(blocked) do
+                    if other:IsA("BasePart") and other.CanCollide
+                        and other.Name~="Macdade"
+                        and other:GetAttribute("CW_Rail")~=true
+                        and other.Transparency<1 then
+                        return string.format(
+                            "support-conflicts-with-road at=(%.1f,%.1f) road=%s",
+                            p.X,p.Z,other.Name)
+                    end
+                end
+                table.insert(supportPlan,{
+                    x=p.X,z=p.Z,y=midpoint,h=height,station=s,
+                })
+            end
+        end
+    end
+
     local savedOld={}
     local newObjects={}
     local ok,madeOrError=pcall(function()
@@ -361,9 +409,9 @@ local function run()
         end
         local parent=pL.Parent
         local made=0
-    for i=1,12 do
-        local s0=-60+(i-1)*10
-        local s1=s0+10
+    for i=1,14 do
+        local s0=-140+(i-1)*20
+        local s1=s0+20
         local p0=pointAt(s0,0)+Vector3.new(0,profileY(s0)-0.225,0)
         local p1=pointAt(s1,0)+Vector3.new(0,profileY(s1)-0.225,0)
         local asphalt=Instance.new("Part")
@@ -389,7 +437,7 @@ local function run()
         table.insert(newObjects,asphalt)
         -- Railings on the central creek/culvert span only. Ends remain
         -- open to existing city streets and adjoining sidewalks.
-        if s0>=-50 and s1<=50 then
+        if s0>=-60 and s1<=60 then
             for _,side in ipairs({-1,1}) do
                 local wall=Instance.new("Part")
                 wall.Name="MacdadeCrumCreekParapet"
@@ -406,6 +454,23 @@ local function run()
             end
         end
             made+=1
+        end
+        -- Fixed dry-bank support pillars under the high approaches.
+        -- No supports are erected in the central 120-stud creek span.
+        for _,support in ipairs(supportPlan) do
+            local pier=Instance.new("Part")
+            pier.Name="MacdadeCrumBankAbutment"
+            pier.Size=Vector3.new(3.2,support.h+0.15,3.2)
+            pier.CFrame=CFrame.new(support.x,support.y,support.z)
+            pier.Anchored=true
+            pier.CanCollide=true
+            pier.Material=Enum.Material.Concrete
+            pier.Color=Color3.fromRGB(139,139,135)
+            pier:SetAttribute("CW_MacdadeCrumSupport",true)
+            pier:SetAttribute("CW_StructureId","MACDADE_CRUM_CREEK")
+            pier:SetAttribute("CW_Station",support.station)
+            pier.Parent=parent
+            table.insert(newObjects,pier)
         end
         return made
     end)
@@ -430,16 +495,17 @@ local function run()
     Workspace:SetAttribute("CW_MacdadeCrumAxisX",axis.X)
     Workspace:SetAttribute("CW_MacdadeCrumAxisZ",axis.Z)
     Workspace:SetAttribute("CW_MacdadeBankTrimmedParts",cutCount)
-    print(("[ChesterWorld MacdadeCrumDeck] status=built source=county_bridge_15226 road=Macdade deckPieces=%d length=120 grade=%.2f%% bankLeft=%.2f bankRight=%.2f maxTerrainLift=%.1f oldRoadMaxHeightDifference=%.1f oldRoadPiecesTemporarilyRetired=%d bankEdgeTrimmedParts=%d outerApproachGrades=%.1f%%/%.1f%% sourceFragments=%d sourceMissingLength=%.1f waterSamples=%d checked=%d from=(%.1f,%.1f) to=(%.1f,%.1f)")
+    Workspace:SetAttribute("CW_MacdadeDryBankSupports",#supportPlan)
+    print(("[ChesterWorld MacdadeCrumDeck] status=built source=county_bridge_15226 road=Macdade deckPieces=%d length=280 grade=%.2f%% bankLeft=%.2f bankRight=%.2f maxTerrainLift=%.1f oldRoadMaxHeightDifference=%.1f oldRoadPiecesTemporarilyRetired=%d bankEdgeTrimmedParts=%d dryBankSupports=%d outerApproachGrades=%.1f%%/%.1f%% sourceFragments=%d sourceMissingLength=%.1f waterSamples=%d checked=%d from=(%.1f,%.1f) to=(%.1f,%.1f)")
         :format(made,designGrade*100,yL,yR,maxFloating,
-            greatestOriginalDifference,retired,cutCount,leftGrade*100,rightGrade*100,
+            greatestOriginalDifference,retired,cutCount,#supportPlan,leftGrade*100,rightGrade*100,
             sourceFragments,sourceMissingLength,waterInside,scanned,
-            pointAt(-60).X,pointAt(-60).Z,
-            pointAt(60).X,pointAt(60).Z))
+            pointAt(-140).X,pointAt(-140).Z,
+            pointAt(140).X,pointAt(140).Z))
     return "built"
 end
 
--- This is a new 120-stud physical road change. Keep it in Studio
+-- This is a new 280-stud approach+culvert road change. Keep it in Studio
 -- until visual/vehicle tests confirm real bridge and sidewalk connections.
 if not RunService:IsStudio() then
     Workspace:SetAttribute(STATUS,"studio-only-awaiting-driving-verification")

@@ -383,6 +383,8 @@ local function run()
         asphalt:SetAttribute("CW_StructureId","MACDADE_CRUM_CREEK")
         asphalt:SetAttribute("CW_InventoryStructure","15226")
         asphalt:SetAttribute("CW_ProfileGrade",designGrade)
+        asphalt:SetAttribute("CW_BridgeStationStart",s0)
+        asphalt:SetAttribute("CW_BridgeStationEnd",s1)
         asphalt.Parent=parent
         table.insert(newObjects,asphalt)
         -- Railings on the central creek/culvert span only. Ends remain
@@ -423,6 +425,10 @@ local function run()
     local made=madeOrError
     Workspace:SetAttribute("CW_MacdadeCrumDeckPieces",made)
     Workspace:SetAttribute("CW_MacdadeOldPartsRetired",retired)
+    Workspace:SetAttribute("CW_MacdadeCrumCenterX",center.X)
+    Workspace:SetAttribute("CW_MacdadeCrumCenterZ",center.Z)
+    Workspace:SetAttribute("CW_MacdadeCrumAxisX",axis.X)
+    Workspace:SetAttribute("CW_MacdadeCrumAxisZ",axis.Z)
     Workspace:SetAttribute("CW_MacdadeBankTrimmedParts",cutCount)
     print(("[ChesterWorld MacdadeCrumDeck] status=built source=county_bridge_15226 road=Macdade deckPieces=%d length=120 grade=%.2f%% bankLeft=%.2f bankRight=%.2f maxTerrainLift=%.1f oldRoadMaxHeightDifference=%.1f oldRoadPiecesTemporarilyRetired=%d bankEdgeTrimmedParts=%d outerApproachGrades=%.1f%%/%.1f%% sourceFragments=%d sourceMissingLength=%.1f waterSamples=%d checked=%d from=(%.1f,%.1f) to=(%.1f,%.1f)")
         :format(made,designGrade*100,yL,yR,maxFloating,

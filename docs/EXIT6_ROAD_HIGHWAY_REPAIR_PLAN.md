@@ -406,3 +406,72 @@ If Macdade is rejected, DO NOT loosen constraints without inspecting
 the exact failed bank, grade or boundary. If built, inspect/drivetrain
 test the complete span and both joints. Neither a static geometry pass
 nor source bridge inventory alone certifies a real drivable roadway.
+
+
+## 2026-11-14, 21:46 Studio log: bank-road boundary rejection and CSX false-probe risk
+
+Latest test completed its 102/102 tiles, retained the baked water,
+and reached World ready in 254.6 s. HighwayProfile gradeViolations=0;
+HighwayFinish checked 245 crossings, found 0 final measured
+low-clearance, 0 tunnel obstructions and 0 bridge-terrain intrusions
+within its scope. These counts do NOT certify every street crossing.
+
+Actual road counters:
+- GapRepair: 26 evaluated, 2 Crum Lynne chains repaired, 20 new
+  approach asphalt parts. All other 24 candidate chains rejected.
+- Macdade / Crum Creek 120-stud design rejected BEFORE construction:
+  old-road-crosses-bridge-boundary at s=-55,
+  original part projected stations -102.0..-48.5,
+  original asphalt 0.92 studs BELOW the new target. Zero Macdade
+  bridge Parts added and zero old road Parts retired.
+- Final: 229 candidate omissions, 202 old midpoint openings,
+  209 not verified at 3/3 same-road samples.
+- Three railbed probes in the OLD audit were uncovered:
+  (14404.26,59.10,-10359.07),
+  (14407.60,59.10,-10363.08),
+  (14410.94,59.10,-10367.09).
+  Two probes had >=22.38 studs clearance. The prior survey center
+  (14411,-10367) was guessed; the aerial-backed registry explicitly
+  lists the center as (14420,-10378). These 3 locations could be
+  outside the road width. Do NOT build arbitrary new bridge slabs.
+
+Corrective commits in this pass:
+1. The Studio-only MacdadeCrumDeck repair now precomputes a strict
+   bank-edge clip of any source Macdade Part crossing +/-60 along the
+   measured road axis. Only undecorated block Parts near-collinear
+   with that axis are eligible. The outside-bank original road segment
+   is cloned at its original elevation/width/orientation and kept
+   collidable, while the original full-length Part is temporarily
+   hidden/noncollidable. Fully interior originals may be retired;
+   structured bridges/highways/previous repairs and ambiguous cuts
+   force rejection. On an exception, all new bridge/bank Parts are
+   destroyed and old Parts restored. Native Terrain and baked water
+   remain untouched. No source GIS is changed.
+2. The Crum Lynne rail clearance audit now loads
+   CRUM_LYNNE_OVER_CSX.center from HighwayStructureRegistry, not
+   the previous 9-by-11 stud displaced guessed center. It projects
+   railbed probes against nearby real Crum Lynne road centerlines,
+   excludes demonstrably off-road probes, and requires >=3 actual
+   in-road rail/deck overlap samples for even a LOCAL clearance pass.
+   Logs RoadRailOffRoadProbe and RoadRailUncoveredProbe with measured
+   distance from road centerline. A "measured-local-clearance-passing"
+   status still requires a full driving/joint test for certification.
+3. RoadIntegrityFinalAudit now checks the surface of the restored
+   original bank road JUST OUTSIDE -60/+60 against the new 120-stud
+   bridge surface JUST INSIDE each limit. Both physical joins must
+   exist, with <=0.65 stud height mismatch. It sets
+   CW_MacdadeBankJointFailures and prints MacdadeBankJoint failures
+   if present. A 12-part count alone is insufficient.
+
+Next fresh Studio Play must check:
+  [ChesterWorld MacdadeCrumDeck] status=built/rejected...
+  [ChesterWorld MacdadeFinalDeckAudit] badBankJoints=...
+  [ChesterWorld MacdadeBankJoint] FAIL ... (should be absent)
+  [ChesterWorld RoadRailOffRoadProbe] ... (if off-road)
+  [ChesterWorld RoadRailUncoveredProbe] ... (if genuine gap)
+  [ChesterWorld RoadFinalRailDeck] atNamedCSXCrossing=(14420,-10378)
+  [ChesterWorld RoadFinalAudit] NOT_VERIFIED=...
+
+Unverified physical production readiness: keep MacdadeCrumDeck restricted
+to Roblox Studio until road-driving, ramp/shoulder joins, rail clearance,
+guardrails and backed river/creek geometry pass tests. No water rebake.

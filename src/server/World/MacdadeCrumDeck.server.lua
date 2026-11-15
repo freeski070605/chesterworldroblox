@@ -150,6 +150,7 @@ local function run()
     local waterInside=0
     local scanned=0
     local retirementCandidates={}
+    local trimPlans={}
     local greatestOriginalDifference=0
     local function partLongitudinalSpan(part)
         local relative=part.Position-center
@@ -221,9 +222,10 @@ local function run()
                                 -- an isolated Studio Play test.
                                 local lo,hi=partLongitudinalSpan(part)
                                 if lo < -60.5 or hi > 60.5 then
-                                    return string.format(
-                                        "old-road-crosses-bridge-boundary s=%d span=%.1f..%.1f difference=%.2f",
-                                        s,lo,hi,excess)
+                                    -- Preserve the OUTSIDE bank asphalt.
+                                    -- Plan a mathematically aligned cut;
+                                    -- do not hide an entire approach Part.
+                                    trimPlans[part]=true
                                 end
                                 if part:GetAttribute("CW_RoadGapRepair")==true
                                     or part:GetAttribute("CW_HighwayProfiled")==true
@@ -248,14 +250,78 @@ local function run()
         end
     end
 
-    -- The old terrain-following roadway must be checked over the
-    -- full bridge footprint, not merely where a five-stud probe lands.
-    -- Reject boundary-spanning pieces rather than cutting/altering them.
+    -- A boundary-spanning road Part must be replaced with its
+    -- exterior bank portion, NOT deleted wholesale. Precompute the
+    -- local-Z trim for every candidate before changing any Instance.
+    -- Only axis-aligned, undecorated ordinary Parts can be split safely.
+    local function planBankCut(part)
+        if not part:IsA("Part") or part.Shape~=Enum.PartType.Block
+            or #part:GetChildren()>0
+            or part:GetAttribute("CW_Bridge")==true
+            or part:GetAttribute("CW_Rail")==true
+            or part:GetAttribute("CW_HighwayProfiled")==true
+            or part:GetAttribute("CW_RoadGapRepair")==true then
+            return nil,"bank-part-not-safe-to-split"
+        end
+        local slope=part.CFrame:VectorToWorldSpace(
+            Vector3.new(0,0,1)):Dot(axis)
+        local crossSlope=math.abs(part.CFrame.RightVector:Dot(axis))
+            *part.Size.X/2
+        if math.abs(slope)<0.995 or crossSlope>1.2 then
+            return nil,string.format(
+                "bank-part-not-collinear axisDot=%.4f shoulderStationError=%.2f",
+                slope,crossSlope)
+        end
+        local centerStation=(part.Position-center):Dot(axis)
+        local half=part.Size.Z/2
+        local stationNeg=centerStation-half*slope
+        local stationPos=centerStation+half*slope
+        local lo,hi=math.min(stationNeg,stationPos),
+            math.max(stationNeg,stationPos)
+        if lo<-60.5 and hi>60.5 then
+            return nil,"single-old-part-spans-both-banks"
+        end
+        local boundary,outsideStation=nil,nil
+        if lo<-60.5 and hi>-60+0.5 then
+            boundary=-60
+            outsideStation=lo
+        elseif hi>60.5 and lo<60-0.5 then
+            boundary=60
+            outsideStation=hi
+        else
+            return nil,string.format(
+                "bank-part-overlap-ambiguous span=%.2f..%.2f",
+                lo,hi)
+        end
+        local cutZ=(boundary-centerStation)/slope
+        local outerZ=outsideStation==lo
+            and (stationNeg<stationPos and -half or half)
+            or (stationNeg>stationPos and -half or half)
+        if math.abs(cutZ)>=half-.3 then
+            return nil,"cut-not-inside-old-part"
+        end
+        local kept=math.abs(outerZ-cutZ)
+        if kept<3 then return nil,"outside-bank-road-too-short" end
+        return {
+            centerLocalZ=(outerZ+cutZ)/2,
+            length=kept,
+            bank=boundary,
+            previousLength=part.Size.Z,
+        }
+    end
+    local plannedCuts={}
     local retired=0
+    local cutCount=0
     for part in pairs(retirementCandidates) do
         local lo,hi=partLongitudinalSpan(part)
-        if lo<-60.5 or hi>60.5 then
-            return "unresolved-existing-road-boundary"
+        if trimPlans[part] or lo<-60.5 or hi>60.5 then
+            local plan,why=planBankCut(part)
+            if not plan then
+                return string.format("bank-trim-rejected %s originalSpan=%.1f..%.1f",
+                    why,lo,hi)
+            end
+            plannedCuts[part]=plan
+            cutCount+=1
         end
         retired+=1
     end
@@ -275,6 +341,23 @@ local function run()
             part:SetAttribute("CW_MacdadeOldRoadTemporarilyRetired",true)
             part.CanCollide=false
             part.Transparency=1
+            local cut=plannedCuts[part]
+            if cut then
+                local bank=part:Clone()
+                bank.Name=part.Name
+                bank.Size=Vector3.new(part.Size.X,part.Size.Y,cut.length)
+                bank.CFrame=part.CFrame*CFrame.new(
+                    0,0,cut.centerLocalZ)
+                bank:SetAttribute("CW_MacdadeOldRoadTemporarilyRetired",nil)
+                bank:SetAttribute("CW_MacdadeBankTrim",true)
+                bank:SetAttribute("CW_OriginalRoadLengthStuds",
+                    cut.previousLength)
+                bank:SetAttribute("CW_BankBoundaryStation",cut.bank)
+                bank.CanCollide=savedOld[part].collide
+                bank.Transparency=savedOld[part].transparency
+                bank.Parent=part.Parent
+                table.insert(newObjects,bank)
+            end
         end
         local parent=pL.Parent
         local made=0
@@ -340,9 +423,10 @@ local function run()
     local made=madeOrError
     Workspace:SetAttribute("CW_MacdadeCrumDeckPieces",made)
     Workspace:SetAttribute("CW_MacdadeOldPartsRetired",retired)
-    print(("[ChesterWorld MacdadeCrumDeck] status=built source=county_bridge_15226 road=Macdade deckPieces=%d length=120 grade=%.2f%% bankLeft=%.2f bankRight=%.2f maxTerrainLift=%.1f oldRoadMaxHeightDifference=%.1f oldRoadPiecesTemporarilyRetired=%d outerApproachGrades=%.1f%%/%.1f%% sourceFragments=%d sourceMissingLength=%.1f waterSamples=%d checked=%d from=(%.1f,%.1f) to=(%.1f,%.1f)")
+    Workspace:SetAttribute("CW_MacdadeBankTrimmedParts",cutCount)
+    print(("[ChesterWorld MacdadeCrumDeck] status=built source=county_bridge_15226 road=Macdade deckPieces=%d length=120 grade=%.2f%% bankLeft=%.2f bankRight=%.2f maxTerrainLift=%.1f oldRoadMaxHeightDifference=%.1f oldRoadPiecesTemporarilyRetired=%d bankEdgeTrimmedParts=%d outerApproachGrades=%.1f%%/%.1f%% sourceFragments=%d sourceMissingLength=%.1f waterSamples=%d checked=%d from=(%.1f,%.1f) to=(%.1f,%.1f)")
         :format(made,designGrade*100,yL,yR,maxFloating,
-            greatestOriginalDifference,retired,leftGrade*100,rightGrade*100,
+            greatestOriginalDifference,retired,cutCount,leftGrade*100,rightGrade*100,
             sourceFragments,sourceMissingLength,waterInside,scanned,
             pointAt(-60).X,pointAt(-60).Z,
             pointAt(60).X,pointAt(60).Z))

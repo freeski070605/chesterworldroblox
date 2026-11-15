@@ -300,12 +300,12 @@ local function run()
     end
     Workspace:SetAttribute("CW_MacdadeCrumDeckPieces",made)
     Workspace:SetAttribute("CW_MacdadeOldPartsRetired",retired)
-    print(("[ChesterWorld MacdadeCrumDeck] status=built source=county_bridge_15226 road=Macdade deckPieces=%d length=120 grade=%.2f%% bankLeft=%.2f bankRight=%.2f%% maxTerrainLift=%.1f oldRoadMaxHeightDifference=%.1f oldRoadPiecesTemporarilyRetired=%d outerApproachGrades=%.1f%%/%.1f%% sourceFragments=%d sourceMissingLength=%.1f waterSamples=%d checked=%d from=(%.1f,%.1f) to=(%.1f,%.1f)")
+    print(("[ChesterWorld MacdadeCrumDeck] status=built source=county_bridge_15226 road=Macdade deckPieces=%d length=120 grade=%.2f%% bankLeft=%.2f bankRight=%.2f maxTerrainLift=%.1f oldRoadMaxHeightDifference=%.1f oldRoadPiecesTemporarilyRetired=%d outerApproachGrades=%.1f%%/%.1f%% sourceFragments=%d sourceMissingLength=%.1f waterSamples=%d checked=%d from=(%.1f,%.1f) to=(%.1f,%.1f)")
         :format(made,designGrade*100,yL,yR,maxFloating,
             greatestOriginalDifference,retired,leftGrade*100,rightGrade*100,
             sourceFragments,sourceMissingLength,waterInside,scanned,
-            pointAt(-140).X,pointAt(-140).Z,
-            pointAt(140).X,pointAt(140).Z))
+            pointAt(-60).X,pointAt(-60).Z,
+            pointAt(60).X,pointAt(60).Z))
     return "built"
 end
 

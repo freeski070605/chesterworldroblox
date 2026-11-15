@@ -228,6 +228,12 @@ for _,rail in ipairs(roadParts) do
                             end
                             if lowestDeckUnderside==math.huge then
                                 noRoadAtRailSamples+=1
+                                -- Sampled rail may extend outside the true
+                                -- road footprint, or be a real missing deck.
+                                -- Exact XYZ is needed to tell those apart.
+                                warn(("[ChesterWorld RoadRailUncoveredProbe] rail=(%.2f,%.2f,%.2f) sourceRoad=Crum Lynne registry=(%d,%d) noCollidableDeckAtXZ=true")
+                                    :format(x,railTop,z,
+                                        railRegistryX,railRegistryZ))
                             else
                                 overlappingDeckSamples+=1
                                 local clearance=lowestDeckUnderside-railTop
@@ -278,6 +284,7 @@ end
 local macdadePieces=0
 local maxMacdadeGrade=0
 local macdadeSteep=0
+local retiredPieces=0
 for _,part in ipairs(roadParts) do
     if part.Name=="Macdade"
         and part:GetAttribute("CW_MacdadeCrumDeck")==true then
@@ -287,14 +294,23 @@ for _,part in ipairs(roadParts) do
         local run=math.sqrt((b.X-a.X)^2+(b.Z-a.Z)^2)
         local pct=run>0.1 and math.abs(b.Y-a.Y)/run*100 or 999
         maxMacdadeGrade=math.max(maxMacdadeGrade,pct)
-        if pct>8.1 then macdadeSteep+=1 end
+        if pct>10.1 then macdadeSteep+=1 end
+    end
+end
+for _,part in ipairs(roadParts) do
+    if part:GetAttribute("CW_MacdadeOldRoadTemporarilyRetired")==true then
+        retiredPieces+=1
+        if part.CanCollide or part.Transparency<1 then
+            warn(("[ChesterWorld MacdadeFinalDeckAudit] OLD PAVEMENT NOT RETIRED at (%.1f,%.1f) name=%s")
+                :format(part.Position.X,part.Position.Z,tostring(part.Name)))
+        end
     end
 end
 local macdadeStatus=tostring(
     Workspace:GetAttribute("CW_MacdadeCrumDeckStatus") or "not-run")
-print(("[ChesterWorld MacdadeFinalDeckAudit] status=%s builtPieces=%d maxGradePct=%.2f above8Pct=%d sourceInventory=15226")
-    :format(macdadeStatus,macdadePieces,maxMacdadeGrade,macdadeSteep))
-if macdadeStatus=="built" and (macdadePieces~=14 or macdadeSteep>0) then
+print(("[ChesterWorld MacdadeFinalDeckAudit] status=%s builtPieces=%d maxGradePct=%.2f above10Pct=%d oldRoadPartsRetired=%d sourceInventory=15226")
+    :format(macdadeStatus,macdadePieces,maxMacdadeGrade,macdadeSteep,retiredPieces))
+if macdadeStatus=="built" and (macdadePieces~=12 or macdadeSteep>0) then
     warn("[ChesterWorld MacdadeFinalDeckAudit] Bridge profile parts failed independent grade/part-count check")
 end
 

@@ -475,3 +475,81 @@ Next fresh Studio Play must check:
 Unverified physical production readiness: keep MacdadeCrumDeck restricted
 to Roblox Studio until road-driving, ramp/shoulder joins, rail clearance,
 guardrails and backed river/creek geometry pass tests. No water rebake.
+
+
+## November 14, 22:13–22:18 Studio run: rail-overpass clearance confirmed locally; Macdade shoulder obstruction
+
+Latest 717-line Studio Output:
+- Crum Lynne / CSX registry at (14420,-10378): on-road rail
+  sample count 4, actual overlapping Crum Lynne deck samples 4,
+  off-road 0, uncovered 0, minimum measured local underside
+  clearance 22.38 studs, below-14 count zero, status
+  measured-local-clearance-passing. The already generated 20
+  Crum Lynne asphalt approach parts remain. This STATIC local
+  sampling is good progress but is not a full drive certification.
+- Macdade Crum 120-stud +/-60 span: REJECTED before any pavement
+  replaced; native dry Terrain 3.16 studs ABOVE proposed pavement
+  at (9992.4,-9805.0). Local centerline source geometry is at
+  (9977.7,-9815.4), so the failed coordinate is around 18 studs
+  out toward the shoulder at station zero. A short bridge between
+  rendered -60/+60 road anchors cannot safely pass that hillside
+  at its design grade without excavating native Terrain or raising
+  the road beyond the short design. Do neither blindly.
+- Old geometry remains unaffected because of early safety reject:
+  MacdadeFinalDeckAudit builtPieces=0, retiredParts=0,
+  final road candidate counts 229, stillOpenMidpoint=202,
+  notVerified3of3=209.
+- All 102 tiles ready; baked water certified; 7,305 profiled
+  highway pieces remain without final grade violations; highway
+  finish checks 245 crossings with no final measured low clearance
+  or tunnel obstruction in its checked scope.
+
+New source-preserving Studio-only correction (NOT YET TESTED):
+- A 280-stud +/-140 Macdade roadway approach replaces the
+  rejected short 120-stud line. In the earlier 280-stud test
+  real rendered banks at +/-140 were 20.4 / 24.4 studs and
+  the generated long profile was ~1.42% grade with terrain
+  clearance and a 15.2-stud maximum deck elevation over ground.
+- This is NOT the old unsafe double-layered 280-stud approach:
+  it reuses the rigorous bank-edge Part clipping developed
+  since that run, retires conflicting original Macdade roadway
+  only where its collision/height materially differs, preserves
+  outside-bank segments at the existing exact elevation, and
+  transactionally rolls them back if construction errors.
+- Before creating anything, support points at +/-75, +/-95,
+  +/-120 are checked on BOTH dry shoulders, along with
+  potential road interference and <=16-stud clearance to
+  native Terrain. Under-deck concrete pier supports are placed
+  only on those confirmed DRY approach banks; no construction
+  happens in the central creek area. Native Terrain is never
+  carved or filled, and baked water is never changed.
+- 14 x 20-stud asphalt parts on the gentle source-backed
+  approach, with side parapets ONLY near the documented central
+  creek span. Avoid inventing additional bridge dimensions.
+- RoadIntegrityFinalAudit checks the 14 parts' physical grade,
+  compares deck-to-original pavement at the two +/-140
+  bank joints (<=0.65 stud), counts actual dry supports and
+  scans for remaining duplicate collidable Macdade pavement.
+  MacdadeDoubleRoad warnings are treated as failures, not
+  successful construction.
+- Still gated to Roblox Studio Play. No published service
+  gets the new Macdade design before a real vehicle driving test
+  and street/sidewalk/collision/creek inspections.
+
+Next Output fields required:
+  [ChesterWorld MacdadeCrumDeck] status=built/rejected ...
+  deckPieces=14 ... oldRoadPiecesTemporarilyRetired=...
+  bankEdgeTrimmedParts=... dryBankSupports=...
+  [ChesterWorld MacdadeBankJoint] FAIL ... (must have none)
+  [ChesterWorld MacdadeDoubleRoad] ... (must have none)
+  [ChesterWorld MacdadeFinalDeckAudit] builtPieces=14
+  badBankJoints=0 duplicateCollidableRoadSamples=0
+  dryBankSupports=...
+  [ChesterWorld RoadFinalRailDeck] measured-local-clearance-passing
+  [ChesterWorld RoadFinalAudit] NOT_VERIFIED=...
+
+Source limitations: PDF/imagery/inventory gives structure type and
+approximate length, not final Roblox vertical road engineering.
+If any bank geometry or dry-support gate fails, keep original road
+unchanged and require better source geometry instead of lowering
+safety constraints.

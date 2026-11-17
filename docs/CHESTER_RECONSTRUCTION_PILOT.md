@@ -87,3 +87,19 @@ The CSV provides a nearest-first inventory of the **existing** geometry so that 
 
 The opt-in preview now waits for `CW_BootstrapComplete` and displays only footprints within 450 studs of the current `ChesterCitySpawn`. It gives up after 300 seconds rather than obstructing the game if loading is broken.
 
+
+
+## Candidate-to-existing footprint audit
+
+After a real OSM download, coordinate conversion, and existing building audit, generate a report:
+
+```powershell
+py tools\reconstruction\compare_building_alignment.py `
+  --existing reconstruction_building_audit.csv `
+  --candidate src/shared/ReconstructionPilot.lua `
+  --out reconstruction_alignment_report.csv
+```
+
+The report includes source building IDs, nearest pre-existing building ID, and horizontal separation in studs. A distance under 35 studs is marked `REVIEW_NEARBY`; this is NOT proof that the buildings are the same. `UNMATCHED` may reveal a bad georeference, incomplete GIS data, or a legitimately new building. Always inspect the map and match polygons (not just their centroids) before replacing geometry. Existing gameplay and building IDs must survive any future upgrade.
+
+**Known execution limit:** the GitHub-only development environment cannot run Roblox Studio or access the local E: drive, and remote Overpass requests were unavailable in the sandbox. Thus no real-world Chester footprint or on-device validation is claimed in this PR.

@@ -69,3 +69,6 @@ The script writes `src/shared/ReconstructionPilot.lua`. `YOUR_...` placeholders 
 - Building tags and height values in the source may be incomplete or wrong.
 
 Never enable this script automatically in production until pilot review is complete.
+
+## Offline converter smoke tests
+Run `py -m unittest discover -s tools/reconstruction -p 'test_*.py'` from the repository root after installing `pyproj`. The tests check GeoJSON polygon handling, local east/north orientation and Luau module formatting. Passing unit tests alone does not validate alignment in Roblox Studio.

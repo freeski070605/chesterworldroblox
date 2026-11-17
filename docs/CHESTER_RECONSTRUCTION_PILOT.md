@@ -20,6 +20,18 @@ The converter needs one *matching* geographic coordinate and Roblox world X/Z:
 
 Do **not** substitute the center of another intersection, source-grid coordinates, or an old spawn log. The current world placement may have changed since those logs. The converter uses EPSG:32618 to measure local east/north distances and then maps them to the repo's +X/-Z convention at 3 studs/m.
 
+## Obtain real building data locally (new tool)
+Once you have a **verified** geographic bounding box around the actual 9th & Kerlin intersection, run:
+
+```powershell
+py tools\reconstruction\fetch_osm_buildings.py `
+  --south YOUR_SOUTH_LAT --west YOUR_WEST_LON `
+  --north YOUR_NORTH_LAT --east YOUR_EAST_LON `
+  --out "E:\ChesterWorld\Data\chester_9th_kerlin_buildings.geojson"
+```
+
+The download uses OpenStreetMap's Overpass API and saves a compact WGS84 GeoJSON FeatureCollection compatible with the converter below. It fetches tagged **building ways only**, not multipolygon relations; compare coverage against imagery before assuming completeness. Attribution: © OpenStreetMap contributors (ODbL). The publicly hosted endpoint may be overloaded; retry if needed. **This project has not yet fetched or validated real building data**.
+
 ## Generate preview
 From repo root in Windows PowerShell:
 

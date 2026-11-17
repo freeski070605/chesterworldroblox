@@ -72,3 +72,18 @@ Never enable this script automatically in production until pilot review is compl
 
 ## Offline converter smoke tests
 Run `py -m unittest discover -s tools/reconstruction -p 'test_*.py'` from the repository root after installing `pyproj`. The tests check GeoJSON polygon handling, local east/north orientation and Luau module formatting. Passing unit tests alone does not validate alignment in Roblox Studio.
+
+## Audit the buildings we already generated — before replacement
+
+The existing `src/shared/WorldData/Tiles/tile_*.lua` modules already include building rectangles with IDs, source X/Z, width, depth, rotation, and height. `src/server/World/RealBuildings.lua` already renders facades and enterable shop structures. Preserve those systems and compare new footprints against them.
+
+Get the **current** spawn coordinates from the latest Studio output line `[ChesterWorld] Spawn ready: ... at X, Y, Z`. Then run:
+
+```powershell
+py tools\reconstruction\audit_existing_buildings.py --x YOUR_CURRENT_SPAWN_X --z YOUR_CURRENT_SPAWN_Z --radius 450 --out reconstruction_building_audit.csv
+```
+
+The CSV provides a nearest-first inventory of the **existing** geometry so that new building candidates can be compared at consistent world coordinates. It is an offline audit only; it does not use Google imagery and does not certify visual accuracy.
+
+The opt-in preview now waits for `CW_BootstrapComplete` and displays only footprints within 450 studs of the current `ChesterCitySpawn`. It gives up after 300 seconds rather than obstructing the game if loading is broken.
+

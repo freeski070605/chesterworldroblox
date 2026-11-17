@@ -1,0 +1,59 @@
+# Exit 6: Chester Reconstruction Pilot (9th & Kerlin)
+
+This is **phase 0**, a non-destructive proof of the same broad data-to-world approach: real building footprints -> georeferenced Roblox preview -> later LiDAR height/roofs, image-assisted facades, procedural interiors and LODs.
+
+## Verified against this repository
+- `src/shared/WorldPlacement.lua`: 3 studs/m; +X east; -Z north.
+- `src/server/Bootstrap.server.lua`: current tile loading and road building remain authoritative.
+- `default.project.json`: Rojo maps `src/shared` to ReplicatedStorage.Shared and `src/server` to ServerScriptService.Server.
+- This branch does **not** alter terrain, roads, the 102 tile modules, bootstrap or gameplay. The new preview script is OFF by default.
+
+## Data inputs
+Use a **legally reusable** GeoJSON FeatureCollection in WGS84 lon/lat coordinates with `building` or `building:part` tags. Export from OpenStreetMap/Overpass or a suitably licensed local government building footprint dataset. Respect source attribution and licenses. Google Maps/Earth/Street View can be researched within their terms, but do not scrape/redistribute Google's imagery, extract 3D models or use it as training data without permission.
+
+For a real Chester 9th/Kerlin test, crop footprints to a few adjacent blocks around the intersection. This pilot **does not yet contain real Chester geometry**, because none has been downloaded or verified in this branch.
+
+## Coordinate anchor — mandatory
+The converter needs one *matching* geographic coordinate and Roblox world X/Z:
+- `--anchor-lat` and `--anchor-lon`: latitude and longitude of a specific verified point, e.g. the exact center of the selected intersection.
+- `--anchor-x` and `--anchor-z`: world X and Z **for that same point**, measured in the current Roblox Studio build using a position inspector.
+
+Do **not** substitute the center of another intersection, source-grid coordinates, or an old spawn log. The current world placement may have changed since those logs. The converter uses EPSG:32618 to measure local east/north distances and then maps them to the repo's +X/-Z convention at 3 studs/m.
+
+## Generate preview
+From repo root in Windows PowerShell:
+
+```powershell
+py -m pip install pyproj
+py tools\reconstruction\geojson_to_luau.py `
+  --geojson "E:\ChesterWorld\Data\chester_9th_kerlin_buildings.geojson" `
+  --anchor-lat YOUR_VERIFIED_LATITUDE `
+  --anchor-lon YOUR_VERIFIED_LONGITUDE `
+  --anchor-x YOUR_MATCHING_STUDIO_X `
+  --anchor-z YOUR_MATCHING_STUDIO_Z
+```
+
+The script writes `src/shared/ReconstructionPilot.lua`. `YOUR_...` placeholders must be replaced with actual verified numbers. It handles Polygon and MultiPolygon outer rings, explicit building heights and level estimates; unknown heights default to 9 m and are counted. No interiors or facade accuracy are claimed. It does not align roof slopes or convert imagery into textures yet.
+
+## Preview in Studio
+1. Run `rojo serve`, connect Roblox Studio and verify the correct place.
+2. Set a **Workspace boolean attribute** named `CW_ReconstructionPilot` to true **before pressing Play**.
+3. Press Play. New ghost-like wall outlines are under Workspace > `CW_ReconstructionPreview`, capped at 50 buildings, with collisions off.
+4. Compare outlines with existing roads and terrain. If misaligned, stop and verify the anchor and GeoJSON CRS; do not manually move individual buildings.
+5. Set attribute false to return to the existing world unchanged. The preview is not a city replacement.
+
+## Acceptance criteria for pilot
+- Footprint corners align to a surveyed 9th/Kerlin location and adjacent intersections.
+- Correct east/west and north/south directions; no mirror or 180-degree rotation.
+- Building elevations meet terrain without floating foundations.
+- Existing roads, phone, vehicles, spawn and streaming remain intact.
+- Only then: derive heights from licensed LiDAR, reconstruct roofs, assign style-aware facade meshes, add validated entrances and procedural interiors.
+- Run an Xbox test before any citywide rollout.
+
+## Current limitations
+- This phase cannot truthfully claim a photorealistic 1:1 Chester, furnished interiors, correct roofs or visual parity with Worldcraft.
+- Source elevations and imagery are **not yet downloaded**, checked, or validated.
+- A single anchor across a large city can accumulate projection/survey errors; verify pilot block before scaling.
+- Building tags and height values in the source may be incomplete or wrong.
+
+Never enable this script automatically in production until pilot review is complete.

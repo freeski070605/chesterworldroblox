@@ -1,105 +1,41 @@
-# Exit 6: Chester Reconstruction Pilot (9th & Kerlin)
+# Chester 9th & Kerlin footprint pilot
 
-This is **phase 0**, a non-destructive proof of the same broad data-to-world approach: real building footprints -> georeferenced Roblox preview -> later LiDAR height/roofs, image-assisted facades, procedural interiors and LODs.
+This branch includes a real, opt-in OpenStreetMap footprint preview. It does not replace the 102 tiles, roads, stores, rentals, or gameplay IDs. The Workspace `CW_ReconstructionPilot` attribute defaults to off.
 
-## Verified against this repository
-- `src/shared/WorldPlacement.lua`: 3 studs/m; +X east; -Z north.
-- `src/server/Bootstrap.server.lua`: current tile loading and road building remain authoritative.
-- `default.project.json`: Rojo maps `src/shared` to ReplicatedStorage.Shared and `src/server` to ServerScriptService.Server.
-- This branch does **not** alter terrain, roads, the 102 tile modules, bootstrap or gameplay. The new preview script is OFF by default.
+## Geographic correspondence
 
-## Data inputs
-Use a **legally reusable** GeoJSON FeatureCollection in WGS84 lon/lat coordinates with `building` or `building:part` tags. Export from OpenStreetMap/Overpass or a suitably licensed local government building footprint dataset. Respect source attribution and licenses. Google Maps/Earth/Street View can be researched within their terms, but do not scrape/redistribute Google's imagery, extract 3D models or use it as training data without permission.
+The existing street index was built from WGS84 roads projected to EPSG:3857 using the source manifest origin `(-8397592, 4837229)` meters. `WorldPlacement.lua` uses center `(6347.889, 7201.973)` local meters and 3 studs per source meter, with world +X east and -Z north. `StreetData.spawn` is `(2810.205, -1518.823)` in street-index X/Z; `Bootstrap.server.lua` negates the street Z for the actual spawn, `(2810.205, 1518.823)`. This source-grid point transforms to WGS84 **39.848318096, -75.371413543**, the county road intersection used for 9th & Kerlin in Chester city, Delaware County, PA. It is a source road junction, not a field-surveyed curb or road center.
 
-For a real Chester 9th/Kerlin test, crop footprints to a few adjacent blocks around the intersection. This pilot **does not yet contain real Chester geometry**, because none has been downloaded or verified in this branch.
+For any WGS84 footprint vertex, the converter uses the same EPSG:3857 projection as the source roads:
 
-## Coordinate anchor — mandatory
-The converter needs one *matching* geographic coordinate and Roblox world X/Z:
-- `--anchor-lat` and `--anchor-lon`: latitude and longitude of a specific verified point, e.g. the exact center of the selected intersection.
-- `--anchor-x` and `--anchor-z`: world X and Z **for that same point**, measured in the current Roblox Studio build using a position inspector.
-
-Do **not** substitute the center of another intersection, source-grid coordinates, or an old spawn log. The current world placement may have changed since those logs. The converter uses EPSG:32618 to measure local east/north distances and then maps them to the repo's +X/-Z convention at 3 studs/m.
-
-## Obtain real building data locally (new tool)
-Once you have a **verified** geographic bounding box around the actual 9th & Kerlin intersection, run:
-
-```powershell
-py tools\reconstruction\fetch_osm_buildings.py `
-  --south YOUR_SOUTH_LAT --west YOUR_WEST_LON `
-  --north YOUR_NORTH_LAT --east YOUR_EAST_LON `
-  --out "E:\ChesterWorld\Data\chester_9th_kerlin_buildings.geojson"
+```text
+world_x = (mercator_e - origin_e - center_x) * 3
+world_z = -(mercator_n - origin_n - center_z) * 3
 ```
 
-The download uses OpenStreetMap's Overpass API and saves a compact WGS84 GeoJSON FeatureCollection compatible with the converter below. It fetches tagged **building ways only**, not multipolygon relations; compare coverage against imagery before assuming completeness. Attribution: © OpenStreetMap contributors (ODbL). The publicly hosted endpoint may be overloaded; retry if needed. **This project has not yet fetched or validated real building data**.
+This matches the repo's source grid and avoids a separate guessed Studio anchor. The local projection has Web Mercator scale distortion; this deliberately matches the existing generated world geometry. Studio must still verify the road and footprint outlines visually.
 
-## Generate preview
-From repo root in Windows PowerShell:
+## Actual import and audit
 
-```powershell
-py -m pip install pyproj
-py tools\reconstruction\geojson_to_luau.py `
-  --geojson "E:\ChesterWorld\Data\chester_9th_kerlin_buildings.geojson" `
-  --anchor-lat YOUR_VERIFIED_LATITUDE `
-  --anchor-lon YOUR_VERIFIED_LONGITUDE `
-  --anchor-x YOUR_MATCHING_STUDIO_X `
-  --anchor-z YOUR_MATCHING_STUDIO_Z
-```
+The checked-in `tools/reconstruction/data/chester_9th_kerlin_osm.geojson` contains 47 building ways in WGS84 within `(south 39.8469, west -75.3731, north 39.8497, east -75.3697)`. Source: © OpenStreetMap contributors, [ODbL](https://www.openstreetmap.org/copyright). The collection contains source IDs and building tags, no imagery. A separate building-relation query found zero relations in this box, so the ways-only export has no known building multipolygon omission here. This is an OSM coverage check, not a proof that every real building is mapped.
 
-The script writes `src/shared/ReconstructionPilot.lua`. `YOUR_...` placeholders must be replaced with actual verified numbers. It handles Polygon and MultiPolygon outer rings, explicit building heights and level estimates; unknown heights default to 9 m and are counted. No interiors or facade accuracy are claimed. It does not align roof slopes or convert imagery into textures yet.
+`src/shared/ReconstructionPilot.lua` is the actual generated 47-footprint candidate module. All 47 heights are labeled `default` at 9 m because these OSM features contain no height or level tags. The local county layer has a `BuildingHeightM` field, but its ArcGIS metadata does not establish that these are LiDAR-measured roof elevations or grant a clear reuse license for committing derived heights. The available USGS 3DEP raster is bare-earth elevation, which cannot yield building height alone. No measured roofs or facades are claimed or previewed.
 
-## Preview in Studio
-1. Run `rojo serve`, connect Roblox Studio and verify the correct place.
-2. Set a **Workspace boolean attribute** named `CW_ReconstructionPilot` to true **before pressing Play**.
-3. Press Play. New ghost-like wall outlines are under Workspace > `CW_ReconstructionPreview`, capped at 50 buildings, with collisions off.
-4. Compare outlines with existing roads and terrain. If misaligned, stop and verify the anchor and GeoJSON CRS; do not manually move individual buildings.
-5. Set attribute false to return to the existing world unchanged. The preview is not a city replacement.
+`tools/reconstruction/data/chester_9th_kerlin_existing.csv` audits 232 existing tile building rectangles within 1,000 studs of spawn. `chester_9th_kerlin_alignment.csv` compares each candidate polygon with the existing oriented rectangles using shared area, intersection over union, footprint gap, and centroid error. It reports **46 overlap candidates and 1 unmatched**; the median centroid error among overlap candidates is **4.93 studs**. An overlap is a review candidate, not a verified building identity. The unmatched candidate `osm_way_836649737_0` is 25.68 studs from its nearest existing rectangle. No automatic replacement occurred. Broad overlap supports the source-grid transform, while low overlap scores and the unmatched outline require Studio review.
 
-## Acceptance criteria for pilot
-- Footprint corners align to a surveyed 9th/Kerlin location and adjacent intersections.
-- Correct east/west and north/south directions; no mirror or 180-degree rotation.
-- Building elevations meet terrain without floating foundations.
-- Existing roads, phone, vehicles, spawn and streaming remain intact.
-- Only then: derive heights from licensed LiDAR, reconstruct roofs, assign style-aware facade meshes, add validated entrances and procedural interiors.
-- Run an Xbox test before any citywide rollout.
+## Reproduce
 
-## Current limitations
-- This phase cannot truthfully claim a photorealistic 1:1 Chester, furnished interiors, correct roofs or visual parity with Worldcraft.
-- Source elevations and imagery are **not yet downloaded**, checked, or validated.
-- A single anchor across a large city can accumulate projection/survey errors; verify pilot block before scaling.
-- Building tags and height values in the source may be incomplete or wrong.
-
-Never enable this script automatically in production until pilot review is complete.
-
-## Offline converter smoke tests
-Run `py -m unittest discover -s tools/reconstruction -p 'test_*.py'` from the repository root after installing `pyproj`. The tests check GeoJSON polygon handling, local east/north orientation and Luau module formatting. Passing unit tests alone does not validate alignment in Roblox Studio.
-
-## Audit the buildings we already generated — before replacement
-
-The existing `src/shared/WorldData/Tiles/tile_*.lua` modules already include building rectangles with IDs, source X/Z, width, depth, rotation, and height. `src/server/World/RealBuildings.lua` already renders facades and enterable shop structures. Preserve those systems and compare new footprints against them.
-
-Get the **current** spawn coordinates from the latest Studio output line `[ChesterWorld] Spawn ready: ... at X, Y, Z`. Then run:
+From repo root, with `pyproj` and `shapely` installed:
 
 ```powershell
-py tools\reconstruction\audit_existing_buildings.py --x YOUR_CURRENT_SPAWN_X --z YOUR_CURRENT_SPAWN_Z --radius 450 --out reconstruction_building_audit.csv
+py -m unittest discover -s tools/reconstruction -p 'test_*.py'
+py tools/reconstruction/geojson_to_luau.py --geojson tools/reconstruction/data/chester_9th_kerlin_osm.geojson --out src/shared/ReconstructionPilot.lua
+py tools/reconstruction/audit_existing_buildings.py --x 2810.205 --z 1518.823 --radius 1000 --out tools/reconstruction/data/chester_9th_kerlin_existing.csv
+py tools/reconstruction/compare_building_alignment.py --existing tools/reconstruction/data/chester_9th_kerlin_existing.csv --candidate src/shared/ReconstructionPilot.lua --out tools/reconstruction/data/chester_9th_kerlin_alignment.csv
 ```
 
-The CSV provides a nearest-first inventory of the **existing** geometry so that new building candidates can be compared at consistent world coordinates. It is an offline audit only; it does not use Google imagery and does not certify visual accuracy.
+To refresh OSM data, run `fetch_osm_buildings.py` with the box above, review relation IDs in the GeoJSON metadata, then regenerate the module and report. Overpass availability varies. The generated module must be reviewed before committing refreshed data.
 
-The opt-in preview now waits for `CW_BootstrapComplete` and displays only footprints within 450 studs of the current `ChesterCitySpawn`. It gives up after 300 seconds rather than obstructing the game if loading is broken.
+## Studio and Xbox verification
 
-
-
-## Candidate-to-existing footprint audit
-
-After a real OSM download, coordinate conversion, and existing building audit, generate a report:
-
-```powershell
-py tools\reconstruction\compare_building_alignment.py `
-  --existing reconstruction_building_audit.csv `
-  --candidate src/shared/ReconstructionPilot.lua `
-  --out reconstruction_alignment_report.csv
-```
-
-The report includes source building IDs, nearest pre-existing building ID, and horizontal separation in studs. A distance under 35 studs is marked `REVIEW_NEARBY`; this is NOT proof that the buildings are the same. `UNMATCHED` may reveal a bad georeference, incomplete GIS data, or a legitimately new building. Always inspect the map and match polygons (not just their centroids) before replacing geometry. Existing gameplay and building IDs must survive any future upgrade.
-
-**Known execution limit:** the GitHub-only development environment cannot run Roblox Studio or access the local E: drive, and remote Overpass requests were unavailable in the sandbox. Thus no real-world Chester footprint or on-device validation is claimed in this PR.
+Studio and Xbox were unavailable in this coding environment, so no runtime, frame-rate, loading, or controller result is asserted. To reproduce in Studio: sync this branch with Rojo; confirm `CW_ReconstructionPilot` is absent or false and Play once to verify normal spawn and roads. Then set it true before Play. Wait for `[ChesterWorld] Spawn ready` and `CW_BootstrapComplete`; expect a `[CW Reconstruction] Previewed ...` log and non-colliding walls in `Workspace.CW_ReconstructionPreview` near 9th & Kerlin. The renderer caps at 50 buildings and skips preview after 300 seconds if bootstrap has not completed. Inspect wall edges against road junctions and terrain, especially `osm_way_836649737_0`, and record F9 errors, loading time, and frame rate. Disable the attribute and repeat the road/spawn check. On Xbox, check spawn, driving and shops, preview off, and capture loading/frame-rate evidence. Do not merge or enable by default until these checks pass.

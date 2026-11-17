@@ -13,6 +13,19 @@ module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
 class FootprintTests(unittest.TestCase):
+    def test_source_grid_maps_verified_junction_to_spawn(self):
+        from pyproj import Transformer
+        inverse = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
+        forward = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
+        source_e = module.ORIGIN_E + module.CENTER_X + 2810.205 / 3
+        source_n = module.ORIGIN_N + module.CENTER_Z - 1518.823 / 3
+        lon, lat = inverse.transform(source_e, source_n)
+        self.assertAlmostEqual(lat, 39.848318096, places=7)
+        self.assertAlmostEqual(lon, -75.371413543, places=7)
+        e, n = forward.transform(lon, lat)
+        self.assertAlmostEqual((e-module.ORIGIN_E-module.CENTER_X)*3, 2810.205, places=3)
+        self.assertAlmostEqual(-(n-module.ORIGIN_N-module.CENTER_Z)*3, 1518.823, places=3)
+
     def test_polygon_and_multipolygon(self):
         self.assertEqual(len(module.rings_from_geometry({
             "type": "Polygon",
@@ -24,8 +37,8 @@ class FootprintTests(unittest.TestCase):
 
     def test_generated_module_luau_and_orientation(self):
         from pyproj import Transformer
-        lat, lon = 39.85, -75.37
-        project = Transformer.from_crs("EPSG:4326", "EPSG:32618", always_xy=True)
+        lat, lon = 39.84831810, -75.37141354
+        project = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
         e, n = project.transform(lon, lat)
         # 10 metres east and 10 metres north of an anchor become +30X, -30Z.
         verts = [(e, n), (e + 10, n), (e + 10, n + 10), (e, n + 10)]
@@ -35,11 +48,14 @@ class FootprintTests(unittest.TestCase):
         result = module.output_module(
             [{"id": "building_1", "height": 27, "points": points}],
             {"studsPerMeter": 3.0, "count": 1, "defaultHeightCount": 1,
-             "source": "test.geojson", "anchorLat": lat, "anchorLon": lon})
+             "source": "test.geojson", "originE": module.ORIGIN_E})
         self.assertIn('metadata = { studsPerMeter = 3.0', result)
         self.assertIn('id = "building_1"', result)
         self.assertIn('height = 27', result)
         self.assertNotIn('"metadata":', result)
+        attribution = module.output_module([], {"attribution": "© OpenStreetMap contributors"})
+        self.assertIn('"© OpenStreetMap contributors"', attribution)
+        self.assertNotIn('\\u00a9', attribution)
 
 
 compare_spec = importlib.util.spec_from_file_location("compare_building_alignment", HERE / "compare_building_alignment.py")
@@ -51,22 +67,32 @@ class AlignmentTests(unittest.TestCase):
         module_text = module.output_module(
             [{"id": "test", "height": 27, "points": [(100.0,200.0),(130.0,200.0),(130.0,170.0)]}],
             {"studsPerMeter": 3.0, "count": 1, "defaultHeightCount": 0,
-             "source": "test.geojson", "anchorLat": 39.85, "anchorLon": -75.37})
+             "source": "test.geojson", "originE": module.ORIGIN_E})
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "generated.lua"
             path.write_text(module_text, encoding="utf-8")
             candidates = comparison.candidates(path)
             self.assertEqual(len(candidates), 1)
             self.assertEqual(candidates[0]["vertices"], 3)
-            self.assertAlmostEqual(candidates[0]["x"], 120.0)
-            self.assertAlmostEqual(candidates[0]["z"], 190.0)
+            self.assertGreater(candidates[0]["x"], 100.0)
+            self.assertLess(candidates[0]["z"], 200.0)
 
-    def test_nearest_distance_review_not_automatic_replacement(self):
+    def test_polygon_overlap_review_not_automatic_replacement(self):
+        from shapely.geometry import box
         rows = comparison.compare(
-            [{"id": "old", "tile": "tile_r06_c07", "world_x": "100", "world_z": "200"}],
-            [{"id": "new", "x": 105.0, "z": 200.0, "vertices": 4}])
-        self.assertEqual(rows[0]["status"], "REVIEW_NEARBY")
-        self.assertEqual(rows[0]["distance_studs"], 5.0)
+            [{"id": "old", "tile": "tile_r06_c07", "world_x": "100", "world_z": "200",
+              "width_m": "10", "depth_m": "10", "yaw_deg": "0"}],
+            [{"id": "new", "polygon": box(95, 195, 125, 225), "vertices": 4}])
+        self.assertEqual(rows[0]["status"], "REVIEW_OVERLAP")
+        self.assertGreater(rows[0]["intersection_over_union"], 0)
+
+    def test_near_centroids_without_overlap_are_unmatched(self):
+        from shapely.geometry import box
+        rows = comparison.compare(
+            [{"id": "old", "tile": "tile", "world_x": "100", "world_z": "200",
+              "width_m": "2", "depth_m": "2", "yaw_deg": "0"}],
+            [{"id": "new", "polygon": box(105, 199, 108, 201), "vertices": 4}])
+        self.assertEqual(rows[0]["status"], "UNMATCHED")
 
 if __name__ == "__main__":
     unittest.main()

@@ -12,9 +12,9 @@ if not dataModule then
 end
 -- Wait for the existing world to finish before probing terrain. This preview
 -- must never block the normal loading pipeline or imply the world is ready.
-local waitStart = os.clock()
+local waitStart = time()
 while workspace:GetAttribute("CW_BootstrapComplete") ~= true do
-    if os.clock() - waitStart > 300 then
+    if time() - waitStart > 300 then
         warn("[CW Reconstruction] Existing world did not finish loading within 300s; preview skipped")
         return
     end
@@ -84,6 +84,8 @@ for _, footprint in ipairs(data.buildings or {}) do
                     wall.Material = Enum.Material.SmoothPlastic
                     wall.Color = Color3.fromRGB(220, 175, 100)
                     local center = Vector3.new(mx, ground + h/2, mz)
+                    -- The wall's long axis is local Z; lookAt points local -Z
+                    -- along the edge, so the wall follows that edge exactly.
                     wall.CFrame = CFrame.lookAt(center, center + Vector3.new(bx-ax, 0, bz-az))
                     wall.Parent = model
                 end

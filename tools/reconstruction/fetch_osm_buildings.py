@@ -7,6 +7,7 @@ Coordinates in the example are NOT a verified 9th/Kerlin crop.
 """
 import argparse
 import json
+from datetime import datetime, timezone
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -34,6 +35,16 @@ def main():
     except Exception as exc:
         raise SystemExit(f"Overpass fetch failed: {exc}. Retry later or choose another endpoint.") from exc
     features = []
+    relation_query = f'[out:json][timeout:30];relation["building"]({bbox});out ids;'
+    relation_url = args.endpoint + "?" + urllib.parse.urlencode({"data": relation_query})
+    try:
+        relation_req = urllib.request.Request(relation_url, headers={"User-Agent": "ChesterWorldReconstructionPilot/0.1"})
+        with urllib.request.urlopen(relation_req, timeout=45) as response:
+            relation_payload = json.load(response)
+        relation_ids = [str(item["id"]) for item in relation_payload.get("elements", [])]
+    except Exception as exc:
+        relation_ids = None
+        print(f"Warning: building-relation coverage not checked: {exc}")
     for item in payload.get("elements", []):
         if item.get("type") != "way":
             continue
@@ -52,11 +63,13 @@ def main():
     result = {"type": "FeatureCollection",
               "metadata": {"source": "OpenStreetMap contributors", "license": "ODbL",
                            "attribution": "© OpenStreetMap contributors", "bbox": bbox,
-                           "note": "Ways only; complex multipolygon relations not included"},
+                           "fetched_utc": datetime.now(timezone.utc).isoformat(),
+                           "building_relation_ids_not_imported": relation_ids,
+                           "note": "Ways only; check relation IDs for multipolygon omissions"},
               "features": features}
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, separators=(",", ":")), encoding="utf-8")
-    print(f"Saved {len(features)} OSM building ways to {args.out}. Attribution: © OpenStreetMap contributors (ODbL)")
+    print(f"Saved {len(features)} OSM building ways to {args.out}; excluded building relations={relation_ids}. Attribution: © OpenStreetMap contributors (ODbL)")
     if not features:
         raise SystemExit("No building ways found. Check location and OSM coverage.")
 

@@ -41,5 +41,32 @@ class FootprintTests(unittest.TestCase):
         self.assertIn('height = 27', result)
         self.assertNotIn('"metadata":', result)
 
+
+compare_spec = importlib.util.spec_from_file_location("compare_building_alignment", HERE / "compare_building_alignment.py")
+comparison = importlib.util.module_from_spec(compare_spec)
+compare_spec.loader.exec_module(comparison)
+
+class AlignmentTests(unittest.TestCase):
+    def test_generated_candidate_parser(self):
+        module_text = module.output_module(
+            [{"id": "test", "height": 27, "points": [(100.0,200.0),(130.0,200.0),(130.0,170.0)]}],
+            {"studsPerMeter": 3.0, "count": 1, "defaultHeightCount": 0,
+             "source": "test.geojson", "anchorLat": 39.85, "anchorLon": -75.37})
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "generated.lua"
+            path.write_text(module_text, encoding="utf-8")
+            candidates = comparison.candidates(path)
+            self.assertEqual(len(candidates), 1)
+            self.assertEqual(candidates[0]["vertices"], 3)
+            self.assertAlmostEqual(candidates[0]["x"], 120.0)
+            self.assertAlmostEqual(candidates[0]["z"], 190.0)
+
+    def test_nearest_distance_review_not_automatic_replacement(self):
+        rows = comparison.compare(
+            [{"id": "old", "tile": "tile_r06_c07", "world_x": "100", "world_z": "200"}],
+            [{"id": "new", "x": 105.0, "z": 200.0, "vertices": 4}])
+        self.assertEqual(rows[0]["status"], "REVIEW_NEARBY")
+        self.assertEqual(rows[0]["distance_studs"], 5.0)
+
 if __name__ == "__main__":
     unittest.main()

@@ -74,8 +74,8 @@ def main():
     ]
     for row in rows:
         status_lines.append(f'    ["{row["osmId"]}"] = "{row["status"]}",')
-    status_lines.append("}\\n")
-    args.review_luau.write_text("\\n".join(status_lines), encoding="utf-8")
+    status_lines.append("}\n")
+    args.review_luau.write_text("\n".join(status_lines), encoding="utf-8")
     print(f"associated={sum(r['gameId'] is not None for r in rows)} review={sum(r['status'].startswith('review') for r in rows)} unmatched={sum(r['status'].startswith('unmatched') for r in rows)}")
 
 

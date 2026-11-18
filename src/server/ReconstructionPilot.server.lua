@@ -23,6 +23,10 @@ while workspace:GetAttribute("CW_BootstrapComplete") ~= true do
 end
 local data = require(dataModule)
 local associations = require(shared:WaitForChild("ReconstructionAssociations"))
+local reviewStatuses = require(shared:WaitForChild("ReconstructionReviewStatus"))
+-- Optional Studio Workspace String attribute: "all" or "unresolved".
+local focus = workspace:GetAttribute("CW_ReconstructionFocus")
+if focus ~= "unresolved" then focus = "all" end
 local HouseKit = require(shared:WaitForChild("HouseKit"))
 local spawn = workspace:FindFirstChild("ChesterCitySpawn")
 if not spawn then
@@ -63,6 +67,8 @@ local count = 0
 local inRange = 0
 local noTerrain = 0
 local roofParts = 0
+local statusCounts = { associated = 0, review = 0, unmatched_manual_review = 0 }
+local visibleIds = {}
 local function roofTriangle(model, triangle, y)
     local a = Vector2.new(triangle[1][1], triangle[1][2])
     local b = Vector2.new(triangle[2][1], triangle[2][2])
@@ -108,6 +114,10 @@ for _, footprint in ipairs(data.buildings or {}) do
         warn("[CW Reconstruction] Preview capped at 50 buildings to protect Studio performance")
         break
     end
+    local status = reviewStatuses[footprint.id] or "unmatched_manual_review"
+    if focus == "unresolved" and status == "associated" then
+        continue
+    end
     local points = footprint.points or {}
     if #points >= 3 then
         local cx, cz = 0, 0
@@ -129,11 +139,14 @@ for _, footprint in ipairs(data.buildings or {}) do
         local model = Instance.new("Model")
         model.Name = "Building_" .. tostring(count + 1)
         model:SetAttribute("CW_SourceId", footprint.id)
+        model:SetAttribute("CW_AssociationStatus", status)
         model:SetAttribute("CW_GameBuildingId", associations[footprint.id] or "")
         model:SetAttribute("CW_HeightSource", footprint.heightSource)
         model:SetAttribute("CW_RoofSource", footprint.roofSource)
         model:SetAttribute("CW_PreviewOnly", true)
         model.Parent = folder
+        statusCounts[status] = (statusCounts[status] or 0) + 1
+        table.insert(visibleIds, tostring(footprint.id))
         local h = math.clamp(tonumber(footprint.height) or 27, 6, 300)
         for index = 1, #points do
             local a, b = points[index], points[index % #points + 1]
@@ -148,9 +161,11 @@ for _, footprint in ipairs(data.buildings or {}) do
                     -- The wall's long axis is local Z; lookAt points local -Z
                     -- along the edge, so the wall follows that edge exactly.
                     local cf = CFrame.lookAt(center, center + Vector3.new(bx-ax, 0, bz-az))
-                    local color = footprint.buildingType == "retail" and Color3.fromRGB(183, 153, 126)
+                    local color = status == "unmatched_manual_review" and Color3.fromRGB(240, 62, 62)
+                        or (status == "review" and Color3.fromRGB(255, 180, 32))
+                        or (footprint.buildingType == "retail" and Color3.fromRGB(183, 153, 126)
                         or (footprint.buildingType == "school" and Color3.fromRGB(171, 126, 102)
-                        or Color3.fromRGB(160, 92, 76))
+                        or Color3.fromRGB(160, 92, 76)))
                     local wall = HouseKit.H.part(model, "FootprintWall", Vector3.new(0.35, h, length), cf,
                         footprint.buildingType == "retail" and Enum.Material.Concrete or Enum.Material.Brick, color)
                     wall.CanCollide = false
@@ -181,6 +196,12 @@ for _, footprint in ipairs(data.buildings or {}) do
 end
 print(("[CW Reconstruction] Previewed %d/%d nearby footprints; missing terrain wall samples=%d; source=%s. Positions not field-validated.")
     :format(count, inRange, noTerrain, tostring(data.metadata and data.metadata.source or "unknown")))
+print(("[CW Reconstruction Review] focus=%s associated=%d review=%d unmatched=%d"):format(
+    focus, statusCounts.associated or 0, statusCounts.review or 0,
+    statusCounts.unmatched_manual_review or 0))
+if focus == "unresolved" then
+    print("[CW Reconstruction Review] visible OSM IDs: " .. table.concat(visibleIds, ", "))
+end
 local afterParts = partCount()
 local afterFps = sampleHeartbeatFps()
 print(("[CW Reconstruction] parts_before=%d parts_after=%d delta=%d roof_wedges=%d " ..

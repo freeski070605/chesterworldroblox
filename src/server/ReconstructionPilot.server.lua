@@ -43,6 +43,14 @@ local function partCount()
     return n
 end
 local beforeParts = partCount()
+local function sampleHeartbeatFps()
+    local elapsed = 0
+    for _ = 1, 45 do
+        elapsed += game:GetService("RunService").Heartbeat:Wait()
+    end
+    return elapsed > 0 and 45 / elapsed or 0
+end
+local beforeFps = sampleHeartbeatFps()
 local params = RaycastParams.new()
 params.FilterType = Enum.RaycastFilterType.Include
 params.FilterDescendantsInstances = { workspace.Terrain }
@@ -174,6 +182,8 @@ end
 print(("[CW Reconstruction] Previewed %d/%d nearby footprints; missing terrain wall samples=%d; source=%s. Positions not field-validated.")
     :format(count, inRange, noTerrain, tostring(data.metadata and data.metadata.source or "unknown")))
 local afterParts = partCount()
-print(("[CW Reconstruction] parts_before=%d parts_after=%d delta=%d roof_wedges=%d elapsed_s=%.2f; " ..
+local afterFps = sampleHeartbeatFps()
+print(("[CW Reconstruction] parts_before=%d parts_after=%d delta=%d roof_wedges=%d " ..
+    "server_heartbeat_fps_before=%.1f server_heartbeat_fps_after=%.1f elapsed_s=%.2f; " ..
     "Studio only; unknown heights and roofs are estimates")
-    :format(beforeParts, afterParts, afterParts-beforeParts, roofParts, os.clock()-started))
+    :format(beforeParts, afterParts, afterParts-beforeParts, roofParts, beforeFps, afterFps, os.clock()-started))

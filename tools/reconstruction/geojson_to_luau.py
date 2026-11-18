@@ -9,6 +9,8 @@ import argparse
 import json
 import math
 from pathlib import Path
+from shapely.geometry import Polygon
+from shapely.ops import triangulate
 
 try:
     from pyproj import Transformer
@@ -31,10 +33,33 @@ def rings_from_geometry(geometry):
     kind = geometry.get("type")
     coordinates = geometry.get("coordinates") or []
     if kind == "Polygon":
-        return [coordinates[0]] if coordinates else []
+        return [coordinates[0]] if len(coordinates) == 1 else []
     if kind == "MultiPolygon":
-        return [polygon[0] for polygon in coordinates if polygon]
+        return [polygon[0] for polygon in coordinates if len(polygon) == 1]
     return []
+
+def roof_triangles(points):
+    """Return nonoverlapping triangle vertices for a simple, hole-free ring."""
+    polygon = Polygon(points)
+    if not polygon.is_valid or polygon.area <= 1e-6 or polygon.interiors:
+        raise ValueError("roof requires a valid simple polygon without holes")
+    pieces = []
+    for triangle in triangulate(polygon):
+        clipped = triangle.intersection(polygon)
+        if clipped.is_empty:
+            continue
+        shapes = [clipped] if clipped.geom_type == "Polygon" else list(getattr(clipped, "geoms", []))
+        for shape in shapes:
+            if shape.area <= 1e-6:
+                continue
+            # A clipped triangle can be concave; triangulate it once more and
+            # accept only triangles fully covered by the clipped polygon.
+            for part in triangulate(shape):
+                if part.area > 1e-6 and shape.covers(part):
+                    pieces.append(list(part.exterior.coords)[:3])
+    if abs(sum(Polygon(t).area for t in pieces) - polygon.area) > max(0.01, polygon.area * 1e-6):
+        raise ValueError("roof triangles do not seal footprint")
+    return pieces
 
 def output_module(buildings, metadata):
     lines = ["-- Generated, do not hand-edit. Uses real source footprint vertices.",
@@ -48,9 +73,18 @@ def output_module(buildings, metadata):
     for b in buildings:
         lines.append("        { id = " + json.dumps(b["id"]) +
                      ", height = " + str(round(b["height"], 2)) +
-                     ", heightSource = " + json.dumps(b.get("height_source", "default")) + ", points = {")
+                     ", heightSource = " + json.dumps(b.get("height_source", "estimated_default")) +
+                     ", heightConfidence = " + json.dumps(b.get("height_confidence", "low")) +
+                     ", roofType = " + json.dumps(b.get("roof_type", "flat_preview")) +
+                     ", roofSource = " + json.dumps(b.get("roof_source", "procedural_estimate")) +
+                     ", roofConfidence = " + json.dumps(b.get("roof_confidence", "low")) +
+                     ", sourceRef = " + json.dumps(b.get("source_ref", "")) +
+                     ", buildingType = " + json.dumps(b.get("building_type", "yes")) + ", points = {")
         for x, z in b["points"]:
             lines.append("            { " + f"{x:.3f}, {z:.3f}" + " },")
+        lines.append("        }, roofTriangles = {")
+        for triangle in b.get("roof_triangles", roof_triangles(b["points"])):
+            lines.append("            { " + ", ".join("{ %.3f, %.3f }" % (x, z) for x, z in triangle) + " },")
         lines.append("        } },")
     lines.extend(["    },", "}"])
     return "\n".join(lines) + "\n"
@@ -104,11 +138,11 @@ def main():
                 continue
             seen.add(ident)
             height_m = numeric(props.get("height"))
-            height_source = "osm_height" if height_m and height_m > 0 else "default"
+            height_source = "osm_tag" if height_m and height_m > 0 else "estimated_default"
             if height_m is None:
                 height_m = numeric(props.get("BuildingHeightM"))
                 if height_m and height_m > 0:
-                    height_source = "county_estimate"
+                    height_source = "county_unverified"
             if height_m is None:
                 levels = numeric(props.get("building:levels"))
                 if levels and levels > 0:
@@ -117,8 +151,19 @@ def main():
                     missing_heights += 1
                 height_m = (levels * 3.0) if levels and levels > 0 else 9.0
             height_m = max(2.0, min(height_m, 100.0))
+            try:
+                triangles = roof_triangles(points)
+            except ValueError:
+                skipped += 1
+                continue
             buildings.append({"id": ident, "height": height_m * STUDS_PER_METER,
-                              "height_source": height_source, "points": points})
+                              "height_source": height_source, "height_confidence": "low" if height_source != "osm_tag" else "medium",
+                              "roof_type": props.get("roof:shape") or "flat_preview",
+                              "roof_source": "osm_tag" if props.get("roof:shape") else "procedural_estimate",
+                              "roof_confidence": "medium" if props.get("roof:shape") else "low",
+                              "source_ref": "https://www.openstreetmap.org/way/" + ident.split("_")[2] if ident.startswith("osm_way_") else "",
+                              "building_type": props.get("building") or "yes", "points": points,
+                              "roof_triangles": triangles})
         if len(buildings) >= args.max_buildings:
             break
     source_meta = data.get("metadata") or {}

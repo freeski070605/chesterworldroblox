@@ -9,7 +9,7 @@ from shapely.affinity import rotate, translate
 from shapely.geometry import Polygon, box
 
 RECORD = re.compile(r'\{ id = "(?P<id>[^"]+)", height = (?P<height>\d+(?:\.\d+)?),'
-                    r'(?: heightSource = "[^"]+",)? points = \{(?P<points>.*?)\}\s*\}', re.S)
+                    r'[^\n]*? points = \{(?P<points>.*?)\}\s*, roofTriangles', re.S)
 POINT = re.compile(r'\{\s*(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\s*\}')
 FIELDS = ["candidate_id", "matched_id", "status", "centroid_error_studs",
           "footprint_gap_studs", "intersection_over_union", "candidate_overlap_fraction",

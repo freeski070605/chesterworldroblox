@@ -13,6 +13,27 @@ module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
 class FootprintTests(unittest.TestCase):
+    def test_roof_triangulation_concavity_and_winding(self):
+        from shapely.geometry import Polygon
+        ring = [(0, 0), (8, 0), (8, 3), (3, 3), (3, 7), (0, 7)]
+        for points in (ring, list(reversed(ring))):
+            triangles = module.roof_triangles(points)
+            self.assertAlmostEqual(sum(Polygon(t).area for t in triangles), Polygon(points).area)
+            self.assertTrue(all(Polygon(points).covers(Polygon(t)) for t in triangles))
+            self.assertEqual(len(triangles), len(ring) - 2)
+
+    def test_holes_explicitly_unsupported(self):
+        shell = [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]
+        hole = [[3, 3], [7, 3], [7, 7], [3, 7], [3, 3]]
+        self.assertEqual(module.rings_from_geometry({"type": "Polygon", "coordinates": [shell, hole]}), [])
+
+    def test_unknown_height_and_roof_remain_estimates(self):
+        text = module.output_module([{"id": "x", "height": 27,
+            "points": [(0, 0), (10, 0), (10, 10), (0, 10)]}], {"count": 1})
+        self.assertIn('heightSource = "estimated_default"', text)
+        self.assertIn('roofSource = "procedural_estimate"', text)
+        self.assertIn('roofTriangles = {', text)
+
     def test_source_grid_maps_verified_junction_to_spawn(self):
         from pyproj import Transformer
         inverse = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
@@ -93,6 +114,22 @@ class AlignmentTests(unittest.TestCase):
               "width_m": "2", "depth_m": "2", "yaw_deg": "0"}],
             [{"id": "new", "polygon": box(105, 199, 108, 201), "vertices": 4}])
         self.assertEqual(rows[0]["status"], "UNMATCHED")
+
+    def test_association_rejects_ambiguous_and_unmatched(self):
+        from shapely.geometry import box
+        import sys
+        sys.path.insert(0, str(HERE))
+        import build_associations
+        legacy = [
+            {"id": "one", "tile": "t", "world_x": "5", "world_z": "5", "width_m": "3.333333", "depth_m": "3.333333", "yaw_deg": "0"},
+            {"id": "two", "tile": "t", "world_x": "25", "world_z": "5", "width_m": "3.333333", "depth_m": "3.333333", "yaw_deg": "0"},
+        ]
+        footprints = [{"id": "osm_way_1_0", "polygon": box(0, 0, 10, 10)},
+                      {"id": "osm_way_2_0", "polygon": box(20, 0, 30, 10)},
+                      {"id": "osm_way_3_0", "polygon": box(40, 0, 50, 10)}]
+        result = build_associations.associate(legacy, footprints)
+        self.assertEqual([r["gameId"] for r in result], ["one", "two", None])
+        self.assertEqual(result[-1]["status"], "unmatched_manual_review")
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,24 @@
 # Chester 9th & Kerlin footprint pilot
 
+## Phase 2 architecture preview (issue #6)
+
+The preview now assembles noncolliding polygon wall shells, HouseKit cornice parts, and triangulated flat roof slabs over the 47 OSM outlines. It runs only in Studio with `CW_ReconstructionPilot = true` set on Workspace before Play. The attribute is absent by default. It does not touch the live `ChesterBuildingId` models, doors, shops, roads, or rental behavior. The shell is translucent so existing gameplay remains visible during comparison. The roof is a **procedural flat preview**, not a surveyed roof shape; the generic brick finish and cornice are stylistic approximations. OSM tags identify one `retail` and one `school` building; the other 45 are only `building=yes`, so HouseKit residential archetypes, windows, porches, and doors are deliberately not assigned by guessed type.
+
+`tools/reconstruction/build_associations.py` rebuilds `chester_9th_kerlin_associations.json` and `src/shared/ReconstructionAssociations.lua` from the 232 checked-in legacy rectangles and 47 source polygons. It requires polygon intersection over union ≥0.55, source area coverage ≥0.80, at least 0.10 IoU margin over the runner-up, and unique gameplay ID ownership. Current output: **36 associated, 10 review, 1 unmatched**. This is an automated geometry association, not visual identity confirmation. `osm_way_836649737_0` has no overlapping rectangle and remains explicitly unresolved; review it in Studio against the nearby live model, road, and terrain before assigning an ID. The JSON retains rejected candidate IDs and scores. Rebuild or delete the Luau map to reverse all associations; no live model data is rewritten.
+
+All 47 heights remain **estimated 9 m (27 studs)**, with `heightSource=estimated_default` and low confidence. All 47 roofs have `roofSource=procedural_estimate`, `roofType=flat_preview`, and low confidence. Each building carries an OSM way reference; the collection retains © OpenStreetMap contributors / ODbL attribution. The [Delaware County footprint layer](https://gis.delcopa.gov/arcgis/rest/services/DataLayers_911/Delaware_County_Building_Footprints/MapServer/0) lists `BuildingHeightM`, but its public metadata does not establish measurement method or a reuse grant for these derived heights. The [USGS 3DEP download page](https://www.usgs.gov/the-national-map-data-delivery/gis-data-download) and [LidarExplorer](https://www.usgs.gov/tools/lidarexplorer) provide a path to investigate point clouds; no per-building point cloud extraction has been completed. A [bare-earth DEM strips structures and vegetation](https://www.usgs.gov/faqs/what-lidar-data-and-where-can-i-download-it), so it cannot alone measure roof height. No aerial image was copied or used for roof attribution.
+
+Reproduce from repo root:
+
+```powershell
+py tools/reconstruction/geojson_to_luau.py --geojson tools/reconstruction/data/chester_9th_kerlin_osm.geojson --out src/shared/ReconstructionPilot.lua
+py tools/reconstruction/build_associations.py
+py -m unittest discover -s tools/reconstruction -p 'test_*.py'
+rojo build default.project.json -o "$env:TEMP\chester_reconstruction_issue6.rbxmx"
+```
+
+On this branch: `associated=36 review=10 unmatched=1`; `Ran 10 tests ... OK`; Rojo reported `Built project to chester_reconstruction_issue6.rbxmx`. The preview estimates up to 297 wall edges, 297 cornice strips, and roughly 406 roof wedges before the 450-stud pilot radius filter. It logs actual `parts_before`, `parts_after`, `delta`, roof wedge count, and elapsed seconds after bootstrap. Xbox never instantiates the preview because it is Studio-gated. Studio/Xbox visual checks remain required: Play with flag absent and confirm normal spawn, 9th/Kerlin roads, houses, shops and doors; Play with flag true and inspect all shell edges, roof seams, and the unmatched footprint; record F9 errors, parts delta, frame rate and loading time; repeat default-off on Xbox, including driving, shops, and controller movement. Capture real Studio screenshots if adding images to PR #4. Keep the PR draft until these checks pass.
+
 This branch includes a real, opt-in OpenStreetMap footprint preview. It does not replace the 102 tiles, roads, stores, rentals, or gameplay IDs. The Workspace `CW_ReconstructionPilot` attribute defaults to off.
 
 ## Geographic correspondence

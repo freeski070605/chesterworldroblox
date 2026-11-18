@@ -58,3 +58,13 @@ To refresh OSM data, run `fetch_osm_buildings.py` with the box above, review rel
 ## Studio and Xbox verification
 
 Studio and Xbox were unavailable in this coding environment, so no runtime, frame-rate, loading, or controller result is asserted. To reproduce in Studio: sync this branch with Rojo; confirm `CW_ReconstructionPilot` is absent or false and Play once to verify normal spawn and roads. Then set it true before Play. Wait for `[ChesterWorld] Spawn ready` and `CW_BootstrapComplete`; expect a `[CW Reconstruction] Previewed ...` log and non-colliding walls in `Workspace.CW_ReconstructionPreview` near 9th & Kerlin. The renderer caps at 50 buildings and skips preview after 300 seconds if bootstrap has not completed. Inspect wall edges against road junctions and terrain, especially `osm_way_836649737_0`, and record F9 errors, loading time, and frame rate. Disable the attribute and repeat the road/spawn check. On Xbox, check spawn, driving and shops, preview off, and capture loading/frame-rate evidence. Do not merge or enable by default until these checks pass.
+
+## Focused visual review of unresolved building associations
+
+On the **development branch only**, the Studio preview supports an optional Workspace **String** attribute `CW_ReconstructionFocus`:
+- `all` (default) displays the whole pilot; linked outlines use normal tones, ambiguous review outlines use **orange**, unmatched outlines **red**.
+- `unresolved` shows only the 10 review candidates plus the 1 unmatched candidate (subject to the 450-stud spawn preview radius).
+
+Set the Workspace Boolean `CW_ReconstructionPilot=true` and String `CW_ReconstructionFocus=unresolved` **before pressing Play**. After bootstrap, inspect `Workspace.CW_ReconstructionPreview`; each model has `CW_AssociationStatus`, `CW_SourceId` and (if linked) `CW_GameBuildingId` attributes. Review reports print status counts and visible OSM IDs to Studio Output. The status map is `src/shared/ReconstructionReviewStatus.lua`, derived from `tools/reconstruction/data/chester_9th_kerlin_associations.json`. If associations are regenerated, regenerate this status map as well. Do not mistake a green/normal association for a field-verified identity. This is a visualization aid, not a new match decision, and no live building IDs are modified.
+
+The update was committed via GitHub and has **not been verified in a local Rojo build or Roblox Studio**. Keep draft PR #4 unmerged until syntax and visual tests pass.

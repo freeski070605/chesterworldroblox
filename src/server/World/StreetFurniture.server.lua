@@ -170,25 +170,7 @@ end
 local junctionPoints = {}
 local blades, stops, signals = 0, 0, 0
 
-local function bladeSign(n, armA, armB)
-	local corner = flat(armA.dir + armB.dir)
-	local reach = math.max(armA.seg.half, armB.seg.half) + 3.5
-	local p = n.p + corner * (reach * 1.414)
-	local y = surfaceY(p.X, p.Z)
-	if not y then return end
-	local H = 11
-	part(root, "StreetSignPole", Vector3.new(0.4, H, 0.4), CFrame.new(p.X, y + H / 2, p.Z), Enum.Material.Metal, POLE)
-	for i, arm in ipairs({ armA, armB }) do
-		-- a blade lies along its street, readable from both sides
-		local look = CFrame.lookAt(Vector3.zero, rightOf(arm.dir))
-		local blade = part(root, "StreetBlade", Vector3.new(5.6, 1.1, 0.12),
-			CFrame.new(p.X, y + H - 0.6 - (i - 1) * 1.25, p.Z) * look.Rotation
-				* CFrame.new(0, 0, 0), Enum.Material.SmoothPlastic, GREEN, "CW_StreetBlade")
-		blade:SetAttribute("Text", string.upper(arm.seg.name))
-	end
-	blades += 1
-end
-
+-- Only use confirmed curbside locations, including on wide intersection paving.
 -- carriageway / junction paving only (not sidewalks): no pole stands in the road
 local carriageFolders = {}
 for _, f in ipairs(surfaceFolders) do
@@ -210,6 +192,29 @@ local function kerbSpot(p, out)
 		if y and not inCarriageway(q, y) then return q, y end
 	end
 	return nil
+end
+
+
+local generatedBlades = {}
+local function bladeSign(n, armA, armB)
+ local corner = flat(armA.dir + armB.dir)
+ local reach = math.max(armA.seg.half, armB.seg.half) + 3.5
+ local initial = n.p + corner * (reach * 1.414)
+ local p, y = kerbSpot(initial, corner)
+ if not p then return end
+ local H = 11
+ local pole = part(root, "StreetSignPole", Vector3.new(0.4,H,0.4), CFrame.new(p.X,y+H/2,p.Z),Enum.Material.Metal,POLE)
+ local pair = { pole = pole, blades = {}, position = p }
+ for i,arm in ipairs({armA,armB}) do
+  local look = CFrame.lookAt(Vector3.zero,rightOf(arm.dir))
+  local blade = part(root,"StreetBlade",Vector3.new(5.6,1.1,0.12),
+   CFrame.new(p.X,y+H-0.6-(i-1)*1.25,p.Z)*look.Rotation,
+   Enum.Material.SmoothPlastic,GREEN,"CW_StreetBlade")
+  blade:SetAttribute("Text",string.upper(arm.seg.name))
+  table.insert(pair.blades,blade)
+ end
+ table.insert(generatedBlades,pair)
+ blades += 1
 end
 
 local function stopSign(n, arm)
@@ -239,10 +244,7 @@ local function signal(n, arm, go)
 	-- (a signal is kept at its kerb spot even on wide junction paving)
 	local base0 = n.p + arm.dir * (others + 4) + rightOf(travel) * (arm.seg.half + 2.5)
 	local base, y = kerbSpot(base0, rightOf(travel))
-	if not base then
-		base, y = base0, surfaceY(base0.X, base0.Z)
-		if not y then return end
-	end
+	if not base then return end -- never put a signal in travel lanes
 	local H = 15
 	part(root, "SignalPole", Vector3.new(0.6, H, 0.6), CFrame.new(base.X, y + H / 2, base.Z), Enum.Material.Metal, POLE)
 	-- mast arm out over the approach lanes, head facing the traffic
@@ -436,9 +438,8 @@ for i, seg in ipairs(segments) do
 		while s < len - 20 do
 			local c = seg.a + dir * s
 			local outward = rightOf(dir) * side
-			local p = c + outward * (seg.half + 1.2)
-			if not nearJunction(c, seg.half + 22) and not nearLight(p, SPACING * 0.8) then
-				local y = surfaceY(p.X, p.Z)
+			local p, y = kerbSpot(c + outward * (seg.half + 2.5), outward)
+			if p and not nearJunction(c, seg.half + 22) and not nearLight(p, SPACING * 0.8) then
 				-- not under a rail bridge (the pole would stand up through the deck)
 				if y and #railBeds > 0
 					and Workspace:Raycast(Vector3.new(p.X, y + 1, p.Z), Vector3.new(0, 26, 0), railParams) then
@@ -475,6 +476,43 @@ for i, seg in ipairs(segments) do
 	if i % 500 == 0 then task.wait() end
 end
 
+-- Attach the road-name blades to existing streetlight/signal poles when close
+-- enough, avoiding free-standing duplicates in Chester intersections.
+local poleGrid = {}
+local function poleCell(p)
+ return math.floor(p.X/50)..":"..math.floor(p.Z/50)
+end
+for _,p in ipairs(root:GetChildren()) do
+ if p:IsA("BasePart") and (p.Name == "SignalPole" or p.Name == "LightPole") then
+  local k = poleCell(p.Position)
+  poleGrid[k] = poleGrid[k] or {}
+  table.insert(poleGrid[k],p)
+ end
+end
+local mounted = 0
+for _,pair in ipairs(generatedBlades) do
+ local p = pair.position
+ local x,z = math.floor(p.X/50),math.floor(p.Z/50)
+ local nearest,dist = nil,16
+ for ix=x-1,x+1 do
+  for iz=z-1,z+1 do
+   for _,pole in ipairs(poleGrid[ix..":"..iz] or {}) do
+    local d = (Vector3.new(p.X,0,p.Z)-Vector3.new(pole.Position.X,0,pole.Position.Z)).Magnitude
+    if d < dist then nearest,dist = pole,d end
+   end
+  end
+ end
+ if nearest then
+  local top = nearest.Position.Y + nearest.Size.Y/2
+  for i,blade in ipairs(pair.blades) do
+   local rot = blade.CFrame.Rotation
+   blade.CFrame = CFrame.new(nearest.Position.X,top-1.2-(i-1)*1.25,nearest.Position.Z)*rot
+  end
+  pair.pole:Destroy()
+  mounted += 1
+ end
+end
+print("[ChesterWorld StreetFurniture] blades mounted to existing light/signal poles="..mounted)
 print(("[ChesterWorld StreetFurniture] nameSigns=%d stopSigns=%d signals=%d lights=%d parts=%d")
 	:format(blades, stops, signals, lights, count))
 Workspace:SetAttribute("CW_StreetFurnitureComplete", true)

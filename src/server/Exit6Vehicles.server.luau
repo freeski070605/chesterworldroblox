@@ -364,10 +364,69 @@ local function buildDealership()
     if marker and marker:IsA("BasePart") then
         lotCf, street = marker.CFrame, "J&S front lot"
     else
-        warn("[EXIT6 Vehicles] J&S front lot marker missing: refusing to spawn dealership in unrelated parcel")
-        Workspace:SetAttribute("CW_Exit6DealershipStatus", "J&S-front-marker-missing")
-        Workspace:SetAttribute("CW_Exit6DealershipReady", true)
-        return
+        -- The requested site is the J&S lot with Boost Mobile and Five
+        -- Points Deli at the 9th / Kerlin / Concord five-point junction.
+        -- Locate it from named, already-built storefront geometry. Never
+        -- guess from an arbitrary open lot or move the entire city.
+        local crossing = Vector3.new(2810, 0, 1518)
+        local landmarks = {}
+        for _,inst in ipairs(Workspace:GetDescendants()) do
+            if inst:IsA("Model") or inst:IsA("BasePart") then
+                local label = string.lower(tostring(inst:GetAttribute("ShopName") or inst.Name))
+                local isBoost = string.find(label,"boost mobile",1,true) ~= nil
+                local isDeli = string.find(label,"5 points deli",1,true) ~= nil
+                    or string.find(label,"five points deli",1,true) ~= nil
+                local isJS = string.find(label,"j&s",1,true) ~= nil
+                if isBoost or isDeli or isJS then
+                    local pos = inst:IsA("Model") and inst:GetPivot().Position or inst.Position
+                    if (Vector3.new(pos.X,0,pos.Z)-crossing).Magnitude < 400 then
+                        table.insert(landmarks,{pos=pos,boost=isBoost,deli=isDeli,js=isJS})
+                    end
+                end
+            end
+        end
+        local boost,deli,js
+        for _,entry in ipairs(landmarks) do
+            if entry.boost then boost=entry.pos end
+            if entry.deli then deli=entry.pos end
+            if entry.js then js=entry.pos end
+        end
+        -- An explicit J&S marker/model has first priority. Otherwise BOTH
+        -- adjacent businesses must resolve before considering the frontage.
+        local candidate = js or (boost and deli and (boost+deli)/2)
+        if candidate and world then
+            local closest, distance = nil, math.huge
+            for _,tile in ipairs(world:GetChildren()) do
+                local roadsFolder=tile:FindFirstChild("Roads")
+                if roadsFolder then
+                    for _,road in ipairs(roadsFolder:GetChildren()) do
+                        local name=string.lower(tostring(road:GetAttribute("ChesterStreet") or ""))
+                        if road:IsA("BasePart") and string.find(name,"9th",1,true) then
+                            local p=road:GetClosestPointOnSurface(candidate)
+                            local d=(Vector3.new(p.X,0,p.Z)-Vector3.new(candidate.X,0,candidate.Z)).Magnitude
+                            if d<distance then closest,distance=p,d end
+                        end
+                    end
+                end
+            end
+            if closest and distance < 125 then
+                local outward=Vector3.new(closest.X-candidate.X,0,closest.Z-candidate.Z)
+                if outward.Magnitude>1 then
+                    local ground=groundAt(candidate.X,candidate.Z)
+                    if ground then
+                        local cf=CFrame.lookAt(Vector3.new(candidate.X,ground,candidate.Z),
+                            Vector3.new(candidate.X,ground,candidate.Z)+outward.Unit)
+                        if lotFree(cf) then lotCf,street=cf,"J&S / W 9th Street" end
+                    end
+                end
+            end
+        end
+        if not lotCf then
+            warn("[EXIT6 Vehicles] J&S frontage could not be safely resolved beside Boost Mobile / Five Points Deli; provide Exit6JSLotFront in Studio")
+            Workspace:SetAttribute("CW_Exit6DealershipStatus","J&S-front-unresolved")
+            Workspace:SetAttribute("CW_Exit6DealershipReady",true)
+            return
+        end
     end
 	if not lotCf then
         warn("[EXIT6 Vehicles] no free lot for the dealership")

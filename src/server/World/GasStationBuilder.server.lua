@@ -359,9 +359,38 @@ local function buildStore(model, st, fascia, accent, textColor, frame, width, de
 		left = { -W2, 0, math.pi / 2, depth }, right = { W2, 0, -math.pi / 2, depth },
 	}
 	local shopfronts = { front = { sign = s.sign, signColors = s.signColors, main = true } }
-	for _, e in ipairs(s.extra or {}) do
-		shopfronts[e.face] = { sign = e.sign, signColors = e.signColors }
-	end
+    for _,e in ipairs(s.extra or {}) do
+        local face = e.face
+        if e.sign == "CHECK CASHING" then
+            -- Determine street-facing wall from the actual generated 9th St road,
+            -- not a fixed side that can face Kerlin when the parcel is rotated.
+            local closest, distance = nil, math.huge
+            for _,road in ipairs(Workspace:GetPartBoundsInRadius(frame.Position, 250)) do
+                local street = road:GetAttribute("ChesterStreet")
+                if road:IsA("BasePart") and type(street) == "string"
+                    and string.find(string.lower(street), "9th", 1, true) then
+                    local point = road:GetClosestPointOnSurface(frame.Position)
+                    local d = (point-frame.Position).Magnitude
+                    if d < distance then closest,distance = point,d end
+                end
+            end
+            if closest then
+                local direction = Vector3.new(closest.X-frame.Position.X,0,closest.Z-frame.Position.Z)
+                if direction.Magnitude > 1 then
+                    direction = direction.Unit
+                    local bestDot = -math.huge
+                    for candidate,f in pairs(FACES) do
+                        local outward = (frame*CFrame.Angles(0,f[3],0)).LookVector
+                        local dot = outward:Dot(direction)
+                        if dot > bestDot then face,bestDot = candidate,dot end
+                    end
+                end
+            else
+                warn("[ChesterWorld] 9th Street not found near Check Cashing; using configured storefront face")
+            end
+        end
+        shopfronts[face] = {sign = e.sign, signColors = e.signColors}
+    end
 	local function signBoard(board, spec, signBg, signAccent, signText)
 		if spec.sign then
 			local gui = Instance.new("SurfaceGui")

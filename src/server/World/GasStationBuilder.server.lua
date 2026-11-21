@@ -438,6 +438,28 @@ local function buildStore(model, st, fascia, accent, textColor, frame, width, de
 			local board = mk(spec.main and "ShopFascia" or "ShopFasciaExtra", Vector3.new(len, fasciaH, 0.9), 0,
 				glassTop + fasciaH / 2, 0.3, signBg)
 			signBoard(board, spec, signBg, signAccent, signText)
+            -- An extra street-front storefront is its own business, although
+            -- the building shell stays physically attached to the gas station.
+            if not spec.main and spec.sign == "CHECK CASHING" then
+                local separate = Instance.new("Model")
+                separate.Name = "Check Cashing"
+                separate:SetAttribute("StationId", st.id .. ":checkcashing")
+                separate:SetAttribute("ShopName", "CHECK CASHING")
+                separate:SetAttribute("Exit6StoreKind", "market")
+                separate:SetAttribute("Exit6StoreShell", "building")
+                separate:SetAttribute("Exit6StoreWidth", math.min(len-2, 20))
+                separate:SetAttribute("Exit6StoreDepth", 12)
+                separate:SetAttribute("BrandFascia", signBg)
+                separate:SetAttribute("BrandAccent", signAccent)
+                separate.Parent = model
+                local attachedAnchor = part(separate,"Exit6StoreAnchor",Vector3.new(1,0.2,1),
+                    fcf*CFrame.new(0,0.7,-3),Enum.Material.SmoothPlastic,Color3.new(1,1,1))
+                attachedAnchor.Transparency = 1
+                attachedAnchor.CanCollide = false
+                attachedAnchor.CanQuery = false
+                -- Only the extra unit gets its own store identity.
+                CollectionService:AddTag(separate,"Exit6Store")
+            end
 			mk("AccentStripe", Vector3.new(len, 0.5, 1.0), 0, glassTop - 0.1, 0.3, signAccent)
 			local mat = mk("DoorMat", Vector3.new(door - 1, 0.1, 3), 0, 0.65, -1.2, Color3.fromRGB(40, 40, 44),
 				Enum.Material.Fabric)

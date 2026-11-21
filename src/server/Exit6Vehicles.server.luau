@@ -363,6 +363,7 @@ local function buildDealership()
     local lotCf, street
     if marker and marker:IsA("BasePart") then
         lotCf, street = marker.CFrame, "J&S front lot"
+        Workspace:SetAttribute("CW_Exit6DealershipPlacement", "J&S-marker")
     else
         -- The dealership belongs IN FRONT of Boost Mobile and Five
         -- Points Deli on the 9th Street-facing front of the J&S lot,
@@ -435,10 +436,16 @@ local function buildDealership()
             end
         end
         if not lotCf then
-            warn("[EXIT6 Vehicles] J&S street-front dealership could not fit in front of Boost Mobile / Five Points Deli; provide Exit6JSLotFront in Studio")
-            Workspace:SetAttribute("CW_Exit6DealershipStatus","J&S-front-unresolved")
-            Workspace:SetAttribute("CW_Exit6DealershipReady",true)
-            return
+            -- A bad/unresolved J&S lookup must NEVER make the existing dealership
+            -- vanish. Restore the original, previously functioning nearby free-lot
+            -- placement until the precise 9th Street frontage is verified.
+            warn("[EXIT6 Vehicles] J&S frontage unresolved; restoring temporary dealership at available lot")
+            lotCf, street = findLot(Vector3.new(2810, 60, 1518))
+            if lotCf then
+                Workspace:SetAttribute("CW_Exit6DealershipPlacement", "temporary-fallback")
+            end
+        else
+            Workspace:SetAttribute("CW_Exit6DealershipPlacement", "J&S-front")
         end
     end
 	if not lotCf then

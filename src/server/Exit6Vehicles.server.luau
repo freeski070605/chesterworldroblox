@@ -355,7 +355,20 @@ end
 local function buildDealership()
 	local t0 = os.clock()
 	while not Workspace:GetAttribute("CW_StreetFurnitureComplete") and os.clock() - t0 < 400 do task.wait(2) end
-	local lotCf, street = findLot(Vector3.new(2810, 60, 1518))
+    -- J&S frontage is the authoritative landmark, not a random open parcel.
+    -- Place an anchored BasePart named Exit6JSLotFront in Workspace at the
+    -- front of the J&S parcel, with its -Z axis facing the street. The
+    -- part's position is ground-level; it is an editor marker, not a road.
+    local marker = Workspace:FindFirstChild("Exit6JSLotFront", true)
+    local lotCf, street
+    if marker and marker:IsA("BasePart") then
+        lotCf, street = marker.CFrame, "J&S front lot"
+    else
+        warn("[EXIT6 Vehicles] J&S front lot marker missing: refusing to spawn dealership in unrelated parcel")
+        Workspace:SetAttribute("CW_Exit6DealershipStatus", "J&S-front-marker-missing")
+        Workspace:SetAttribute("CW_Exit6DealershipReady", true)
+        return
+    end
 	if not lotCf then
         warn("[EXIT6 Vehicles] no free lot for the dealership")
         Workspace:SetAttribute("CW_Exit6DealershipStatus", "lot-unavailable")

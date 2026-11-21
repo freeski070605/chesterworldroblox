@@ -364,8 +364,9 @@ local function buildDealership()
     if marker and marker:IsA("BasePart") then
         lotCf, street = marker.CFrame, "J&S front lot"
     else
-        -- The requested site is the J&S lot with Boost Mobile and Five
-        -- Points Deli at the 9th / Kerlin / Concord five-point junction.
+        -- The dealership belongs IN FRONT of Boost Mobile and Five
+        -- Points Deli on the 9th Street-facing front of the J&S lot,
+        -- not alongside either storefront.
         -- Locate it from named, already-built storefront geometry. Never
         -- guess from an arbitrary open lot or move the entire city.
         local crossing = Vector3.new(2810, 0, 1518)
@@ -391,9 +392,10 @@ local function buildDealership()
             if entry.deli then deli=entry.pos end
             if entry.js then js=entry.pos end
         end
-        -- An explicit J&S marker/model has first priority. Otherwise BOTH
-        -- adjacent businesses must resolve before considering the frontage.
-        local candidate = js or (boost and deli and (boost+deli)/2)
+        -- Use the shared storefront frontage as the rear-side reference.
+        -- J&S may confirm the parcel, but its model center is not the
+        -- dealership center: that would put Motors beside/behind the stores.
+        local candidate = boost and deli and (boost+deli)/2
         if candidate and world then
             local closest, distance = nil, math.huge
             for _,tile in ipairs(world:GetChildren()) do
@@ -412,17 +414,28 @@ local function buildDealership()
             if closest and distance < 125 then
                 local outward=Vector3.new(closest.X-candidate.X,0,closest.Z-candidate.Z)
                 if outward.Magnitude>1 then
-                    local ground=groundAt(candidate.X,candidate.Z)
-                    if ground then
-                        local cf=CFrame.lookAt(Vector3.new(candidate.X,ground,candidate.Z),
-                            Vector3.new(candidate.X,ground,candidate.Z)+outward.Unit)
-                        if lotFree(cf) then lotCf,street=cf,"J&S / W 9th Street" end
+                    -- Move from the storefronts TOWARD 9th Street. Leave
+                    -- a setback between the lot's street edge and roadway;
+                    -- never center the dealership on Boost/Deli themselves.
+                    local streetSetback = 8
+                    local frontHalf = LOT.Z / 2
+                    local desiredTravel = distance - frontHalf - streetSetback
+                    -- If the existing storefronts are too close to 9th for
+                    -- a 46-stud-deep dealer lot, refuse to overlap them.
+                    if desiredTravel >= frontHalf + 4 then
+                        local center = candidate + outward.Unit * desiredTravel
+                        local ground=groundAt(center.X,center.Z)
+                        if ground then
+                            local cf=CFrame.lookAt(Vector3.new(center.X,ground,center.Z),
+                                Vector3.new(center.X,ground,center.Z)+outward.Unit)
+                            if lotFree(cf) then lotCf,street=cf,"J&S front lot / W 9th Street" end
+                        end
                     end
                 end
             end
         end
         if not lotCf then
-            warn("[EXIT6 Vehicles] J&S frontage could not be safely resolved beside Boost Mobile / Five Points Deli; provide Exit6JSLotFront in Studio")
+            warn("[EXIT6 Vehicles] J&S street-front dealership could not fit in front of Boost Mobile / Five Points Deli; provide Exit6JSLotFront in Studio")
             Workspace:SetAttribute("CW_Exit6DealershipStatus","J&S-front-unresolved")
             Workspace:SetAttribute("CW_Exit6DealershipReady",true)
             return

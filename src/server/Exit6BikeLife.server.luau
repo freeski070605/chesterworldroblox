@@ -3,6 +3,8 @@
 local Players=game:GetService("Players")
 local ReplicatedStorage=game:GetService("ReplicatedStorage")
 local RunService=game:GetService("RunService")
+local Catalog=require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Exit6Catalog"))
+local Profile=require(script.Parent:WaitForChild("Exit6Profile"))
 local remotes=ReplicatedStorage:WaitForChild("Exit6Remotes")
 local action=Instance.new("RemoteFunction")
 action.Name="BikeLifeAction"
@@ -67,6 +69,22 @@ action.OnServerInvoke=function(player,command,value)
     local now=os.clock()
     if cooldown[player] and now-cooldown[player]<1.25 then return status(player) end
     cooldown[player]=now
+    if command=="paint" and type(value)=="table" then
+        local id=type(value.model)=="string" and value.model or ""
+        local spec=Catalog.Vehicles[id]
+        local color=tonumber(value.color)
+        local prof=Profile.Get(player)
+        local stats=player:FindFirstChild("leaderstats")
+        local cash=stats and stats:FindFirstChild("Chester Cash")
+        if player:GetAttribute("Exit6DataReady")==true and spec and spec.rideType
+            and prof and prof.vehicles[id] and color and color%1==0 and color>=1 and color<=8
+            and cash and cash.Value>=100 then
+            cash.Value-=100
+            prof.vehicles[id].paint=color
+            Profile.Publish(player)
+            player:SetAttribute("Exit6Notice","Custom paint saved ($100). Re-call your ride to apply.")
+            player:SetAttribute("Exit6NoticeId",(player:GetAttribute("Exit6NoticeId") or 0)+1)
+        end
     if command=="create" and not getRide(player) and #Players:GetPlayers()>0 then
         local i=math.clamp(math.floor(tonumber(value) or 1),1,#checkpoints)
         rides[player.UserId]={leader=player,members={[player.UserId]=true},

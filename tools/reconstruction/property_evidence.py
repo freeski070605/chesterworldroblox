@@ -446,12 +446,15 @@ def build_records(scope_ids, fps, roads, photos, user, old, pose=None):
     minz = min(p.bounds[1] for p in scope_union) - 80 * SCALE
     maxx = max(p.bounds[2] for p in scope_union) + 80 * SCALE
     maxz = max(p.bounds[3] for p in scope_union) + 80 * SCALE
+    scope_tree = STRtree(scope_union)
     by_building = {}
     photo_out = []
     for ph in photos:
         x, z = ph["cam"]
         if not (minx <= x <= maxx and minz <= z <= maxz):
             continue
+        if not scope_tree.query(Point(x, z).buffer(MAX_RANGE_M * SCALE)).size:
+            continue   # scattered scopes (--reviewed): only cameras near a scoped building
         hits = cast(ph, fps, tree, ids)
         verdict, visible = associate(ph, hits, fps, lazy)
         ph = dict(ph, verdict=verdict, visible=visible)
@@ -710,6 +713,7 @@ def main():
     ap.add_argument("--bbox", help="W,S,E,N lon/lat")
     ap.add_argument("--name", default="9th_kerlin")
     ap.add_argument("--all", action="store_true")
+    ap.add_argument("--reviewed", action="store_true", help="scope = every ID in pose_reviews.csv")
     ap.add_argument("--fresh-panos", action="store_true", help="free Google metadata probes per street wall")
     ap.add_argument("--fetch-images", type=int, default=0, help="billed Static images, hard cap")
     ap.add_argument("--render", action="store_true")
@@ -719,7 +723,10 @@ def main():
     fps = load_footprints()
     ROADS = load_roads()
     ROAD_TREE = STRtree([r["line"] for r in ROADS])
-    if a.all:
+    if a.reviewed:
+        scope = [i for i in load_pose_reviews() if i in fps]
+        a.name = "reviewed"
+    elif a.all:
         scope = list(fps)
         a.name = "citywide"
     else:

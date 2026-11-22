@@ -1,0 +1,177 @@
+building_id,verdict,tile_style,tile,street,photo,fov_share,sheet,roof,porch,floors,confidence
+191030,confirmed_commercial_no_change,storefront,tile_r06_c07,West 9th Street,25_GoogleStreetView_Buildings/images/191030/front_L7tQF_KEi9S-7dmbKemwBQ.jpg,0.54,z000#0,,,,medium
+156812,confirmed_commercial_no_change,storefront,tile_r06_c07,West 9th Street,25_GoogleStreetView_Buildings/images/156812/front__SxmHOw_VhxzlPjVS8KPNw.jpg,0.63,z000#1,,,,medium
+133503,confirmed_commercial_no_change,storefront,tile_r06_c07,Concord Avenue,25_GoogleStreetView_Buildings/images/133503/front_1jtgIG4g5-D2DcFzB0HXFA.jpg,0.61,z000#2,,,,medium
+133692,unresolved_no_change,commercial,tile_r06_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/133692/front_HDQG2Xa1vxMK2GXJafLMUg.jpg,0.68,z000#3,,,,medium
+114813,residential_twin,storefront,tile_r06_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/114813/front_kjVe01aINGY-TvtHpDpRpw.jpg,0.54,z000#4,front_gable,1,2,medium
+190631,residential_house,storefront,tile_r06_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/190631/front_vxvBNno1QZKMAXyABZW9AA.jpg,0.37,z000#5,front_gable,1,3,medium
+29981,confirmed_commercial_no_change,storefront,tile_r06_c07,West 10th Street,25_GoogleStreetView_Buildings/images/149986/front_opWN4JNYE_2HPKQdObqTOw.jpg,1.0,z000#6,,,,medium
+150015,existing_review_kept,storefront,tile_r06_c06,West 9th Street,25_GoogleStreetView_Buildings/images/150015/front_IwGtx2h8z8zR_7D87qyCdg.jpg,0.63,z000#7,,,,medium
+182911,existing_review_kept,storefront,tile_r06_c07,West 8th Street,25_GoogleStreetView_Buildings/images/182911/front_4KGv8fExb6V4PCDoCocIew.jpg,0.41,z000#8,,,,medium
+13564,unresolved_no_change,storefront,tile_r06_c07,Lincoln Street,25_GoogleStreetView_Buildings/images/7911/front_vewbf1CLe-9PuxmSJ9ZfCw.jpg,0.85,z000#9,,,,medium
+143017,garage,storefront,tile_r06_c06,West Congress Street,25_GoogleStreetView_Buildings/images/143017/front_8RhUHrJ-ow0ewEOhWxa0fQ.jpg,0.76,z000#10,side_gable,,,medium
+183747,existing_review_kept,storefront,tile_r06_c06,West 9th Street,25_GoogleStreetView_Buildings/images/183747/front_KjxkYHyAtkf2CzRh03sLNQ.jpg,0.68,z000#11,,,,medium
+27197,residential_rowhouse,storefront,tile_r06_c07,West 10th Street,25_GoogleStreetView_Buildings/images/27197/front_opWN4JNYE_2HPKQdObqTOw.jpg,0.88,z000#12,flat,0,2,medium
+32725,residential_twin,storefront,tile_r06_c07,West 8th Street,25_GoogleStreetView_Buildings/images/32725/front_6SYb3bW2fFlZr5IVOssIsA.jpg,0.49,z000#13,flat,1,2,medium
+101072,garage,storefront,tile_r06_c07,James Street,25_GoogleStreetView_Buildings/images/101072/front_C4YVkOWdbdsaP6PX6TK_pQ.jpg,0.83,z000#14,front_gable,,,medium
+33881,existing_review_kept,commercial,tile_r06_c06,Hughes Street,25_GoogleStreetView_Buildings/images/33881/front_f87ki2xEhaPcu-IAOHwp5A.jpg,0.71,z000#15,,,,medium
+48870,residential_twin,storefront,tile_r06_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/111972/front_NzYutGvclLbgRlH12QHIKQ.jpg,1.0,z001#16,flat,1,2,medium
+6790,residential_house,storefront,tile_r06_c06,West 9th Street,25_GoogleStreetView_Buildings/images/6790/front_c57-q5CKjHvnavYnlSgRNw.jpg,0.46,z001#17,front_gable,1,2,high
+206367,residential_twin,storefront,tile_r06_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/206367/front_Y4BLJz6PAsxtSwkYCsWfWQ.jpg,0.49,z001#18,flat,1,2,high
+97082,unresolved_no_change,storefront,tile_r06_c07,James Street,25_GoogleStreetView_Buildings/images/97082/front_C4YVkOWdbdsaP6PX6TK_pQ.jpg,0.98,z001#19,,,,medium
+146881,residential_twin,storefront,tile_r06_c07,West 8th Street,25_GoogleStreetView_Buildings/images/146881/front_ddjA_FNTHH5sUxvbg65cAw.jpg,0.59,z001#20,side_gable,0,3,high
+144907,garage,storefront,tile_r06_c07,James Street,25_GoogleStreetView_Buildings/images/144907/front_5qlUlq0POI_P62StwYkE-g.jpg,0.66,z001#21,front_gable,,,medium
+10435,garage,storefront,tile_r06_c06,West Congress Street,25_GoogleStreetView_Buildings/images/10435/front_wRg9CKZAl91953lVdyv3Yw.jpg,0.61,z001#22,flat,,,medium
+26960,residential_twin,storefront,tile_r06_c07,West 8th Street,25_GoogleStreetView_Buildings/images/26960/front_VWsXAq0yGFTmOOUa5mX9CQ.jpg,0.37,z001#23,flat,1,2,medium
+2722,residential_rowhouse,storefront,tile_r06_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/2722/front_NzYutGvclLbgRlH12QHIKQ.jpg,0.54,z001#24,flat,1,2,high
+101495,residential_twin,storefront,tile_r06_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/177605/front_fqJEQfAbrBUiQHhj7_lLFQ.jpg,0.8,z001#25,flat,1,2,medium
+97117,residential_twin,storefront,tile_r06_c06,West 9th Street,25_GoogleStreetView_Buildings/images/97117/front_ShKErqzK2j7vD_st-HoWxA.jpg,0.59,z001#26,flat,1,2,high
+200538,residential_rowhouse,storefront,tile_r06_c06,West 9th Street,25_GoogleStreetView_Buildings/images/200538/front_vX9HSaYDQzf7Z2cuaEG7pQ.jpg,0.51,z001#27,flat,0,2,medium
+34022,residential_rowhouse,storefront,tile_r06_c06,West 8th Street,25_GoogleStreetView_Buildings/images/34022/front_QRVjS8D4ZV-JxcvBGeqKIg.jpg,0.66,z001#28,flat,0,2,medium
+200938,residential_rowhouse,storefront,tile_r06_c07,West 8th Street,25_GoogleStreetView_Buildings/images/200938/front_VWsXAq0yGFTmOOUa5mX9CQ.jpg,0.56,z001#29,flat,1,2,medium
+183,unresolved_no_change,storefront,tile_r06_c07,Lincoln Street,25_GoogleStreetView_Buildings/images/183/front_p5U9_uxMi7TPR6-AmWjh5Q.jpg,0.73,z001#30,,,,medium
+125080,residential_rowhouse,storefront,tile_r06_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/125080/front_fqJEQfAbrBUiQHhj7_lLFQ.jpg,0.71,z001#31,flat,1,2,high
+110690,residential_twin,storefront,tile_r06_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/110690/front_Rf-TfN6m0HPhC8TD7_tm7g.jpg,0.63,z002#32,front_gable,1,2,high
+104364,garage,storefront,tile_r06_c07,James Street,25_GoogleStreetView_Buildings/images/104364/front_Nps8FnoyT08SvlKZH7bq0g.jpg,0.68,z002#33,front_gable,,,high
+65099,residential_rowhouse,storefront,tile_r06_c06,West 9th Street,25_GoogleStreetView_Buildings/images/65099/front_vX9HSaYDQzf7Z2cuaEG7pQ.jpg,0.51,z002#34,flat,1,2,medium
+91311,residential_rowhouse,storefront,tile_r06_c06,West 9th Street,25_GoogleStreetView_Buildings/images/91311/front_07gCrXr3-u-6XOSIgPYvyw.jpg,0.54,z002#35,flat,1,2,high
+7520,confirmed_commercial_no_change,commercial,tile_r06_c06,Hughes Street,25_GoogleStreetView_Buildings/images/7520/front_f87ki2xEhaPcu-IAOHwp5A.jpg,0.66,z002#36,,,,medium
+198525,residential_twin,storefront,tile_r06_c07,West 7th Street,25_GoogleStreetView_Buildings/images/198525/front_q6uA0TZnyvVz1CCdTTnIqA.jpg,0.41,z002#37,front_gable,1,3,medium
+92726,residential_rowhouse,storefront,tile_r06_c06,West 8th Street,25_GoogleStreetView_Buildings/images/92726/front_QRVjS8D4ZV-JxcvBGeqKIg.jpg,0.51,z002#38,flat,1,2,high
+180527,unresolved_no_change,storefront,tile_r06_c07,West 7th Street,25_GoogleStreetView_Buildings/images/180527/front_Q5cY-O9XhuveoZRBrP_VXA.jpg,0.29,z002#39,,,,medium
+80390,residential_twin,storefront,tile_r06_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/80390/front_Qhk56cdyNKt1_RJ2GHZLHA.jpg,0.63,z002#40,flat,1,2,medium
+101993,residential_twin,storefront,tile_r06_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/101993/front_2fnvV1HjTcEdUtZTR4bMig.jpg,0.56,z002#41,front_gable,1,2,high
+72594,residential_rowhouse,storefront,tile_r06_c06,West 9th Street,25_GoogleStreetView_Buildings/images/72594/front_QeqJ664dB04hwSZ6RMsK2Q.jpg,0.54,z002#42,flat,1,2,high
+200410,residential_rowhouse,storefront,tile_r06_c06,West 9th Street,25_GoogleStreetView_Buildings/images/200410/front_QeqJ664dB04hwSZ6RMsK2Q.jpg,0.56,z002#43,flat,1,2,medium
+188205,residential_twin,storefront,tile_r06_c06,West 8th Street,25_GoogleStreetView_Buildings/images/188205/front_QRVjS8D4ZV-JxcvBGeqKIg.jpg,0.37,z002#44,flat,1,2,medium
+187835,unresolved_no_change,commercial,tile_r06_c07,James Street,25_GoogleStreetView_Buildings/images/187835/front_Nps8FnoyT08SvlKZH7bq0g.jpg,0.88,z002#45,,,,medium
+10653,residential_twin,storefront,tile_r06_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/10653/front_Rf-TfN6m0HPhC8TD7_tm7g.jpg,0.61,z002#46,flat,1,2,high
+33356,residential_rowhouse,storefront,tile_r06_c06,West 8th Street,25_GoogleStreetView_Buildings/images/33356/front_gT5PClxZxPpsVekUQMd9gA.jpg,0.54,z002#47,flat,0,2,medium
+123086,residential_twin,storefront,tile_r06_c06,West 9th Street,25_GoogleStreetView_Buildings/images/123086/front_tjJ1dkvLcM8IfzdPFljZNg.jpg,0.51,z003#48,flat,1,2,high
+143047,residential_twin,storefront,tile_r06_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/143047/front_2fnvV1HjTcEdUtZTR4bMig.jpg,0.54,z003#49,front_gable,1,2,high
+196320,residential_rowhouse,storefront,tile_r06_c06,West 9th Street,25_GoogleStreetView_Buildings/images/196320/front_QeqJ664dB04hwSZ6RMsK2Q.jpg,0.59,z003#50,flat,1,2,medium
+24056,residential_twin,storefront,tile_r06_c06,West 8th Street,25_GoogleStreetView_Buildings/images/24056/front_gT5PClxZxPpsVekUQMd9gA.jpg,0.51,z003#51,flat,1,2,high
+41454,residential_twin,storefront,tile_r06_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/41454/front_FNjs4iKcX8Gt50nx2g_uOw.jpg,0.56,z003#52,flat,1,2,medium
+184173,residential_rowhouse,storefront,tile_r06_c07,West 7th Street,25_GoogleStreetView_Buildings/images/184173/front_Q5cY-O9XhuveoZRBrP_VXA.jpg,0.44,z003#53,flat,1,2,medium
+22360,residential_house,storefront,tile_r06_c06,Pusey Street,25_GoogleStreetView_Buildings/images/22360/front_YPaPqxWQoePnA4vP9kguEw.jpg,0.73,z003#54,side_gable,0,2,high
+131184,unresolved_no_change,storefront,tile_r06_c06,West Congress Street,25_GoogleStreetView_Buildings/images/131184/front_LYOSqkmIYesftbsEBHz2bw.jpg,1.0,z003#55,,,,medium
+194738,residential_rowhouse,storefront,tile_r06_c06,West 9th Street,25_GoogleStreetView_Buildings/images/194738/front_Kzf5liSuH79LWskzFko1Ug.jpg,0.61,z003#56,flat,1,2,medium
+74974,garage,storefront,tile_r06_c06,Hughes Street,25_GoogleStreetView_Buildings/images/74974/front_wjS_230TlJoW2W_oeOA3mw.jpg,0.85,z003#57,flat,,,medium
+128086,residential_twin,storefront,tile_r06_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/128086/front_2fnvV1HjTcEdUtZTR4bMig.jpg,0.59,z003#58,flat,1,2,medium
+145335,residential_rowhouse,storefront,tile_r06_c06,Pusey Street,25_GoogleStreetView_Buildings/images/145335/front_LMNVg4Ply-q02K2tl1149g.jpg,0.68,z003#59,flat,0,2,medium
+22344,residential_twin,storefront,tile_r06_c07,Butler Street,25_GoogleStreetView_Buildings/images/22344/front_a_KYEsN3Szy4sFILKR30iw.jpg,0.83,z003#60,flat,0,2,medium
+83093,residential_rowhouse,storefront,tile_r06_c07,West 6th Street,25_GoogleStreetView_Buildings/images/83093/front_QUUGyDeAvV7PwcJC_ZjHow.jpg,0.9,z003#61,flat,0,2,high
+155177,unresolved_no_change,storefront,tile_r06_c07,Woodrow Street,25_GoogleStreetView_Buildings/images/155177/front_qIuKTgspYWbDq1e93uVSxQ.jpg,0.51,z003#62,,,,medium
+198973,residential_rowhouse,storefront,tile_r06_c06,James Street,25_GoogleStreetView_Buildings/images/198973/front__R-SY5wWjolAr6RXdsynjQ.jpg,0.68,z003#63,flat,0,2,medium
+195187,residential_rowhouse,commercial,tile_r06_c07,West 6th Street,25_GoogleStreetView_Buildings/images/195187/front_rTDOsZBpMfndu6pMYPJVRQ.jpg,0.98,z004#64,flat,0,3,high
+20802,residential_twin,storefront,tile_r06_c07,West 7th Street,25_GoogleStreetView_Buildings/images/20802/front_1E4CMVlN4gr_WaDbf9JzCA.jpg,0.54,z004#65,flat,1,2,medium
+206137,confirmed_commercial_no_change,commercial,tile_r06_c07,Concord Avenue,25_GoogleStreetView_Buildings/images/206137/front_YmF2kOyTwDdGqt1qP31LIg.jpg,0.93,z004#66,,,,medium
+37445,residential_house,storefront,tile_r06_c07,Parker Street,25_GoogleStreetView_Buildings/images/37445/front_Vg6qDkGrNg0XCh5GGQGS-g.jpg,0.8,z004#67,front_gable,1,3,medium
+35483,residential_rowhouse,commercial,tile_r06_c07,West 7th Street,25_GoogleStreetView_Buildings/images/35483/front_lSBMlDM44aRvE81gRbd5IA.jpg,0.83,z004#68,flat,0,2,high
+131098,unresolved_no_change,storefront,tile_r06_c06,James Street,25_GoogleStreetView_Buildings/images/131098/front_Q7UfoJhDL8i2ahEtySUg1A.jpg,1.0,z004#69,,,,medium
+97316,residential_rowhouse,storefront,tile_r06_c07,West 7th Street,25_GoogleStreetView_Buildings/images/97316/front_tW2aep3Ps7VW1wKKrEeuVw.jpg,0.51,z004#70,flat,1,2,medium
+180049,unresolved_no_change,commercial,tile_r06_c07,Woodrow Street,25_GoogleStreetView_Buildings/images/180049/front_UviiVVfoVbfqOEfydWmrGw.jpg,0.73,z004#71,,,,medium
+153872,garage,storefront,tile_r07_c07,West 11th Street,25_GoogleStreetView_Buildings/images/153872/front_ou9jWmP4AHdT6tEcFCJgvg.jpg,0.59,z004#72,flat,,,medium
+128131,residential_rowhouse,storefront,tile_r06_c07,West 7th Street,25_GoogleStreetView_Buildings/images/128131/front_tW2aep3Ps7VW1wKKrEeuVw.jpg,0.54,z004#73,flat,1,2,high
+39383,residential_rowhouse,storefront,tile_r06_c06,Pusey Street,25_GoogleStreetView_Buildings/images/39383/front_8c9zuXGJmnlL2EJ4tSyA7g.jpg,0.73,z004#74,flat,1,2,high
+163702,unresolved_no_change,storefront,tile_r06_c06,West Congress Street,25_GoogleStreetView_Buildings/images/163702/front_lKGbQwOkxeGl9IzW21oi2A.jpg,0.85,z004#75,,,,medium
+147378,residential_house,storefront,tile_r06_c07,Concord Avenue,25_GoogleStreetView_Buildings/images/147378/front_Yq1j2Y6kIVBjjTsHkwCo3A.jpg,0.56,z004#76,,0,3,medium
+107543,residential_rowhouse,storefront,tile_r06_c07,West 7th Street,25_GoogleStreetView_Buildings/images/107543/front_ouY2dAWXKggDh8ob-Uyw_Q.jpg,0.54,z004#77,flat,1,2,medium
+164167,garage,storefront,tile_r06_c07,Woodrow Street,25_GoogleStreetView_Buildings/images/164167/front_T9goLol92pJuRqLkLIIIVg.jpg,0.71,z004#78,flat,,,medium
+15056,residential_house,storefront,tile_r06_c07,West 6th Street,25_GoogleStreetView_Buildings/images/15056/front_QUUGyDeAvV7PwcJC_ZjHow.jpg,0.34,z004#79,flat,0,2,high
+61861,residential_rowhouse,storefront,tile_r06_c07,West 6th Street,25_GoogleStreetView_Buildings/images/61861/front_A7S8jc7OrDpS13gCA_rKaA.jpg,0.66,z005#80,flat,0,2,medium
+197973,residential_house,storefront,tile_r06_c07,West 6th Street,25_GoogleStreetView_Buildings/images/197973/front_a5zCMe1_dtbIK9egqxDdhw.jpg,0.34,z005#81,flat,1,2,high
+139904,unresolved_no_change,storefront,tile_r06_c07,Butler Street,25_GoogleStreetView_Buildings/images/139904/front_TtDEXs8b1LQQqBDBkKLsNQ.jpg,0.66,z005#82,,,,medium
+80851,residential_twin,storefront,tile_r07_c07,West 11th Street,25_GoogleStreetView_Buildings/images/80851/front_dB5ttbxpTjVzvhDAcpeKeA.jpg,0.63,z005#83,flat,1,2,medium
+157454,garage,storefront,tile_r06_c07,Woodrow Street,25_GoogleStreetView_Buildings/images/157454/front_l2uyjvWsRJamDeOA6gl6Xg.jpg,0.59,z005#84,hip,,,high
+80465,residential_twin,storefront,tile_r06_c07,Fulton Street,25_GoogleStreetView_Buildings/images/80465/front_MrGWMAUSQM2uHZ8o0aKiew.jpg,0.56,z005#85,front_gable,1,2,medium
+48138,residential_twin,storefront,tile_r06_c07,Fulton Street,25_GoogleStreetView_Buildings/images/48138/front_nhvu4UuZrekcpA1K5gl56A.jpg,0.54,z005#86,mansard,1,3,high
+13912,residential_twin,storefront,tile_r07_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/13912/front_1EI5cuAow7tyJyQP_3jGsg.jpg,0.61,z005#87,front_gable,1,2,high
+148939,unresolved_no_change,storefront,tile_r06_c06,Pusey Street,25_GoogleStreetView_Buildings/images/148939/front_-euOOMA1BWP_uign3pgT9g.jpg,0.63,z005#88,,,,medium
+104918,residential_twin,storefront,tile_r07_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/104918/front_1EI5cuAow7tyJyQP_3jGsg.jpg,0.54,z005#89,flat,1,2,medium
+4239,residential_twin,storefront,tile_r07_c07,West 11th Street,25_GoogleStreetView_Buildings/images/4239/front_8rs47TGHhR-ioK8A33EcZA.jpg,0.54,z005#90,flat,1,2,medium
+82291,residential_rowhouse,storefront,tile_r06_c06,West 8th Street,25_GoogleStreetView_Buildings/images/82291/front_9Ntj06fJHzdRB8J9Y5-v_w.jpg,0.51,z005#91,flat,1,2,medium
+174145,residential_rowhouse,storefront,tile_r06_c06,West 8th Street,25_GoogleStreetView_Buildings/images/174145/front_F-y6jcbBt0u5Veh-wNYs-A.jpg,0.51,z005#92,flat,1,2,high
+86664,residential_twin,storefront,tile_r06_c07,Butler Street,25_GoogleStreetView_Buildings/images/86664/front_M-uAcpmNQwATaX0hK9JGeA.jpg,0.51,z005#93,flat,1,2,high
+164682,residential_house,storefront,tile_r07_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/164682/front_VeeHdlhmDzhRRZO9h1t3ZQ.jpg,0.32,z005#94,flat,1,2,medium
+126620,residential_rowhouse,storefront,tile_r06_c06,West 7th Street,25_GoogleStreetView_Buildings/images/126620/front_ge9PIAH2lIvRW0FhwaoFNg.jpg,0.49,z005#95,flat,1,2,medium
+19226,residential_twin,storefront,tile_r06_c07,Fulton Street,25_GoogleStreetView_Buildings/images/19226/front_ouwAtcXufKVJapJjbehcFQ.jpg,0.63,z006#96,front_gable,1,2,medium
+112736,unresolved_no_change,commercial,tile_r06_c07,Woodrow Street,25_GoogleStreetView_Buildings/images/112736/front_esuw4tdYdMQFT7ju1mLEeg.jpg,1.0,z006#97,,,,medium
+71129,residential_twin,storefront,tile_r07_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/71129/front_1EI5cuAow7tyJyQP_3jGsg.jpg,0.56,z006#98,flat,1,2,high
+76160,residential_twin,storefront,tile_r06_c06,West 8th Street,25_GoogleStreetView_Buildings/images/76160/front_oPgPbtZCS7UKqnJEKMgIyA.jpg,0.56,z006#99,flat,1,2,high
+206203,residential_rowhouse,storefront,tile_r06_c06,West 8th Street,25_GoogleStreetView_Buildings/images/206203/front_F-y6jcbBt0u5Veh-wNYs-A.jpg,0.49,z006#100,flat,1,2,high
+102812,residential_house,storefront,tile_r06_c06,Pusey Street,25_GoogleStreetView_Buildings/images/102812/front_oiZ7LNgeG6tymq6cTT_clw.jpg,0.78,z006#101,side_gable,0,3,medium
+18890,residential_twin,commercial,tile_r06_c07,West 7th Street,25_GoogleStreetView_Buildings/images/18890/front_RM8uJp4ML_MAiJCwwbVOIw.jpg,0.83,z006#102,front_gable,1,3,high
+62202,residential_house,storefront,tile_r07_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/62202/front_0JjJYJ3kkfealI89Lbw-4A.jpg,0.59,z006#103,side_gable,0,2,high
+42318,garage,storefront,tile_r06_c06,James Street,25_GoogleStreetView_Buildings/images/42318/front_7rStozYw8L91IoITsB9hUQ.jpg,0.63,z006#104,front_gable,,,medium
+58471,residential_house,storefront,tile_r06_c06,West 7th Street,25_GoogleStreetView_Buildings/images/58471/front_K2KnD78CsbL_p8v8DDAKyg.jpg,0.34,z006#105,flat,0,2,medium
+61806,residential_rowhouse,storefront,tile_r06_c06,West 8th Street,25_GoogleStreetView_Buildings/images/61806/front_oPgPbtZCS7UKqnJEKMgIyA.jpg,0.51,z006#106,flat,1,2,high
+141097,residential_twin,storefront,tile_r06_c06,West 8th Street,25_GoogleStreetView_Buildings/images/141097/front_jMLMmYsyXDf8Xr6AhfrGtQ.jpg,0.59,z006#107,flat,1,2,high
+97688,residential_twin,storefront,tile_r07_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/97688/front_0JjJYJ3kkfealI89Lbw-4A.jpg,0.54,z006#108,flat,1,2,medium
+97463,garage,storefront,tile_r06_c06,James Street,25_GoogleStreetView_Buildings/images/97463/front_7rStozYw8L91IoITsB9hUQ.jpg,0.56,z006#109,flat,,,high
+142518,garage,storefront,tile_r06_c06,Woodrow Street,25_GoogleStreetView_Buildings/images/142518/front_IrnLkIL6YaAe9k0TPq8a5w.jpg,0.56,z006#110,front_gable,,,medium
+9396,residential_house,storefront,tile_r07_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/9396/front_n9EJFxSbkSdkBJp6ttxJzg.jpg,0.46,z006#111,mansard,1,2,medium
+100740,residential_twin,storefront,tile_r06_c06,West 7th Street,25_GoogleStreetView_Buildings/images/100740/front_1WqY5gvYRrl3GpqBSU8Ofw.jpg,0.44,z007#112,mansard,1,2,medium
+107498,residential_rowhouse,storefront,tile_r06_c06,West 8th Street,25_GoogleStreetView_Buildings/images/107498/front_jMLMmYsyXDf8Xr6AhfrGtQ.jpg,0.51,z007#113,flat,1,2,high
+103121,residential_twin,storefront,tile_r06_c06,West 8th Street,25_GoogleStreetView_Buildings/images/103121/front_tNPlQtxtpDAYrMa8_nzicg.jpg,0.54,z007#114,flat,1,2,high
+123426,residential_twin,storefront,tile_r07_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/123426/front_n9EJFxSbkSdkBJp6ttxJzg.jpg,0.59,z007#115,flat,1,2,medium
+101950,residential_twin,storefront,tile_r07_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/101950/front_9B2nIl81lP7HCqOEePWu_Q.jpg,0.51,z007#116,front_gable,1,2,medium
+85285,unresolved_no_change,storefront,tile_r06_c06,Lloyd Street,25_GoogleStreetView_Buildings/images/85285/front__44x8xW7NY7JiRnEHxOpvA.jpg,0.63,z007#117,,,,medium
+152920,residential_house,storefront,tile_r06_c06,West Congress Street,25_GoogleStreetView_Buildings/images/152920/front_v2BCNrbDF3JbFE_NtLSh0Q.jpg,0.85,z007#118,side_gable,0,3,medium
+46895,unresolved_no_change,storefront,tile_r06_c06,Lloyd Street,25_GoogleStreetView_Buildings/images/46895/front_T7u9iXwa3kqPZ4mbwmUwCA.jpg,0.27,z007#119,,,,medium
+168446,unresolved_no_change,storefront,tile_r07_c07,West 12th Street,25_GoogleStreetView_Buildings/images/168446/front_ssEkzsze5xnS4fScVFTiGg.jpg,0.56,z007#120,,,,medium
+138414,residential_rowhouse,storefront,tile_r06_c06,West 7th Street,25_GoogleStreetView_Buildings/images/138414/front_7lm920kGWW7DOD8rgPI31Q.jpg,0.8,z007#121,flat,1,2,medium
+127867,residential_twin,storefront,tile_r07_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/127867/front_QqV0qRREe7cksMq1tVeR7w.jpg,0.61,z007#122,flat,1,2,high
+189359,residential_twin,storefront,tile_r06_c06,Lloyd Street,25_GoogleStreetView_Buildings/images/189359/front_-1qkHcGV6JI3nPHEoMJrvw.jpg,0.73,z007#123,flat,0,2,medium
+137955,unresolved_no_change,storefront,tile_r07_c07,West 12th Street,25_GoogleStreetView_Buildings/images/137955/front_encHzKTIGxe6wN3RoHK5eQ.jpg,0.85,z007#124,,,,medium
+143954,residential_house,storefront,tile_r06_c06,West 7th Street,25_GoogleStreetView_Buildings/images/143954/front_7lm920kGWW7DOD8rgPI31Q.jpg,0.34,z007#125,flat,0,2,medium
+143570,garage,storefront,tile_r06_c06,Woodrow Street,25_GoogleStreetView_Buildings/images/143570/front_-GtfTtwO-ev_62hr5nXCuA.jpg,0.61,z007#126,flat,,,medium
+144984,residential_rowhouse,storefront,tile_r07_c07,West 12th Street,25_GoogleStreetView_Buildings/images/144984/front_cPvJsbGgiDvK8bMbUhyNqw.jpg,0.73,z007#127,flat,1,2,medium
+200210,garage,storefront,tile_r06_c06,West 6th Street,25_GoogleStreetView_Buildings/images/200210/front_SZc9emMeYkCMfmo2NsSYQA.jpg,0.41,z008#128,front_gable,,,high
+205773,confirmed_commercial_no_change,storefront,tile_r07_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/205773/front_lPypZvFH587sTFu8QD5MuA.jpg,0.71,z008#129,,,,medium
+197595,residential_twin,storefront,tile_r07_c07,Kerlin Street,25_GoogleStreetView_Buildings/images/197595/front_ZJru0_WxMEFW5HxaY8LNjw.jpg,0.46,z008#130,flat,1,2,medium
+73438,residential_twin,storefront,tile_r07_c07,West 12th Street,25_GoogleStreetView_Buildings/images/73438/front_WTqmha255hxb9TkekWqIJg.jpg,0.49,z008#131,flat,1,2,medium
+43175,unresolved_no_change,storefront,tile_r06_c07,Woodrow Street,25_GoogleStreetView_Buildings/images/43175/front_ZMMAyagLIy04EeSk8uR2XQ.jpg,0.68,z008#132,,,,medium
+39733,garage,storefront,tile_r06_c07,Woodrow Street,25_GoogleStreetView_Buildings/images/39733/front_yH_LruraYkt8JpLSkDQdvg.jpg,0.56,z008#133,front_gable,,,medium
+121113,residential_twin,storefront,tile_r06_c07,West 5th Street,25_GoogleStreetView_Buildings/images/121113/front_EIP5jbJ90X4rtaQe3vYJnw.jpg,0.46,z008#134,flat,1,2,high
+128353,residential_twin,storefront,tile_r06_c07,West 5th Street,25_GoogleStreetView_Buildings/images/128353/front_ZuWZRXYAjZxDFC4J_jU63g.jpg,0.59,z008#135,flat,1,2,high
+74959,residential_twin,storefront,tile_r06_c07,West 5th Street,25_GoogleStreetView_Buildings/images/74959/front_ZuWZRXYAjZxDFC4J_jU63g.jpg,0.44,z008#136,flat,1,2,high
+135468,unresolved_no_change,storefront,tile_r06_c07,Woodrow Street,25_GoogleStreetView_Buildings/images/135468/front_qBz0PovyqPwQkA5pOe8OpQ.jpg,0.93,z008#137,,,,medium
+163872,residential_twin,storefront,tile_r05_c07,West 5th Street,25_GoogleStreetView_Buildings/images/163872/front_wW_W32j30c8Amsj0yXKe2Q.jpg,0.49,z008#138,flat,1,2,high
+37296,residential_twin,storefront,tile_r05_c07,West 5th Street,25_GoogleStreetView_Buildings/images/37296/front_ikzGvDkDeNaPn9-S65F4vw.jpg,0.73,z008#139,flat,1,2,high
+198078,residential_twin,storefront,tile_r05_c07,West 5th Street,25_GoogleStreetView_Buildings/images/198078/front_Uk1Yqqs0OtmkBK-euxaRhw.jpg,0.61,z008#140,flat,1,2,high
+198837,unresolved_no_change,storefront,tile_r06_c07,Barclay Street,25_GoogleStreetView_Buildings/images/198837/front_suicll8UIdOv-IFRLe8uGQ.jpg,0.66,z008#141,,,,medium
+4584,residential_twin,storefront,tile_r05_c07,West 5th Street,25_GoogleStreetView_Buildings/images/4584/front_M7pp9hwborHeOjMvri_TaQ.jpg,0.59,z008#142,flat,1,2,high
+169939,residential_rowhouse,storefront,tile_r05_c07,Pusey Street,25_GoogleStreetView_Buildings/images/169939/front_K9kTSxnVEPLKheucVQQ3cQ.jpg,0.63,z008#143,flat,0,2,medium
+88,unresolved_no_change,storefront,tile_r06_c07,Concord Avenue,25_GoogleStreetView_Buildings/images/88/front_rEYmeOt1TkDs6Lu1LnqlIQ.jpg,0.59,z009#144,,,,medium
+37997,confirmed_commercial_no_change,commercial,tile_r06_c07,Patterson Street,25_GoogleStreetView_Buildings/images/37997/front_JFsugtZns-PCfNMLPoXcQQ.jpg,0.76,z009#145,,,,medium
+103898,residential_apartment,warehouse,tile_r05_c07,West Union Street,25_GoogleStreetView_Buildings/images/103898/front_38JgjLyqf4-xyIlDXvl1gQ.jpg,1.0,z009#146,flat,0,4,high
+97466,unresolved_no_change,commercial,tile_r06_c07,Concord Avenue,25_GoogleStreetView_Buildings/images/97466/front_3nioTFcKrOpyPf1BSbNAzw.jpg,0.85,z009#147,,,,medium
+164093,garage,storefront,tile_r05_c07,West Union Street,25_GoogleStreetView_Buildings/images/164093/front_7bPNplRX0ooiIFEpLpEaqA.jpg,0.71,z009#148,front_gable,,,medium
+93810,confirmed_commercial_no_change,commercial,tile_r05_c07,Ulrich Street,25_GoogleStreetView_Buildings/images/93810/front_9mFsVImYGHc3FTNEfJwhAQ.jpg,1.0,z009#149,,,,medium
+194841,residential_house,storefront,tile_r05_c07,West 3rd Street,25_GoogleStreetView_Buildings/images/194841/front_3j9oyOknwm-z39udPv6W5A.jpg,0.49,z009#150,flat,0,2,medium
+28507,residential_rowhouse,storefront,tile_r05_c07,West 3rd Street,25_GoogleStreetView_Buildings/images/28507/front_1yNBR8crtGRzWZSkgxWY4w.jpg,0.68,z009#151,flat,1,2,medium
+18662,unresolved_no_change,storefront,tile_r05_c07,West Union Street,25_GoogleStreetView_Buildings/images/18662/front_5-YU7rxZFOwTmMzd9P46uw.jpg,0.49,z009#152,,,,medium
+129422,residential_rowhouse,storefront,tile_r05_c07,West 3rd Street,25_GoogleStreetView_Buildings/images/129422/front_yHSPFMlKKg-STUf8Kwi0HA.jpg,0.54,z009#153,flat,1,2,medium
+134737,residential_house,storefront,tile_r05_c07,West 3rd Street,25_GoogleStreetView_Buildings/images/134737/front_nQbsuiYzOoQKJnEZ7uJdng.jpg,0.66,z009#154,hip,0,1,high
+154017,residential_rowhouse,storefront,tile_r05_c07,West 3rd Street,25_GoogleStreetView_Buildings/images/154017/front_DtxXDF83itr_X9csBHpKSw.jpg,0.59,z009#155,flat,1,2,high
+150386,residential_twin,storefront,tile_r05_c07,West 3rd Street,25_GoogleStreetView_Buildings/images/150386/front_ferXujlxJiiS7UXpABJuZw.jpg,0.56,z009#156,flat,1,2,high
+121250,residential_twin,storefront,tile_r05_c07,West 3rd Street,25_GoogleStreetView_Buildings/images/121250/front_28n_Yr5bvmfamy7oeOO2rw.jpg,0.51,z009#157,flat,1,2,medium
+20895,garage,storefront,tile_r06_c07,West Union Street,25_GoogleStreetView_Buildings/images/20895/front_iV0nFWHO2FyXhPFDjY-H9A.jpg,0.76,z009#158,front_gable,,,high
+88922,unresolved_no_change,storefront,tile_r05_c07,West Union Street,25_GoogleStreetView_Buildings/images/88922/front_pysCkAevsrtHAsN0WpVrjQ.jpg,0.2,z009#159,,,,medium
+24920,garage,storefront,tile_r05_c07,West Union Street,25_GoogleStreetView_Buildings/images/24920/front_NcP2CBvTlZ4cTnxHROZgVQ.jpg,0.78,z010#160,flat,,,medium
+119175,residential_house,storefront,tile_r05_c07,Pusey Street,25_GoogleStreetView_Buildings/images/119175/front_7qauo7Hf5iCVYdII4LFmkA.jpg,0.73,z010#161,,0,2,medium
+136786,unresolved_no_change,storefront,tile_r06_c08,Woodrow Street,25_GoogleStreetView_Buildings/images/136786/front_x2rfNamblziU9HELPyYGmg.jpg,0.63,z010#162,,,,medium
+108057,residential_twin,storefront,tile_r05_c07,West 3rd Street,25_GoogleStreetView_Buildings/images/108057/front__-0DTfOikzEP0tp0AIwhBA.jpg,0.66,z010#163,flat,1,2,medium
+75582,residential_twin,storefront,tile_r05_c07,West 3rd Street,25_GoogleStreetView_Buildings/images/75582/front_TcSjR0VdpRnSS6Thpa4bVA.jpg,0.46,z010#164,flat,1,2,high
+179145,residential_house,storefront,tile_r06_c07,Franklin Street,25_GoogleStreetView_Buildings/images/179145/front_k3miPuB2RHADXr9Jo6r48g.jpg,0.39,z010#165,flat,0,3,medium
+105207,unresolved_no_change,storefront,tile_r05_c07,West Union Street,25_GoogleStreetView_Buildings/images/105207/front_Wx0bIPNzg6mUy1zV2A_CKA.jpg,0.78,z010#166,,,,medium
+23045,unresolved_no_change,storefront,tile_r05_c07,West 3rd Street,25_GoogleStreetView_Buildings/images/23045/front_ferXujlxJiiS7UXpABJuZw.jpg,0.34,z010#167,,,,medium
+98374,residential_twin,storefront,tile_r05_c07,West 3rd Street,25_GoogleStreetView_Buildings/images/98374/front_opPcWPX1hO89mJdLknY-Qg.jpg,0.49,z010#168,flat,1,2,high
+123606,unresolved_no_change,storefront,tile_r06_c08,Barclay Street,25_GoogleStreetView_Buildings/images/123606/front_BFEjlXXptoV3T8xpuevHNQ.jpg,0.68,z010#169,,,,medium
+21543,residential_house,storefront,tile_r06_c07,Concord Avenue,25_GoogleStreetView_Buildings/images/21543/front_ysHt_Wzhp-z8nKGmh5dUlQ.jpg,0.59,z010#170,hip,0,1,high
+146770,unresolved_no_change,storefront,tile_r05_c07,West 3rd Street,25_GoogleStreetView_Buildings/images/146770/front_-CUvFEWTFGZzpGZthUoxtw.jpg,0.51,z010#171,,,,medium
+199151,unresolved_no_change,storefront,tile_r05_c07,West Union Street,25_GoogleStreetView_Buildings/images/199151/front_0AGEm98HCs9ZS2vjTj-i3Q.jpg,0.88,z010#172,,,,medium
+206451,residential_house,commercial,tile_r05_c07,Lloyd Street,25_GoogleStreetView_Buildings/images/206451/front_FIkOgzGnpNnCboVMl_SxMQ.jpg,0.78,z010#173,side_gable,1,2,medium
+168685,residential_rowhouse,storefront,tile_r05_c07,West 3rd Street,25_GoogleStreetView_Buildings/images/168685/front_fs8zCVGRomTsm-YQXrEf_Q.jpg,0.66,z010#174,front_gable,1,2,medium
+31537,unresolved_no_change,storefront,tile_r06_c07,Franklin Street,25_GoogleStreetView_Buildings/images/31537/front_OBh59M-K9Uaz_W9QkHPKmg.jpg,0.56,z010#175,,,,medium

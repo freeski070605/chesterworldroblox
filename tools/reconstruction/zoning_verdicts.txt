@@ -1,7 +1,8 @@
 # Visual verdicts for zoning-only "commercial" footprints with a ray-centred
 # front photo (build/property_evidence/zsheets, slot n -> index.json).
 # code: R rowhouse, T twin, H house, A apartment, G garage, C confirmed
-#       commercial (no change), X ambiguous/skip (no change), K existing review
+#       commercial (no change), X ambiguous/skip (no change), K existing review,
+#       S residential-looking but holds a gameplay store (no change)
 # extras: roof f flat / s side_gable / g front_gable / h hip / m mansard;
 #         p porch; y bay; u1 single unit; digits = storeys; bN garage bays;
 #         d<pattern> door pattern; ! = high confidence (default medium)
@@ -469,3 +470,184 @@
 461 X
 462 G f b1
 463 H f 3
+464 X
+465 T s p 3 !
+466 R f 2 !
+467 T h p 2 !
+468 X
+469 H f 1
+470 T m p 3 !
+471 C
+472 T f p 2
+473 X
+474 X
+475 X
+476 G f b1
+477 X
+478 T f p 2 !
+479 G f b2
+480 H m 3
+481 T f 2
+482 G f b2 !
+483 C
+484 H g p 3 !
+485 T m p 3
+486 X
+487 T m p 3 !
+488 C
+489 G g b2 !
+490 X
+491 T g p 2 !
+492 C
+493 C
+494 T s 2
+495 X
+496 X
+497 C
+498 C
+499 X
+500 X
+501 R f 2 !
+502 G g b1 !
+503 A f 2 !
+504 X
+505 H f 2
+506 X
+507 C
+508 X
+509 C
+510 C
+511 G h b2 !
+512 C
+513 C
+514 H g p 3 !
+515 T f p 3 y
+516 R f 2
+517 R s 2 !
+518 X
+519 G g b2 !
+520 C
+521 H s p 3
+522 X
+523 H s 2
+524 C
+525 H s p 2 !
+526 H s 1
+527 H g p 2 !
+528 C
+529 T f p 2 y !
+530 X
+531 T f p 2 y !
+532 S
+533 T s p 3 !
+534 G f b2
+535 T f p 2 y !
+536 T f p 2
+537 T f p 2 y !
+538 T f p 2 y !
+539 R f p 2 y !
+540 R f p 2
+541 T f p 2
+542 R f 2
+543 H s 2
+544 R f 2
+545 R f 3 !
+546 R f p 2 !
+547 R f p 2 !
+548 R f p 2
+549 C
+550 A f 2 !
+551 R f 2
+552 C
+553 G f
+554 X
+555 G f b1 !
+556 X
+557 G f b2 !
+558 X
+559 R f p 2
+560 X
+561 T f 2 y
+562 R f p 2 y !
+563 R f p 2 !
+564 T g p 3 !
+565 H f 2
+566 X
+567 R f p 2 !
+568 H g p 3 !
+569 X
+570 R f p 2 !
+571 T s 2
+572 X
+573 R f p 2 !
+574 A g 2 !
+575 T s p 2 y !
+576 X
+577 R f 2
+578 X
+579 R f p 2 !
+580 C
+581 X
+582 C
+583 X
+584 A s 1
+585 T g p 3 !
+586 R f p 2 !
+587 H s 1 !
+588 R f p 2 !
+589 R f 2
+590 R f p 2
+591 H g p 3 !
+592 X
+593 R f p 2
+594 R f p 2 !
+595 R f p 2 y
+596 G f b1
+597 T f p 2 !
+598 R f p 2 y
+599 R f p 2 !
+600 T s 2
+601 X
+602 T f p 2 y
+603 R f p 2 !
+604 R f 2
+605 C
+606 G g b1
+607 R f p 2 y !
+608 R f p 2 y !
+609 R f p 2 !
+610 G f b1 !
+611 R f p 2 y !
+612 H p 2
+613 T f 2 !
+614 X
+615 H f p 2
+616 G f b1 !
+617 C
+618 H s 2 !
+619 X
+620 C
+621 X
+622 C
+623 C
+624 C
+625 C
+626 R f 2
+627 R f 2
+628 T f 2 !
+629 R f 2
+630 C
+631 C
+632 A f 2 !
+633 X
+634 C
+635 T s 2 dRL !
+636 G f b1 !
+637 G f b2 !
+638 T f p 2 !
+639 H s 1 !
+640 C
+641 T f 2 y
+642 X
+643 T f p 2
+644 T s 2 !

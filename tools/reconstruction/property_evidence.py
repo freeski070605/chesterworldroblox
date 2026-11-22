@@ -609,6 +609,10 @@ def write_lua(records):
     if LUA_OUT.exists():
         for m in re.finditer(r'^\t\["(\d+)"\]=(\{.*\}),$', LUA_OUT.read_text(encoding="utf-8"), re.M):
             entries[m.group(1)] = m.group(2)
+    # a withdrawn review must not leave its structure behind in the runtime
+    reviewed = set(load_pose_reviews())
+    entries = {k: v for k, v in entries.items()
+               if k in reviewed or not re.match(r'\{status="(reconstructed|finish_verified)"', v)}
     for r in records.values():
         st = r.get("structure")
         accepted = st and r["verified_type"] is not None and (not st.get("style") or st["style"] == r["verified_type"])

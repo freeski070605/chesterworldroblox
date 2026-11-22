@@ -22,7 +22,8 @@ LOG = ROOT / "docs/zoning_review_log.csv"
 STYLE = {"R": "rowhouse", "T": "twin", "H": "house", "A": "apartment", "G": "garage"}
 ROOF = {"f": "flat", "s": "side_gable", "g": "front_gable", "h": "hip", "m": "mansard"}
 KIND = {"R": "residential_rowhouse", "T": "residential_twin", "H": "residential_house", "A": "residential_apartment",
-        "G": "garage", "C": "confirmed_commercial_no_change", "X": "unresolved_no_change", "K": "existing_review_kept"}
+        "G": "garage", "C": "confirmed_commercial_no_change", "X": "unresolved_no_change", "K": "existing_review_kept",
+        "S": "gameplay_store_kept_no_change"}
 
 
 def parse(line):

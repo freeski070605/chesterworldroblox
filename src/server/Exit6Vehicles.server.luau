@@ -484,7 +484,7 @@ local function buildDealership()
 	m:SetAttribute("BrandFascia", BLUE)
 	m.Parent = Workspace
 	-- display cars along the front bays, a price board on each
-	local shown = { "car_hatch", "car_pickup", "car_suv", "car_coupe", "car_van" }
+	local shown = { "car_hatch", "bike_250", "quad_450", "car_coupe", "car_suv" }
 	for i, itemId in ipairs(shown) do
 		local item = Catalog.Items[itemId]
 		local x = -26 + (i - 1) * 13   -- between the painted bay lines

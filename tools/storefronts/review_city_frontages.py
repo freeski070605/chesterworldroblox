@@ -76,6 +76,10 @@ def run(data: Path, out: Path):
                     "imagery_review_status": "NEEDS_MANUAL_IMAGE_REVIEW",
                     "verified_facing_street": "",
                     "verified_bearing_deg": "",
+                    "verified_entrance_bearing_deg": "",
+                    "verified_entrance_offset": "",
+                    "corner_glazing_faces": "",
+                    "sign_location": "",
                     "review_notes": "",
                     "business_place_id": placeid,
                 })
@@ -83,7 +87,8 @@ def run(data: Path, out: Path):
     fields = ["building_id", "section", "shop_name", "tile", "game_bearing",
               "source", "image_local_path", "capture_date", "image_recorded_road",
               "imagery_review_status", "verified_facing_street", "verified_bearing_deg",
-              "review_notes", "business_place_id"]
+              "verified_entrance_bearing_deg", "verified_entrance_offset",
+              "corner_glazing_faces", "sign_location", "review_notes", "business_place_id"]
     with out.open("w", encoding="utf-8-sig", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader()

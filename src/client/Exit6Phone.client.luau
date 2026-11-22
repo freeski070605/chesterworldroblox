@@ -564,6 +564,18 @@ drawPhone = function()
 	end
 end
 
+-- Refresh open rideout lobby when riders join/leave or a ride begins.
+task.spawn(function()
+    local event=remotes:WaitForChild("BikeLifeChanged",60)
+    if event then
+        event.OnClientEvent:Connect(function()
+            if phone.Visible and tab=="rideout" and drawPhone then
+                drawPhone()
+            end
+        end)
+    end
+end)
+
 openTab = function(name)
 	if shop.Visible then closeAll() end
 	if tab == "hair" and name ~= "hair" then cancelHairPreview() end

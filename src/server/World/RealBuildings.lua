@@ -124,6 +124,9 @@ function RealBuildings.Store(model, r, ctx, shop)
 		Enum.Material.SmoothPlastic, Color3.fromRGB(236, 234, 228))
 	local nFront = faceAxis(r.frame, shop.front)
 	local entryDoor
+	local entryFace
+	local entryOffset = 0
+	local preferredEntrance = shop.entrance and faceAxis(r.frame, shop.entrance) or nFront
 	local fronts = { [tostring(nFront)] = true }
 	if shop.corner then
 		local nc = faceAxis(r.frame, shop.corner)
@@ -135,6 +138,15 @@ function RealBuildings.Store(model, r, ctx, shop)
 		local y0 = r.streetLevel + 0.4
 		local probe = (fcf * CFrame.new(0, 0, -2)).Position
 		if fronts[tostring(n)] and not covered(probe, ctx.rects, r) then
+            -- A surveyed corner storefront can put its door toward either
+            -- street and shift it along that wall. Keep glazing/signage on
+            -- both exposed faces, but create only ONE entrance per section.
+            local doorOnThisWall = n == preferredEntrance
+            local offset = 0
+            if doorOnThisWall and shop.entranceOffset then
+                local safeSpan = math.max(0,span / 2 - math.min(5,span*0.3) / 2 - 1.8)
+                offset = math.clamp(shop.entranceOffset,-1,1)*safeSpan
+            end
 			-- bulkhead, piers, shop glass, sign band wall, walk-through door
 			local h = groundH - 0.4
 			part(model, "Bulkhead", Vector3.new(span, 1.6, 0.8), at(0, y0 + 0.8, 0.4), ctx.material, ctx.wall)
@@ -154,19 +166,27 @@ function RealBuildings.Store(model, r, ctx, shop)
 					g.Reflectance = 0.1
 				end
 			end
-			-- door frame + a glass door you can walk through
-			for _, s in ipairs({ -1, 1 }) do
-				part(model, "DoorFrame", Vector3.new(0.35, glassTop - y0, 0.5), at(s * doorW / 2, (glassTop + y0) / 2, 0.4),
-					Enum.Material.Metal, Color3.fromRGB(60, 62, 66))
-			end
-			local glassDoor = part(model, "ShopDoor", Vector3.new(doorW - 0.4, glassTop - y0 - 0.4, 0.15),
-				at(0, (glassTop + y0) / 2, 0.55), Enum.Material.Glass, GLASS)
-			glassDoor.Transparency = 0.55
-			glassDoor.CanCollide = false
-			if not entryDoor then entryDoor = glassDoor end
-			local mat = part(model, "DoorMat", Vector3.new(doorW - 0.6, 0.1, 2.4), at(0, y0 + 0.05, -1.4),
-				Enum.Material.Fabric, Color3.fromRGB(40, 40, 44))
-			mat.CanCollide = false
+            -- Keep one door on the imagery-verified face, not a second
+            -- walk-through entrance on every corner storefront wall.
+            if doorOnThisWall then
+                -- Door center follows a normalized along-wall offset, so an
+                -- entrance close to the actual corner can be represented.
+                for _,side in ipairs({-1,1}) do
+                    part(model,"DoorFrame",Vector3.new(0.35,glassTop-y0,0.5),
+                        at(offset+side*doorW/2,(glassTop+y0)/2,0.4),
+                        Enum.Material.Metal,Color3.fromRGB(60,62,66))
+                end
+                local glassDoor=part(model,"ShopDoor",Vector3.new(doorW-0.4,glassTop-y0-0.4,0.15),
+                    at(offset,(glassTop+y0)/2,0.55),Enum.Material.Glass,GLASS)
+                glassDoor.Transparency=0.55
+                glassDoor.CanCollide=false
+                entryDoor=glassDoor
+                entryFace=n
+                entryOffset=offset
+                local mat=part(model,"DoorMat",Vector3.new(doorW-0.6,0.1,2.4),
+                    at(offset,y0+0.05,-1.4),Enum.Material.Fabric,Color3.fromRGB(40,40,44))
+                mat.CanCollide=false
+            end
 			ctx.stats.storefronts += 1
 		else
 			local w = part(model, "ShopWall", Vector3.new(span, groundH, 0.8), at(0, r.streetLevel + groundH / 2, 0.4),
@@ -196,9 +216,20 @@ function RealBuildings.Store(model, r, ctx, shop)
 	shopModel.Name = "Shop_" .. shop.name
 	shopModel.Parent = model
 	local floorCentre = r.frame.Position + Vector3.new(0, r.streetLevel + 0.7, 0)
-	local frontWorld = r.frame:VectorToWorldSpace(nFront)
-	local anchor = part(shopModel, "Exit6StoreAnchor", Vector3.new(2, 0.2, 2),
-		CFrame.lookAt(floorCentre, floorCentre + frontWorld), Enum.Material.SmoothPlastic, Color3.new(1, 1, 1))
+    local actualFace = entryFace or nFront
+    local frontWorld = r.frame:VectorToWorldSpace(actualFace)
+    -- Interior anchor stays centered for the fixture layout; direction matches
+    -- the actual selected door. Gameplay can resolve physical door separately.
+    local anchor = part(shopModel, "Exit6StoreAnchor", Vector3.new(2, 0.2, 2),
+        CFrame.lookAt(floorCentre, floorCentre + frontWorld), Enum.Material.SmoothPlastic, Color3.new(1, 1, 1))
+    if entryDoor then
+        local doorRef = Instance.new("ObjectValue")
+        doorRef.Name = "Exit6ShopDoor"
+        doorRef.Value = entryDoor
+        doorRef.Parent = shopModel
+    end
+    shopModel:SetAttribute("EntranceFaceVerified", shop.entrance ~= nil)
+    shopModel:SetAttribute("EntranceOffset", entryOffset)
 	anchor.Transparency = 1
 	anchor.CanCollide = false
 	anchor.CanQuery = false

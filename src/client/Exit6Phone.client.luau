@@ -384,6 +384,11 @@ drawPhone = function()
                     row(phoneList,2,"Leader: "..mine.leaderName,"")
                     row(phoneList,3,"Wheelie points",tostring(mine.score or 0))
                     row(phoneList,6,"Rideout longest wheelie",tostring(mine.best or 0).." sec")
+                    for i,entry in ipairs(mine.leaderboard or {}) do
+                        if i<=6 then
+                            row(phoneList,34+i,"#"..i.." "..entry.name,tostring(entry.points).." pts")
+                        end
+                    end
                     row(phoneList,10,"Show rideout meetup","",act(function()
                         markHome(mine.meetPos,"RIDEOUT")
                     end))

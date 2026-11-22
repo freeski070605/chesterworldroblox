@@ -2310,7 +2310,10 @@ local function buildStoreSign(model, shapeData, rect, yaw)
 	model:SetAttribute("StoreName", shapeData.name)
 end
 
+local BuildingReviewOverrides = require(script.Parent:WaitForChild("BuildingReviewOverrides"))
+local NeighborhoodScope = require(script.Parent:WaitForChild("NeighborhoodScope"))
 local function buildFootprintBuilding(parent, building, shapeData)
+	local review = shapeData._review
 	local style = BUILDING_STYLES[shapeData.style] or BUILDING_STYLES.generic
 	local seed = tonumber(building.id) or 1
 	local wall = pick(style.walls, seed, 1)
@@ -2331,6 +2334,8 @@ local function buildFootprintBuilding(parent, building, shapeData)
 			material = Enum.Material.SmoothPlastic
 		end
 	end
+	if review and review.wall then wall = hexColor(review.wall) end
+	if review and review.material and Enum.Material[review.material] then material = Enum.Material[review.material] end
 	local landmark = shapeData.lm and LANDMARK_STYLES[shapeData.lm]
 	if landmark then
 		wall, material = landmark.wall, landmark.material
@@ -2342,6 +2347,20 @@ local function buildFootprintBuilding(parent, building, shapeData)
 	model:SetAttribute("ChesterBuildingId", tostring(building.id))
 	model:SetAttribute("BuildingStyle", shapeData.style)
 	model:SetAttribute("SourceHeightMeters", shapeData.h)
+	if NeighborhoodScope[tostring(building.id)] then
+		model:SetAttribute("ReconstructionStatus", review and "photo_verified" or "unverified")
+	end
+	if review then
+		model:SetAttribute("ReconstructionConfidence", review.confidence)
+		model:SetAttribute("ReconstructionEvidence", review.evidence)
+		local use = review.use or ((shapeData.style == "house" or shapeData.style == "twin"
+			or shapeData.style == "rowhouse" or shapeData.style == "apartment") and "residential"
+			or (shapeData.style == "garage" and "garage") or "commercial")
+		model:SetAttribute("ReconstructionUse", use)
+		if review.arch then model:SetAttribute("ReconstructionArch", review.arch) end
+		if review.bay then model:SetAttribute("ReconstructionBay", true) end
+		model:SetAttribute("ReconstructionReviewed", true)
+	end
 	local gable = style.roof == "gable" and #shapeData.r <= 3
 	local roofColor = style.roofs and pick(style.roofs, seed, 2)
 	-- measured roof colour from the 2025 aerial (tools/build_building_tiles.py),
@@ -2376,11 +2395,16 @@ local function buildFootprintBuilding(parent, building, shapeData)
 			local shops = {}
 			local sbIndex
 			for _, sh in ipairs(shapeData.ss or {}) do
-				shops[sh[2]] = { name = sh[1], front = sh[3], corner = shapeData.fb2,
+				local shopReview = review and review.shops and review.shops[sh[2]]
+				shops[sh[2]] = { name = sh[1], front = shopReview and shopReview.front or sh[3], corner = shapeData.fb2,
                     placeId = sh[6], signBg = hexColor(sh[4]),
                     -- Optional image-reviewed entrance: bearing and normalized
                     -- along-wall offset. Existing six-field entries unchanged.
-                    entrance = sh[7], entranceOffset = sh[8] }
+                    entrance = shopReview and shopReview.entrance or sh[7],
+                    entranceOffset = shopReview and shopReview.entranceOffset or sh[8],
+                    canopy = shopReview and shopReview.canopy }
+				if review and review.shopCanopy == false then shops[sh[2]].canopy = false end
+				if shopReview and shopReview.corner == false then shops[sh[2]].corner = nil end
 			end
 			if shapeData.sb and shapeData.name then
 				-- the verified store: the section reaching furthest toward its street front
@@ -2399,8 +2423,12 @@ local function buildFootprintBuilding(parent, building, shapeData)
 				if best then
 					-- (fb: the face of the building nearest its street, from
 					-- tools/add_building_fronts.py; sb is only a direction)
-					shops[best] = { name = shapeData.name, front = shapeData.fb or shapeData.sb, corner = shapeData.fb2,
-						placeId = "survey", signBg = shapeData.sc and hexColor(shapeData.sc) or nil }
+					shops[best] = { name = shapeData.name,
+						front = review and review.surveyFront or shapeData.fb or shapeData.sb,
+						corner = shapeData.fb2,
+						placeId = "survey", signBg = shapeData.sc and hexColor(shapeData.sc) or nil,
+						canopy = not (review and review.shopCanopy == false) }
+					if review and review.surveyCorner == false then shops[best].corner = nil end
 					sbIndex = best
 				end
 			end
@@ -2413,10 +2441,13 @@ local function buildFootprintBuilding(parent, building, shapeData)
 				shops[big] = { front = shapeData.fb, corner = shapeData.fb2 }
 			end
 			realCtx = { sbIndex = sbIndex, rects = rects, shops = shops, front = shapeData.fb, corner = shapeData.fb2,
-				porch = shapeData.pb ~= nil, porchDepth = shapeData.pd and shapeData.pd * S or nil,
+				porch = shapeData.pb ~= nil,
+				porchDepth = shapeData.pd and shapeData.pd * S or nil,
 				style = shapeData.style, material = material, wall = wall,
+				arch = review and review.arch, bay = review and review.bay, reviewed = review ~= nil,
 				seed = seed, buildingId = tostring(building.id), applyFacade = applyFacade, stats = RealBuildings.stats,
 				lite = not core }
+			if review and review.porch ~= nil then realCtx.porch = review.porch end
 		end
 	end
 	for rectIndex, rect in ipairs(shapeData.r) do
@@ -2579,7 +2610,8 @@ local function buildFootprintBuilding(parent, building, shapeData)
         for _,rect in ipairs(builtRects) do
             if rect.area > bestArea then best, bestArea = rect,rect.area end
         end
-        if best then
+        local bayRects = review and review.garageBays and builtRects or {best}
+        for _,best in ipairs(bayRects) do
             local frame = CFrame.new(best.x,0,best.z)*yaw
             local normal = faceToward(frame,shapeData.fb)
             local extent = normal.X ~= 0 and best.along/2 or best.across/2
@@ -2601,6 +2633,13 @@ local function buildFootprintBuilding(parent, building, shapeData)
                             facing*CFrame.new(0,y,-0.15),Enum.Material.Metal,Color3.fromRGB(66,69,71))
                         slat.CanCollide=false
                     end
+					if review and review.garageBays and best.wallTop - best.streetLevel > 17 then
+						local windowCenter = center + Vector3.new(0, 12, 0)
+						local upper = newPart(model,"GarageUpperWindow",Vector3.new(math.min(width*0.65,6),4.5,0.2),
+							CFrame.lookAt(windowCenter,windowCenter+worldNormal),Enum.Material.Glass,Color3.fromRGB(105,128,139))
+						upper.Transparency=0.25
+						upper.CanCollide=false
+					end
                 end
             end
         end
@@ -2627,16 +2666,34 @@ local function buildFootprintBuilding(parent, building, shapeData)
 	return false
 end
 
-local BuildingReviewOverrides = require(script.Parent:WaitForChild("BuildingReviewOverrides"))
 local function buildBuilding(parent, building, shapes)
     local shapeData = shapes and shapes[tostring(building.id)]
     local correction = BuildingReviewOverrides[tostring(building.id)]
-    if shapeData and correction and correction.style then
+    if shapeData and correction then
         -- Never mutate the shared tile's original shape record. Replacing only
         -- the reviewed archetype preserves source geometry and the gameplay ID.
         local copy = {}
         for key, value in pairs(shapeData) do copy[key] = value end
-        copy.style = correction.style
+        copy._review = correction
+        if correction.style then copy.style = correction.style end
+        if correction.front then copy.fb = correction.front end
+        if correction.name == false then copy.name = nil end
+        if correction.sb == false then copy.sb = nil end
+        if correction.shops and copy.ss then
+            local sections = {}
+            for i,sourceShop in ipairs(copy.ss) do
+                local section = {}
+                for j,value in ipairs(sourceShop) do section[j] = value end
+                local shopReview = correction.shops[section[2]]
+                if shopReview then
+                    if shopReview.front then section[3] = shopReview.front end
+                    if shopReview.signBg then section[4] = shopReview.signBg end
+                    if shopReview.signFg then section[5] = shopReview.signFg end
+                end
+                sections[i] = section
+            end
+            copy.ss = sections
+        end
         if correction.style == "garage" then
             -- Prevent an old house entry from spawning a phantom residential
             -- stoop/porch or retail door after the garage classification.

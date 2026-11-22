@@ -410,7 +410,7 @@ function HouseKit.Build(model, r, ctx, H)
 	local depth = nFront and ((nFront.X ~= 0) and r.along or r.across) or math.min(r.along, r.across)
 
 	local h0 = hash(ctx.buildingId, math.floor(r.frame.X) .. ":" .. math.floor(r.frame.Z))
-	local arch = archetypeFor(ctx, floors, span)
+	local arch = ctx.arch or archetypeFor(ctx, floors, span)
 	local brick = ctx.material == Enum.Material.Brick
 	local baseWall = ctx.wall
 	local roofColor = pick(ROOFS, h0, "roof")
@@ -475,7 +475,7 @@ function HouseKit.Build(model, r, ctx, H)
 	local porchDepth = math.clamp(ctx.porchDepth or 7, 5, 10)
 	local hasPorch = arch == "porch_row" or arch == "victorian_twin" or arch == "victorian_house"
 		or (ctx.porch and arch ~= "flat_row" and arch ~= "apartment")
-	local parapet = ({ "castle", "castle", "cornice", "mansard" })[(hash(ctx.buildingId, "parapet") % 4) + 1]
+	local parapet = ctx.reviewed and "cornice" or ({ "castle", "castle", "cornice", "mansard" })[(hash(ctx.buildingId, "parapet") % 4) + 1]
 	local shutterColor = pick(SHUTTERS, h0, "shutter")
 	local awningColor = pick(AWNINGS, h0, "awning")
 
@@ -493,8 +493,9 @@ function HouseKit.Build(model, r, ctx, H)
 		else
 			siding = (hu % 10 < 3)
 		end
+		if ctx.reviewed then siding = ctx.material == Enum.Material.WoodPlanks end
 		local mat = siding and Enum.Material.WoodPlanks or ctx.material
-		local col = siding and pick(SIDING, hu, "siding") or vary(baseWall, hu, 0.08)
+		local col = ctx.reviewed and baseWall or (siding and pick(SIDING, hu, "siding") or vary(baseWall, hu, 0.08))
 		local trim = siding and WHITE or (hu % 3 == 0 and Color3.fromRGB(40, 40, 42) or WHITE)
 		local rentable = w >= 10 and depth >= 14
 		-- door position: toward one side of the unit, mirrored pair by pair
@@ -545,19 +546,19 @@ function HouseKit.Build(model, r, ctx, H)
 		d:SetAttribute("Exit6HomeStyle", ctx.style)
 		stats.frontDoors += 1
 		local opts = { sill = not siding, trim = trim, clear = false,
-			shutters = (arch == "colonial_twin" or arch == "colonial_house") and shutterColor or nil,
-			awning = (arch == "flat_row" or (arch == "porch_row" and hu % 4 == 0)) and awningColor or nil }
+			shutters = not ctx.reviewed and (arch == "colonial_twin" or arch == "colonial_house") and shutterColor or nil,
+			awning = not ctx.reviewed and (arch == "flat_row" or (arch == "porch_row" and hu % 4 == 0)) and awningColor or nil }
 		local gwin = window(fcf, winU, floorY + storeyH * 0.52, 4.4, 5.4, { sill = opts.sill, trim = trim, clear = opts.clear,
-			shutters = opts.shutters, awning = (arch == "flat_row") and awningColor or nil })
+			shutters = opts.shutters, awning = not ctx.reviewed and (arch == "flat_row") and awningColor or nil })
 		-- Outside the detailed core, windows are textures on the unit slice.
 		-- Add one small architectural accent to selected nearby homes rather
 		-- than building dozens of individual window parts across the city.
-		if lite and arch == "flat_row" and hu % 3 == 0 then
+		if lite and not ctx.reviewed and arch == "flat_row" and hu % 3 == 0 then
 			local awning = solid("WindowAwning", Vector3.new(5.8, 0.22, 2.1),
 				at(fcf, winU, floorY + storeyH * 0.83, -1.1) * CFrame.Angles(math.rad(20), 0, 0),
 				Enum.Material.Metal, awningColor)
 			awning.CanCollide = false
-		elseif lite and not siding and hu % 4 == 0 then
+		elseif lite and not ctx.reviewed and not siding and hu % 4 == 0 then
 			local sill = solid("WindowSill", Vector3.new(5.2, 0.3, 0.8),
 				at(fcf, winU, floorY + storeyH * 0.29, -0.35),
 				Enum.Material.Concrete, STONE)
@@ -570,7 +571,7 @@ function HouseKit.Build(model, r, ctx, H)
         -- client decoration. The storefront and rental door remain untouched.
         if floors >= 2 and w >= 15 and
             (ctx.style == "rowhouse" or ctx.style == "twin" or
-             (ctx.style == "house" and arch == "victorian_house")) and hu % 4 == 0 then
+             (ctx.style == "house" and arch == "victorian_house")) and (ctx.bay or (not ctx.reviewed and hu % 4 == 0)) then
             local bayY = floorY + storeyH * 1.52
             local bayW = math.min(w * 0.58, 10)
             local bayH = math.min(storeyH * 0.72, 7)

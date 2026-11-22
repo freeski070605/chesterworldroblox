@@ -365,82 +365,35 @@ local function buildDealership()
         lotCf, street = marker.CFrame, "J&S front lot"
         Workspace:SetAttribute("CW_Exit6DealershipPlacement", "J&S-marker")
     else
-        -- The dealership belongs IN FRONT of Boost Mobile and Five
-        -- Points Deli on the 9th Street-facing front of the J&S lot,
-        -- not alongside either storefront.
-        -- Locate it from named, already-built storefront geometry. Never
-        -- guess from an arbitrary open lot or move the entire city.
-        -- BuildingTiles/tile_r06_c07.lua explicitly identifies the exact
-        -- destination: ChesterBuildingId 93584 = 5 Points Market & Deli,
-        -- Boost Mobile (section 4), and J & S (section 2).
-        -- Use the SOURCE footprint reference rather than unindexed names.
-        -- WorldPlacement: X = (sourceX - 6347.889)*3;
-        -- Z = (7201.973 - sourceZ)*3.
-        local candidate
-        local sourceX, sourceZ = 7343.16, 6652.36
-        local sourcePosition = Vector3.new(
-            (sourceX - 6347.889)*3, 0,
-            (7201.973 - sourceZ)*3)
-        -- Prefer the generated building's actual position if available.
-        for _, inst in ipairs(Workspace:GetDescendants()) do
-            if inst:IsA("Model") and tostring(inst:GetAttribute("ChesterBuildingId")) == "93584" then
-                local pos = inst:GetPivot().Position
-                if (Vector3.new(pos.X,0,pos.Z)-sourcePosition).Magnitude < 120 then
-                    candidate = Vector3.new(pos.X,0,pos.Z)
-                    break
-                end
+        -- DVRPC 2025 aerial and county footprint 93584: the paved front lot
+        -- lies east of the strip and directly south of W 9th. Source metres
+        -- (7381, 6660) place the dealer pad within that photographed frontage.
+        local sourceX, sourceZ = 7381, 6660
+        local x = (sourceX - 6347.889) * 3
+        local z = (7201.973 - sourceZ) * 3
+        local ground = groundAt(x,z)
+        if ground then
+            local outward = Vector3.new(math.sin(math.rad(335)),0,-math.cos(math.rad(335)))
+            local cf = CFrame.lookAt(Vector3.new(x,ground,z),Vector3.new(x,ground,z)+outward)
+            -- Forecourt asphalt already exists. Check generated buildings for
+            -- overlap without treating the parking surface as an obstruction.
+            local buildings = {}
+            for _,tile in ipairs(world and world:GetChildren() or {}) do
+                local folder = tile:FindFirstChild("Buildings")
+                if folder then table.insert(buildings,folder) end
             end
-        end
-        candidate = candidate or sourcePosition
-        if candidate and world then
-            local closest, distance = nil, math.huge
-            for _,tile in ipairs(world:GetChildren()) do
-                local roadsFolder=tile:FindFirstChild("Roads")
-                if roadsFolder then
-                    for _,road in ipairs(roadsFolder:GetChildren()) do
-                        local name=string.lower(tostring(road:GetAttribute("ChesterStreet") or ""))
-                        if road:IsA("BasePart") and string.find(name,"9th",1,true) then
-                            local p=road:GetClosestPointOnSurface(candidate)
-                            local d=(Vector3.new(p.X,0,p.Z)-Vector3.new(candidate.X,0,candidate.Z)).Magnitude
-                            if d<distance then closest,distance=p,d end
-                        end
-                    end
-                end
-            end
-            if closest and distance < 250 then
-                local outward=Vector3.new(closest.X-candidate.X,0,closest.Z-candidate.Z)
-                if outward.Magnitude>1 then
-                    -- Move from the storefronts TOWARD 9th Street. Leave
-                    -- a setback between the lot's street edge and roadway;
-                    -- never center the dealership on Boost/Deli themselves.
-                    local streetSetback = 8
-                    local frontHalf = LOT.Z / 2
-                    local desiredTravel = distance - frontHalf - streetSetback
-                    -- If the existing storefronts are too close to 9th for
-                    -- a 46-stud-deep dealer lot, refuse to overlap them.
-                    if desiredTravel >= frontHalf + 4 then
-                        local center = candidate + outward.Unit * desiredTravel
-                        local ground=groundAt(center.X,center.Z)
-                        if ground then
-                            local cf=CFrame.lookAt(Vector3.new(center.X,ground,center.Z),
-                                Vector3.new(center.X,ground,center.Z)+outward.Unit)
-                            if lotFree(cf) then lotCf,street=cf,"J&S front lot / W 9th Street" end
-                        end
-                    end
-                end
+            local params = OverlapParams.new()
+            params.FilterType = Enum.RaycastFilterType.Include
+            params.FilterDescendantsInstances = buildings
+            params.MaxParts = 1
+            if #Workspace:GetPartBoundsInBox(cf*CFrame.new(0,8,0),Vector3.new(LOT.X,15,LOT.Z),params) == 0 then
+                lotCf, street = cf, "J&S front lot / W 9th Street"
+                Workspace:SetAttribute("CW_Exit6DealershipPlacement","J&S-front")
             end
         end
         if not lotCf then
-            -- A bad/unresolved J&S lookup must NEVER make the existing dealership
-            -- vanish. Restore the original, previously functioning nearby free-lot
-            -- placement until the precise 9th Street frontage is verified.
-            warn("[EXIT6 Vehicles] Building 93584 front-of-lot placement unresolved; using temporary dealership lot")
-            lotCf, street = findLot(Vector3.new(2810, 60, 1518))
-            if lotCf then
-                Workspace:SetAttribute("CW_Exit6DealershipPlacement", "temporary-fallback")
-            end
-        else
-            Workspace:SetAttribute("CW_Exit6DealershipPlacement", "J&S-front")
+            warn("[EXIT6 Vehicles] verified J&S front parcel unavailable; dealership not spawned")
+            Workspace:SetAttribute("CW_Exit6DealershipPlacement","J&S-front-unavailable")
         end
     end
 	if not lotCf then

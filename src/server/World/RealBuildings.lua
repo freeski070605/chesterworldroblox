@@ -181,7 +181,7 @@ function RealBuildings.Store(model, r, ctx, shop)
             -- sign-band edge and glass transom physically distinct instead
             -- of leaving all commercial ground floors as a flat texture.
             -- These are procedural facade details, not photo-specific claims.
-            if shop.name and span >= 12 and h >= 9 then
+			if shop.name and shop.canopy ~= false and span >= 12 and h >= 9 then
                 local canopy = part(model,"StorefrontCanopy",Vector3.new(span-1.6,0.28,2.1),
                     at(0,y0+h-bandH-0.2,-0.85),Enum.Material.Metal,
                     shop.signBg or Color3.fromRGB(90,94,98))

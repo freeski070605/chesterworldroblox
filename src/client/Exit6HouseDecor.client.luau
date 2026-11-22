@@ -54,6 +54,9 @@ local function decorate(model, entry)
 	entry.homes = homes
 	ctx.lite = true
 	ctx.buildingId = model:GetAttribute("ChesterBuildingId")
+	ctx.reviewed = model:GetAttribute("ReconstructionReviewed") == true
+	ctx.arch = model:GetAttribute("ReconstructionArch")
+	ctx.bay = model:GetAttribute("ReconstructionBay") == true
 	ctx.applyFacade = HouseKit.ApplyFacade
 	ctx.stats = { frontDoors = 0, backDoors = 0, sideDoors = 0, rentals = 0 }
 	local m = Instance.new("Model")

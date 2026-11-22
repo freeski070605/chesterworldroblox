@@ -157,7 +157,7 @@ phoneList.Size = UDim2.new(1, -24, 1, -142)
 local drawPhone
 local openTab
 local tabButtons = {}
-local TABS = { { "wallet", "Wallet" }, { "bag", "Bag" }, { "job", "Job" }, { "car", "Car" }, { "home", "Home" }, { "biz", "Biz" }, { "music", "Music" }, { "hair", "Hair Test" } }
+local TABS = { { "wallet", "Wallet" }, { "bag", "Bag" }, { "job", "Job" }, { "car", "Car" }, { "rideout", "Ride" }, { "home", "Home" }, { "biz", "Biz" }, { "music", "Music" }, { "hair", "Hair Test" } }
 for i, t in ipairs(TABS) do
 	local b = new("TextButton", { Name = t[1], Position = UDim2.new((i - 1) / #TABS, 2, 0, 0), Size = UDim2.new(1 / #TABS, -4, 1, 0),
 		BackgroundColor3 = CARD, Text = t[2], Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = TEXT }, tabs)
@@ -370,6 +370,46 @@ drawPhone = function()
 		end
 		row(phoneList, 21, "Tap a car to call it", "")
 		row(phoneList, 22, "More cars: Exit 6 Motors", "")
+    elseif tab == "rideout" then
+        phoneTitle.Text = "BIKE LIFE"
+        phoneSub.Text = "Rideouts / wheelies / meetups"
+        local remote=remoteNamed("BikeLifeAction")
+        if remote then
+            local ok,state=pcall(function() return remote:InvokeServer("status") end)
+            if ok and type(state)=="table" then
+                if state.mine then
+                    local mine=state.mine
+                    row(phoneList,1,(mine.started and "RIDEOUT LIVE: " or "Meet at: ")..mine.meet,
+                        tostring(mine.riders).." riders")
+                    row(phoneList,2,"Leader: "..mine.leaderName,"")
+                    row(phoneList,3,"Wheelie points",tostring(mine.score or 0))
+                    if not mine.started and mine.leaderId==player.UserId then
+                        row(phoneList,4,"START RIDEOUT at meetup","",act(function()
+                            remote:InvokeServer("start")
+                        end))
+                    end
+                    row(phoneList,5,mine.leaderId==player.UserId and "End rideout" or "Leave rideout","",
+                        act(function()remote:InvokeServer(mine.leaderId==player.UserId and "finish" or "leave") end))
+                else
+                    row(phoneList,1,"Create: 9th & Kerlin","",act(function() remote:InvokeServer("create",1) end))
+                    row(phoneList,2,"Create: 9th & Concord","",act(function() remote:InvokeServer("create",2) end))
+                    row(phoneList,3,"Create: 9th & Lincoln","",act(function() remote:InvokeServer("create",3) end))
+                    local n=3
+                    for _,open in ipairs(state.open or {}) do
+                        n+=1
+                        if n<20 then
+                            local leader=open.leaderId
+                            row(phoneList,n,"Join "..open.leaderName.." ("..open.riders..")",open.meet,
+                                act(function()remote:InvokeServer("join",leader)end))
+                        end
+                    end
+                end
+                row(phoneList,22,"Bike: A / Space to wheelie","")
+                row(phoneList,23,"Buy bikes/quads: Exit 6 Motors","")
+            end
+        else
+            row(phoneList,1,"Rideout system loading...","")
+        end
 	elseif tab == "bag" then
 		local items, n = bag(), 0
 		local ids = {}

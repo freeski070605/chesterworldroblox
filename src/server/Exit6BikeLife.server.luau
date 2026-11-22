@@ -228,19 +228,32 @@ local function routeStops(index)
 	if not route or not world then return nil end
 	intersections.FilterType = Enum.RaycastFilterType.Include
 	intersections.FilterDescendantsInstances = { world }
+	local streetOnly = RaycastParams.new()
+	streetOnly.FilterType = Enum.RaycastFilterType.Include
+	streetOnly.FilterDescendantsInstances = { world, Workspace.Terrain }
 	local stops = {}
 	for _, s in ipairs(route.stops) do
 		local x, z = (s[2] - 6347.889) * 3, (7201.973 - s[3]) * 3
 		local best, bd = nil, 95
 		for _, p in ipairs(Workspace:GetPartBoundsInRadius(Vector3.new(x, 60, z), 95, intersections)) do
-			if p.Parent and p.Parent.Name == "Intersections" then
+			-- pads are WedgeParts inside an "Intersection" model in each tile's Intersections folder
+			if p:FindFirstAncestor("Intersections") then
 				local d = (Vector3.new(p.Position.X, 0, p.Position.Z) - Vector3.new(x, 0, z)).Magnitude
 				if d < bd then best, bd = p, d end
 			end
 		end
 		local px, pz = x, z
-		if best then px, pz = best.Position.X, best.Position.Z end
-		local down = Workspace:Raycast(Vector3.new(px, 600, pz), Vector3.new(0, -900, 0))
+		if best then
+			-- the middle of that junction's pad (all its wedges)
+			local model = best.Parent
+			local sum, n = Vector3.zero, 0
+			for _, w in ipairs(model:IsA("Model") and model:GetChildren() or { best }) do
+				if w:IsA("BasePart") then sum += w.Position n += 1 end
+			end
+			local c = n > 0 and sum / n or best.Position
+			px, pz = c.X, c.Z
+		end
+		local down = Workspace:Raycast(Vector3.new(px, 600, pz), Vector3.new(0, -900, 0), streetOnly)
 		local y = down and down.Position.Y or 55
 		table.insert(stops, { name = s[1], pos = Vector3.new(px, y, pz), snapped = best ~= nil })
 	end

@@ -121,6 +121,22 @@ function HouseKit.ApplyFacade(block, styleKey, storey, onlyFaces)
 	end
 end
 
+-- Pose-verified structure (tools/reconstruction/property_evidence.py ->
+-- PropertyReconstruction.lua): "roof=side_gable/par=cornice/door=RL/units=2/floors=2".
+-- roof: flat | side_gable | front_gable | hip | mansard | shed
+-- par:  cornice | plain | mansard | castle   (flat roofs)
+-- door: one letter per unit, viewer's left -> right facing the facade:
+--       L / R = toward that side of the unit, C = centred, S = side wall, ? = unknown
+function HouseKit.ParseSpec(s)
+	if type(s) ~= "string" or s == "" then return nil end
+	local spec = {}
+	for _, kv in ipairs(string.split(s, "/")) do
+		local k, v = string.match(kv, "^(%w+)=(.+)$")
+		if k then spec[k] = tonumber(v) or v end
+	end
+	return next(spec) and spec or nil
+end
+
 -- the packed per-building description the server leaves for the client
 -- decorator: "front|corner|porch|pd|style|material|r,g,b|yaw" then one
 -- ";x,z,along,across,streetLevel,base,wallTop,storey,home" per rect
@@ -147,6 +163,7 @@ function HouseKit.Decode(s)
         arch = h[9] ~= "" and h[9] or nil,
         bay = h[10] == "1",
         reviewed = h[11] == "1",
+        spec = HouseKit.ParseSpec(h[12]),
 		wall = Color3.fromRGB(tonumber(col[1]) or 150, tonumber(col[2]) or 80, tonumber(col[3]) or 60),
 		rects = rects,
 	}, homes
@@ -377,6 +394,15 @@ function HouseKit.Build(model, r, ctx, H)
 		r.wallTop = floorY + 2 * storeyH + 0.6
 	end
 	local floors = math.max(1, math.floor((r.wallTop - floorY) / storeyH + 0.35))
+	local spec = ctx.spec or {}
+	if type(spec.floors) == "number" and spec.floors >= 1 then
+		-- photographed storey count: windows and floors follow it, not the
+		-- county height divided by a nominal storey
+		floors = spec.floors
+		storeyH = math.clamp((r.wallTop - floorY) / floors, 8, 13)
+	end
+	local roofKind = spec.roof
+	local doorPattern = type(spec.door) == "string" and spec.door or nil
 	local function solid(name, size, cf, mat, color)
 		return part(model, name, size, cf, mat, color)
 	end
@@ -474,13 +500,27 @@ function HouseKit.Build(model, r, ctx, H)
 	elseif ctx.style == "twin" and span >= 26 then
 		units = 2
 	end
+	if spec.units == 1 and ctx.style ~= "rowhouse" then
+		units = 1
+	elseif spec.units == 2 and ctx.style ~= "rowhouse" and span >= 16 then
+		units = 2   -- both halves of a photographed twin under one county polygon
+	end
 	local w = span / units
 	local wallH = r.wallTop - r.base
 	local groundTop = floorY + storeyH
 	local porchDepth = math.clamp(ctx.porchDepth or 7, 5, 10)
 	local hasPorch = arch == "porch_row" or arch == "victorian_twin" or arch == "victorian_house"
 		or (ctx.porch and arch ~= "flat_row" and arch ~= "apartment")
+	if ctx.spec and ctx.porch ~= nil then hasPorch = ctx.porch end   -- seen in the photo
 	local parapet = ctx.reviewed and "cornice" or ({ "castle", "castle", "cornice", "mansard" })[(hash(ctx.buildingId, "parapet") % 4) + 1]
+	if roofKind == "mansard" then
+		parapet = "mansard"
+	elseif spec.par then
+		parapet = spec.par
+	end
+	-- flat-roof parapet per unit: rows by default, any home whose photo shows one
+	local unitParapet = (roofKind == nil and (arch == "porch_row" or arch == "flat_row"))
+		or roofKind == "flat" or roofKind == "mansard"
 	local shutterColor = pick(SHUTTERS, h0, "shutter")
 	local awningColor = pick(AWNINGS, h0, "awning")
 
@@ -511,6 +551,19 @@ function HouseKit.Build(model, r, ctx, H)
 		if units == 1 and arch ~= "flat_row" and arch ~= "porch_row" then
 			doorU = u + side * math.min(w * 0.12, 3)
 		end
+		-- photographed door position (unit i = 1 is the viewer's right-most:
+		-- the face frame's +X runs to the left of someone facing the facade)
+		local doorCode = doorPattern and string.sub(doorPattern, units - i + 1, units - i + 1) or ""
+		if doorCode == "L" or doorCode == "R" then
+			side = doorCode == "L" and 1 or -1
+			doorU = u + side * math.min(w * 0.25, 4.2)
+			winU = u - side * math.min(w * 0.2, 3.8)
+		elseif doorCode == "C" then
+			doorU = u
+			winU = u + math.min(w * 0.3, 4.5)
+		end
+		-- a side-wall entrance has no front-slice interior to hollow out
+		if doorCode == "S" then rentable = false end
 		local sliceCf = fcf * CFrame.new(u, 0, depth / 2)
 		local block = solid("Walls", Vector3.new(w, wallH, depth), sliceCf + Vector3.new(0, (r.wallTop + r.base) / 2, 0), mat, col)
 		block:SetAttribute("GroundY", floorY)
@@ -526,7 +579,21 @@ function HouseKit.Build(model, r, ctx, H)
 		-- front: door, ground window, upper windows
 		local doorColor = H.DOOR_COLORS[(hu % #H.DOOR_COLORS) + 1]
 		local d
-		if lite then
+		local sideEntry = nil
+		if doorCode == "S" and units == 1 then
+			-- entrance on the side wall to the viewer's left, near the front
+			for _, n in ipairs({ Vector3.new(nFront.Z, 0, -nFront.X), Vector3.new(-nFront.Z, 0, nFront.X) }) do
+				if r.frame:VectorToWorldSpace(n):Dot(fcf.RightVector) > 0.5 then
+					local scf, sspan = H.faceOf(r, n)
+					local towardFront = (scf.RightVector:Dot(fcf.LookVector) >= 0) and 1 or -1
+					sideEntry = { scf = scf, u = towardFront * math.max(sspan / 2 - 3.5, 0) }
+				end
+			end
+		end
+		if sideEntry then
+			d = H.door(model, sideEntry.scf, sideEntry.u, r.streetLevel + 0.4, doorColor, true)
+			winU = u
+		elseif lite then
 			-- The citywide client-side kit gets a recognizable entrance without
 			-- the full server-side facade cost: two extra parts only while nearby.
 			local lift = hasPorch and 0.3 or 1.1
@@ -667,7 +734,7 @@ function HouseKit.Build(model, r, ctx, H)
 		end
 
 		-- roof details per unit
-		if arch == "porch_row" or arch == "flat_row" then
+		if unitParapet then
 			if parapet == "castle" then
 				-- stepped brick parapet with a raised centre per unit (Butler St)
 				local py = r.wallTop
@@ -683,6 +750,10 @@ function HouseKit.Build(model, r, ctx, H)
 					end
 				end
 				solid("Parapet", Vector3.new(w, 1.0, 0.9), at(fcf, u, py + 0.5, 0.45), mat, col)
+			elseif parapet == "plain" then
+				-- plain brick parapet with a stone coping, no cornice
+				solid("Parapet", Vector3.new(w, 1.2, 0.9), at(fcf, u, r.wallTop + 0.6, 0.45), mat, col)
+				solid("Coping", Vector3.new(w + 0.1, 0.25, 1.1), at(fcf, u, r.wallTop + 1.3, 0.45), Enum.Material.Concrete, STONE)
 			elseif parapet == "cornice" then
 				solid("Cornice", Vector3.new(w + 0.1, 1.3, 1.4), at(fcf, u, r.wallTop + 0.3, -0.3), Enum.Material.SmoothPlastic, trim)
 				for b = -1, lite and -2 or 1 do
@@ -703,7 +774,7 @@ function HouseKit.Build(model, r, ctx, H)
 				end
 				window(fcf, u, r.wallTop + 2.3, 2.6, 2.4, { trim = trim })
 			end
-		elseif arch == "victorian_twin" or arch == "victorian_house" then
+		elseif (arch == "victorian_twin" or arch == "victorian_house") and (roofKind == nil or roofKind == "front_gable") then
 			-- a front gable over each half
 			local gw = math.min(w * 0.7, 14)
 			local rise = math.min(gw * 0.5, 7)
@@ -762,7 +833,51 @@ function HouseKit.Build(model, r, ctx, H)
 			wd.Parent = model
 		end
 	end
-	if arch == "colonial_twin" or arch == "colonial_house" or arch == "victorian_twin" then
+	local row = ctx.style == "rowhouse"
+	if roofKind == "side_gable" then
+		-- ridge parallel to the street; Chester's 1940s-50s brick rows have a
+		-- low pitch, older houses a steeper one
+		gable(true, row and math.clamp(depth * 0.16, 2.5, 5) or math.clamp(depth * 0.3, 4, 10))
+	elseif roofKind == "front_gable" then
+		gable(false, math.clamp(span * 0.42, 5, 11))
+	elseif roofKind == "hip" then
+		-- hipped: ridge along the street, sloped ends (wedge approximation)
+		local rise = math.clamp(depth * 0.3, 4, 9)
+		local half = (depth + 1.2) / 2
+		local ridgeLen = math.max(span + 1.2 - 2 * half, 1)
+		local base = CFrame.new(top) * faceRot
+		for s = -1, 1, 2 do
+			local wd = Instance.new("WedgePart")
+			wd.Name = "Roof"
+			wd.Anchored = true
+			wd.Material = Enum.Material.Slate
+			wd.Color = roofColor
+			wd.Size = Vector3.new(ridgeLen, rise, half)
+			wd.CFrame = base * CFrame.new(0, rise / 2, s * half / 2) * CFrame.Angles(0, s == 1 and math.pi or 0, 0)
+			wd.Parent = model
+			local hipEnd = Instance.new("WedgePart")
+			hipEnd.Name = "RoofHip"
+			hipEnd.Anchored = true
+			hipEnd.Material = Enum.Material.Slate
+			hipEnd.Color = roofColor
+			hipEnd.Size = Vector3.new(depth + 1.2, rise, math.min(half, (span + 1.2) / 2))
+			hipEnd.CFrame = base * CFrame.new(s * (ridgeLen / 2 + hipEnd.Size.Z / 2), rise / 2, 0)
+				* CFrame.Angles(0, s == 1 and -math.pi / 2 or math.pi / 2, 0)
+			hipEnd.Parent = model
+		end
+	elseif roofKind == "shed" then
+		local wd = Instance.new("WedgePart")
+		wd.Name = "Roof"
+		wd.Anchored = true
+		wd.Material = Enum.Material.Slate
+		wd.Color = roofColor
+		wd.Size = Vector3.new(span + 1.2, 3, depth + 1.2)
+		wd.CFrame = CFrame.new(top) * faceRot * CFrame.new(0, 1.5, 0)
+		wd.Parent = model
+	elseif roofKind == "flat" or roofKind == "mansard" then
+		solid("Roof", Vector3.new(r.along + 0.4, 0.6, r.across + 0.4), r.frame + Vector3.new(0, r.wallTop + 0.3, 0), Enum.Material.Concrete,
+			Color3.fromRGB(70, 68, 66))
+	elseif arch == "colonial_twin" or arch == "colonial_house" or arch == "victorian_twin" then
 		gable(true, math.clamp(depth * 0.3, 4, 10))
 	elseif arch == "victorian_house" then
 		gable(false, math.clamp(span * 0.42, 5, 11))
@@ -774,7 +889,7 @@ function HouseKit.Build(model, r, ctx, H)
 		end
 	end
 	-- a chimney on detached houses and twins
-	if arch ~= "porch_row" and arch ~= "flat_row" and arch ~= "apartment" and h0 % 3 ~= 0 then
+	if not ctx.spec and arch ~= "porch_row" and arch ~= "flat_row" and arch ~= "apartment" and h0 % 3 ~= 0 then
 		solid("Chimney", Vector3.new(2.0, 9, 2.0), at(fcf, span / 2 - 2.5, r.wallTop + 3.5, depth * 0.55), Enum.Material.Brick,
 			Color3.fromRGB(140, 70, 54))
 	end

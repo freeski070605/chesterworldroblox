@@ -157,15 +157,32 @@ function RealBuildings.Store(model, r, ctx, shop)
 			part(model, "SignBandWall", Vector3.new(span, bandH, 0.8), at(0, y0 + h - bandH / 2, 0.4), ctx.material, ctx.wall)
 			local glassTop = y0 + h - bandH
 			local doorW = math.min(5, span * 0.3)
-			local paneW = (span - 2.4 - doorW) / 2
-			if paneW > 0.6 then
-				for _, s in ipairs({ -1, 1 }) do
-					local g = part(model, "ShopGlass", Vector3.new(paneW, glassTop - (y0 + 1.6), 0.3),
-						at(s * (doorW / 2 + paneW / 2), (glassTop + y0 + 1.6) / 2, 0.4), Enum.Material.Glass, GLASS)
-					g.Transparency = 0.45
-					g.Reflectance = 0.1
-				end
-			end
+            local glassHeight = glassTop - (y0+1.6)
+            if glassHeight > 0.5 then
+                if doorOnThisWall then
+                    -- Panels end exactly at the offset doorway's frames,
+                    -- including for doors close to a corner.
+                    for _,side in ipairs({-1,1}) do
+                        local leftEdge = (side==-1) and (-span/2+1.2) or (offset+doorW/2)
+                        local rightEdge = (side==-1) and (offset-doorW/2) or (span/2-1.2)
+                        local width = rightEdge-leftEdge
+                        if width > 0.6 then
+                            local g=part(model,"ShopGlass",Vector3.new(width,glassHeight,0.3),
+                                at((leftEdge+rightEdge)/2,(glassTop+y0+1.6)/2,0.4),
+                                Enum.Material.Glass,GLASS)
+                            g.Transparency=0.45
+                            g.Reflectance=0.1
+                        end
+                    end
+                else
+                    -- Secondary corner-store facade: continuous glazing
+                    -- without a fictitious second walk-through entrance.
+                    local g=part(model,"ShopGlass",Vector3.new(math.max(1,span-2.4),glassHeight,0.3),
+                        at(0,(glassTop+y0+1.6)/2,0.4),Enum.Material.Glass,GLASS)
+                    g.Transparency=0.45
+                    g.Reflectance=0.1
+                end
+            end
             -- Keep one door on the imagery-verified face, not a second
             -- walk-through entrance on every corner storefront wall.
             if doorOnThisWall then

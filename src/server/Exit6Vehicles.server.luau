@@ -370,33 +370,28 @@ local function buildDealership()
         -- not alongside either storefront.
         -- Locate it from named, already-built storefront geometry. Never
         -- guess from an arbitrary open lot or move the entire city.
-        local crossing = Vector3.new(2810, 0, 1518)
-        local landmarks = {}
-        for _,inst in ipairs(Workspace:GetDescendants()) do
-            if inst:IsA("Model") or inst:IsA("BasePart") then
-                local label = string.lower(tostring(inst:GetAttribute("ShopName") or inst.Name))
-                local isBoost = string.find(label,"boost mobile",1,true) ~= nil
-                local isDeli = string.find(label,"5 points deli",1,true) ~= nil
-                    or string.find(label,"five points deli",1,true) ~= nil
-                local isJS = string.find(label,"j&s",1,true) ~= nil
-                if isBoost or isDeli or isJS then
-                    local pos = inst:IsA("Model") and inst:GetPivot().Position or inst.Position
-                    if (Vector3.new(pos.X,0,pos.Z)-crossing).Magnitude < 400 then
-                        table.insert(landmarks,{pos=pos,boost=isBoost,deli=isDeli,js=isJS})
-                    end
+        -- BuildingTiles/tile_r06_c07.lua explicitly identifies the exact
+        -- destination: ChesterBuildingId 93584 = 5 Points Market & Deli,
+        -- Boost Mobile (section 4), and J & S (section 2).
+        -- Use the SOURCE footprint reference rather than unindexed names.
+        -- WorldPlacement: X = (sourceX - 6347.889)*3;
+        -- Z = (7201.973 - sourceZ)*3.
+        local candidate
+        local sourceX, sourceZ = 7343.16, 6652.36
+        local sourcePosition = Vector3.new(
+            (sourceX - 6347.889)*3, 0,
+            (7201.973 - sourceZ)*3)
+        -- Prefer the generated building's actual position if available.
+        for _, inst in ipairs(Workspace:GetDescendants()) do
+            if inst:IsA("Model") and tostring(inst:GetAttribute("ChesterBuildingId")) == "93584" then
+                local pos = inst:GetPivot().Position
+                if (Vector3.new(pos.X,0,pos.Z)-sourcePosition).Magnitude < 120 then
+                    candidate = Vector3.new(pos.X,0,pos.Z)
+                    break
                 end
             end
         end
-        local boost,deli,js
-        for _,entry in ipairs(landmarks) do
-            if entry.boost then boost=entry.pos end
-            if entry.deli then deli=entry.pos end
-            if entry.js then js=entry.pos end
-        end
-        -- Use the shared storefront frontage as the rear-side reference.
-        -- J&S may confirm the parcel, but its model center is not the
-        -- dealership center: that would put Motors beside/behind the stores.
-        local candidate = boost and deli and (boost+deli)/2
+        candidate = candidate or sourcePosition
         if candidate and world then
             local closest, distance = nil, math.huge
             for _,tile in ipairs(world:GetChildren()) do
@@ -412,7 +407,7 @@ local function buildDealership()
                     end
                 end
             end
-            if closest and distance < 125 then
+            if closest and distance < 250 then
                 local outward=Vector3.new(closest.X-candidate.X,0,closest.Z-candidate.Z)
                 if outward.Magnitude>1 then
                     -- Move from the storefronts TOWARD 9th Street. Leave
@@ -439,7 +434,7 @@ local function buildDealership()
             -- A bad/unresolved J&S lookup must NEVER make the existing dealership
             -- vanish. Restore the original, previously functioning nearby free-lot
             -- placement until the precise 9th Street frontage is verified.
-            warn("[EXIT6 Vehicles] J&S frontage unresolved; restoring temporary dealership at available lot")
+            warn("[EXIT6 Vehicles] Building 93584 front-of-lot placement unresolved; using temporary dealership lot")
             lotCf, street = findLot(Vector3.new(2810, 60, 1518))
             if lotCf then
                 Workspace:SetAttribute("CW_Exit6DealershipPlacement", "temporary-fallback")

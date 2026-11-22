@@ -2540,6 +2540,41 @@ local function buildFootprintBuilding(parent, building, shapeData)
 		end
 		if #names > 0 then model:SetAttribute("Shops", table.concat(names, " | ")) end
 	end
+    -- Citywide garage archetype: put a visible roll-up bay on an existing
+    -- street-facing rectangle when a frontage bearing exists. This improves
+    -- the correct building TYPE, without inventing a verified door position
+    -- for garages whose imagery does not establish a frontage.
+    if built > 0 and shapeData.style == "garage" and shapeData.fb and #builtRects > 0 then
+        local best, bestArea = nil, -1
+        for _,rect in ipairs(builtRects) do
+            if rect.area > bestArea then best, bestArea = rect,rect.area end
+        end
+        if best then
+            local frame = CFrame.new(best.x,0,best.z)*yaw
+            local normal = faceToward(frame,shapeData.fb)
+            local extent = normal.X ~= 0 and best.along/2 or best.across/2
+            local span = normal.X ~= 0 and best.across or best.along
+            if span >= 10 and best.wallTop-best.streetLevel >= 8 then
+                local worldNormal = frame:VectorToWorldSpace(normal)
+                local faceCenter = frame*Vector3.new(normal.X*extent,0,normal.Z*extent)
+                local width = math.min(span-2.2,15)
+                local height = math.min(8.5,best.wallTop-best.streetLevel-1.4)
+                if width > 6 and height > 6 then
+                    local center=Vector3.new(faceCenter.X,best.streetLevel+height/2+0.2,faceCenter.Z)+worldNormal*0.16
+                    local facing=CFrame.lookAt(center,center+worldNormal)
+                    local shutter=newPart(model,"GarageRollUpDoor",Vector3.new(width,height,0.22),
+                        facing,Enum.Material.Metal,Color3.fromRGB(122,126,128))
+                    shutter.CanCollide=false
+                    for line=1,6 do
+                        local y=-height/2+line*height/7
+                        local slat=newPart(model,"GarageDoorSeam",Vector3.new(width,0.065,0.06),
+                            facing*CFrame.new(0,y,-0.15),Enum.Material.Metal,Color3.fromRGB(66,69,71))
+                        slat.CanCollide=false
+                    end
+                end
+            end
+        end
+    end
 	if built > 0 and shapeData.pb and shapeData.pd and signRect and not (realCtx and realCtx.homeBuilt) then
 		buildPorch(model, shapeData, signRect, yaw)
 	end
@@ -2562,8 +2597,24 @@ local function buildFootprintBuilding(parent, building, shapeData)
 	return false
 end
 
+local BuildingReviewOverrides = require(script.Parent:WaitForChild("BuildingReviewOverrides"))
 local function buildBuilding(parent, building, shapes)
-	local shapeData = shapes and shapes[tostring(building.id)]
+    local shapeData = shapes and shapes[tostring(building.id)]
+    local correction = BuildingReviewOverrides[tostring(building.id)]
+    if shapeData and correction and correction.style then
+        -- Never mutate the shared tile's original shape record. Replacing only
+        -- the reviewed archetype preserves source geometry and the gameplay ID.
+        local copy = {}
+        for key, value in pairs(shapeData) do copy[key] = value end
+        copy.style = correction.style
+        if correction.style == "garage" then
+            -- Prevent an old house entry from spawning a phantom residential
+            -- stoop/porch or retail door after the garage classification.
+            copy.gs, copy.ss, copy.sb, copy.name = nil, nil, nil, nil
+            copy.pb, copy.pd = nil, nil
+        end
+        shapeData = copy
+    end
 	if shapeData and buildFootprintBuilding(parent, building, shapeData) then
 		return
 	end

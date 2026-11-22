@@ -132,7 +132,29 @@ function RealBuildings.Store(model, r, ctx, shop)
 		local nc = faceAxis(r.frame, shop.corner)
 		if nc ~= -nFront then fronts[tostring(nc)] = true end
 	end
-	for _, n in ipairs({ Vector3.xAxis, -Vector3.xAxis, Vector3.zAxis, -Vector3.zAxis }) do
+    -- Corner shops are frequently attached to the next property. If the
+    -- nominal door wall is covered, select another EXISTING exposed street
+    -- face rather than building a store with no walk-through door at all.
+    -- Never introduce an unsupported street-facing facade on a rear wall.
+    local normals = { Vector3.xAxis, -Vector3.xAxis, Vector3.zAxis, -Vector3.zAxis }
+    local function exposedFront(n)
+        local fcf,span = faceOf(r,n)
+        return span >= 7 and fronts[tostring(n)]
+            and not covered((fcf*CFrame.new(0,0,-2)).Position,ctx.rects,r)
+    end
+    if not exposedFront(preferredEntrance) then
+        if exposedFront(nFront) then
+            preferredEntrance = nFront
+        else
+            for _, normal in ipairs(normals) do
+                if exposedFront(normal) then
+                    preferredEntrance = normal
+                    break
+                end
+            end
+        end
+    end
+	for _, n in ipairs(normals) do
 		local fcf, span = faceOf(r, n)
 		local function at(x, y, z) return fcf * CFrame.new(x, 0, z) + Vector3.new(0, y, 0) end
 		local y0 = r.streetLevel + 0.4

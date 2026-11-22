@@ -2217,6 +2217,34 @@ local function buildArchedFront(model, rect, yaw, bearing)
 	end
 end
 
+-- Visible storefront detailing follows the EXISTING identified sign frontage,
+-- not the walk-in door creation path. This covers attached, narrow and
+-- currently non-walk-in business sections as well as the full shops.
+-- Details are non-colliding and do not assert image-verified entrance locations.
+local function buildSignedStorefrontTrim(model, look, width, bandY, colour)
+    if width < 6 then return end
+    local canopyWidth = math.max(5, width - 0.5)
+    local canopyY = bandY - 2.25
+    -- Positive local Z is toward the building; negative Z is streetward.
+    local roof = newPart(model, "SignedStorefrontAwning",
+        Vector3.new(canopyWidth, 0.34, 4.2),
+        look * CFrame.new(0, -2.25, -2.05),
+        Enum.Material.Metal, colour)
+    roof.CanCollide = false
+    local fascia = newPart(model, "SignedStorefrontFascia",
+        Vector3.new(canopyWidth, 1.0, 0.3),
+        look * CFrame.new(0, -2.75, -4.05),
+        Enum.Material.SmoothPlastic, colour)
+    fascia.CanCollide = false
+    -- Keep detailing lightweight: one trim strip instead of dozens of parts.
+    local edge = newPart(model, "SignedStorefrontEdge",
+        Vector3.new(canopyWidth + 0.4, 0.18, 0.28),
+        look * CFrame.new(0, -3.33, -4.13),
+        Enum.Material.Metal, Color3.fromRGB(226, 220, 204))
+    edge.CanCollide = false
+    model:SetAttribute("CW_SignedStorefrontVisualPass", true)
+end
+
 -- a business's own sign on its section of the building (tools/storefronts/
 -- add_store_identity.py: Overture places -> ss={{name, rect, bearing, bg, text}})
 local function buildShopSign(model, rect, yaw, name, bearing, bg, fg)
@@ -2231,6 +2259,7 @@ local function buildShopSign(model, rect, yaw, name, bearing, bg, fg)
 	local board = newPart(model, "ShopSign", Vector3.new(width, 2.6, 0.5), look, Enum.Material.SmoothPlastic, hexColor(bg))
 	board.CanCollide = false
 	board:SetAttribute("ShopName", name)
+    buildSignedStorefrontTrim(model, look, width, rect.bandY, hexColor(bg))
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = Enum.NormalId.Front
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
@@ -2263,6 +2292,7 @@ local function buildStoreSign(model, shapeData, rect, yaw)
 	end
 	local board = newPart(model, "StoreSign", Vector3.new(width, 2.6, 0.5), look, Enum.Material.SmoothPlastic, colors[1])
 	board.CanCollide = false
+    buildSignedStorefrontTrim(model, look, width, rect.bandY, colors[1])
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = Enum.NormalId.Front
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud

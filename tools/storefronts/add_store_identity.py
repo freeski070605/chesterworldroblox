@@ -106,6 +106,12 @@ SUPPRESS = {"lee seafood"}
 # address (Street View): the 805 Concord Ave strip faces its parking lot on
 # Concord, though Lee Seafood is listed at 823 Kerlin
 FACING = {"93584": "concord"}
+# Verified storefront-facing corrections. Keep explicit named-business overrides
+# separate from nearest-road guesses: Sherylynn faces W 9th at Lincoln, NOT Lincoln.
+# These are applied when BuildingTiles are regenerated and do not move the footprint.
+FACING_BY_BUSINESS = {
+    "sherylynn": "9th",
+}
 STREET_SUFFIX = re.compile(r"\b(st|street|ave|av|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|pl|place|"
                            r"pike|pk|pke|hwy|highway|way|ct|court|ter|terrace|cir|circle)\b\.?")
 
@@ -245,7 +251,10 @@ def main(check=False):
             c = polys[idx].centroid
             cand = list(street_tree.query(c.buffer(120)))
             # the shop faces the street in its address; else the nearest street
-            skey = FACING.get(bid, skey)
+            normalized_name = re.sub(r"[^a-z0-9]+", "", name.lower())
+            named_override = next((v for k, v in FACING_BY_BUSINESS.items()
+                                   if k in normalized_name), None)
+            skey = named_override or FACING.get(bid, skey)
             same = [j for j in cand if skey and street_keys[j] == skey and streets[j].distance(c) < 60]
             if same:
                 stats["address_street"] += 1

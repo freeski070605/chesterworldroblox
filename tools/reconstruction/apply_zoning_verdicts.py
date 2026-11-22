@@ -1,4 +1,5 @@
-"""Turn visual verdicts on zoning-only "commercial" footprints into structural reviews.
+"""Turn visual verdicts (zoning-only "commercial" footprints, or --set structure:
+house/apartment/industrial shape candidates) into structural reviews.
 
 Inputs
   tools/reconstruction/zoning_verdicts.txt   slot -> verdict (see its header)
@@ -24,6 +25,7 @@ ROOF = {"f": "flat", "s": "side_gable", "g": "front_gable", "h": "hip", "m": "ma
 KIND = {"R": "residential_rowhouse", "T": "residential_twin", "H": "residential_house", "A": "residential_apartment",
         "G": "garage", "C": "confirmed_commercial_no_change", "X": "unresolved_no_change", "K": "existing_review_kept",
         "S": "gameplay_store_kept_no_change"}
+KIND_SAME = {"house": "H", "rowhouse": "R", "twin": "T", "apartment": "A", "garage": "G"}
 
 
 def parse(line):
@@ -51,6 +53,16 @@ def parse(line):
 
 
 def main():
+    import argparse
+    global VERDICTS, INDEX, LOG
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--set", default="zoning", choices=["zoning", "structure"],
+                    help="zoning: zoning-only commercial review; structure: house/apartment/industrial shapes")
+    a = ap.parse_args()
+    if a.set == "structure":
+        VERDICTS = ROOT / "tools/reconstruction/structure_verdicts.txt"
+        INDEX = ROOT / "build/property_evidence/ssheets/index.json"
+        LOG = ROOT / "docs/structure_review_log.csv"
     index = {i["n"]: i for i in json.loads(INDEX.read_text())}
     verdicts = [parse(l) for l in VERDICTS.read_text().splitlines() if l.strip() and not l.startswith("#")]
     rows = list(csv.DictReader(POSE.open(newline="", encoding="utf-8")))
@@ -61,13 +73,14 @@ def main():
     for v in verdicts:
         it = index[v["slot"]]
         bid = it["id"]
-        sheet = f"z{v['slot'] // 16:03d}#{v['slot']}"
+        sheet = f"{'s' if a.set == 'structure' else 'z'}{v['slot'] // 16:03d}#{v['slot']}"
         log.append(dict(building_id=bid, verdict=KIND[v["code"]], tile_style=it["tile"][1], tile=it["tile"][0],
                         street=it.get("street") or "", photo=it["photo"], fov_share=it["share"], sheet=sheet,
                         roof=v["roof"], porch=v["porch"] if v["code"] in "RTHA" else "", floors=v["floors"],
                         confidence=v["conf"]))
         if v["code"] not in STYLE:
             continue
+        log[-1]["verdict"] += "" if KIND_SAME.get(it["tile"][1]) != v["code"] else "_same_type_structure_only"
         style = STYLE[v["code"]]
         if style == "rowhouse":
             arch = "porch_row" if v["porch"] == "1" else "flat_row"
@@ -86,7 +99,7 @@ def main():
                    roof=v["roof"], door=v["door"], porch="0" if garage else v["porch"], floors=v["floors"] or ("1" if garage else ""),
                    bay=v["bay"], garage_bays=(v["bays"] or "0") if garage else "",
                    use="garage" if garage else "residential", confidence=v["conf"],
-                   notes=(f"zoning-only 'commercial' (tile {it['tile'][1]}); ray-centred front photo share "
+                   notes=(f"{'structure review' if a.set == 'structure' else 'zoning-only commercial'} (tile {it['tile'][1]}); ray-centred front photo share "
                           f"{it['share']}, review sheet {sheet}: {KIND[v['code']]}"
                           + ("" if v["roof"] else "; roof not legible - procedural roof kept")))
         if bid in by_id:

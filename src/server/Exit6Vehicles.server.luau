@@ -51,6 +51,11 @@ end
 local function paintFor(player, modelId)
 	local h = player.UserId
 	for i = 1, #modelId do h += string.byte(modelId, i) * i end
+    local prof = Profile.Get(player)
+    local owned = prof and prof.vehicles[modelId]
+    if owned and Catalog.Vehicles[modelId] and Catalog.Vehicles[modelId].rideType and owned.paint then
+        return PAINT[math.clamp(owned.paint,1,#PAINT)]
+    end
 	return PAINT[(h % #PAINT) + 1]
 end
 

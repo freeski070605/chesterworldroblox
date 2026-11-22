@@ -2346,7 +2346,11 @@ local function buildFootprintBuilding(parent, building, shapeData)
 			local shops = {}
 			local sbIndex
 			for _, sh in ipairs(shapeData.ss or {}) do
-				shops[sh[2]] = { name = sh[1], front = sh[3], corner = shapeData.fb2, placeId = sh[6], signBg = hexColor(sh[4]) }
+				shops[sh[2]] = { name = sh[1], front = sh[3], corner = shapeData.fb2,
+                    placeId = sh[6], signBg = hexColor(sh[4]),
+                    -- Optional image-reviewed entrance: bearing and normalized
+                    -- along-wall offset. Existing six-field entries unchanged.
+                    entrance = sh[7], entranceOffset = sh[8] }
 			end
 			if shapeData.sb and shapeData.name then
 				-- the verified store: the section reaching furthest toward its street front

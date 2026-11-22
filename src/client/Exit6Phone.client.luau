@@ -155,6 +155,7 @@ local tabs = new("Frame", { Position = UDim2.fromOffset(12, 64), Size = UDim2.ne
 phoneList.Position = UDim2.fromOffset(12, 102)
 phoneList.Size = UDim2.new(1, -24, 1, -142)
 local drawPhone
+local bikeState = nil   -- latest Bike Life status (Exit6BikeLife.server)
 local openTab
 local tabButtons = {}
 local TABS = { { "wallet", "Wallet" }, { "bag", "Bag" }, { "job", "Job" }, { "car", "Car" }, { "rideout", "Ride" }, { "home", "Home" }, { "biz", "Biz" }, { "music", "Music" }, { "hair", "Hair Test" } }
@@ -370,82 +371,86 @@ drawPhone = function()
 		end
 		row(phoneList, 21, "Tap a car to call it", "")
 		row(phoneList, 22, "More cars: Exit 6 Motors", "")
-    elseif tab == "rideout" then
-        phoneTitle.Text = "BIKE LIFE"
-        phoneSub.Text = "Rideouts / wheelies / meetups"
-        local remote=remoteNamed("BikeLifeAction")
-        if remote then
-            local ok,state=pcall(function() return remote:InvokeServer("status") end)
-            if ok and type(state)=="table" then
-                if state.mine then
-                    local mine=state.mine
-                    row(phoneList,1,(mine.started and "RIDEOUT LIVE: " or "Meet at: ")..mine.meet,
-                        tostring(mine.riders).." riders")
-                    row(phoneList,2,"Leader: "..mine.leaderName,"")
-                    row(phoneList,3,"Wheelie points",tostring(mine.score or 0))
-                    row(phoneList,6,"Rideout longest wheelie",tostring(mine.best or 0).." sec")
-                    for i,entry in ipairs(mine.leaderboard or {}) do
-                        if i<=6 then
-                            row(phoneList,34+i,"#"..i.." "..entry.name,tostring(entry.points).." pts")
-                        end
-                    end
-                    row(phoneList,10,"Show rideout meetup","",act(function()
-                        markHome(mine.meetPos,"RIDEOUT")
-                    end))
-                    if not mine.started and mine.leaderId==player.UserId then
-                        row(phoneList,4,"START RIDEOUT at meetup","",act(function()
-                            remote:InvokeServer("start")
-                        end))
-                    end
-                    row(phoneList,5,mine.leaderId==player.UserId and "End rideout" or "Leave rideout","",
-                        act(function()remote:InvokeServer(mine.leaderId==player.UserId and "finish" or "leave") end))
-                else
-                    row(phoneList,1,"Create: 9th & Kerlin","",act(function() remote:InvokeServer("create",1) end))
-                    row(phoneList,2,"Create: 9th & Concord","",act(function() remote:InvokeServer("create",2) end))
-                    row(phoneList,3,"Create: 9th & Lincoln","",act(function() remote:InvokeServer("create",3) end))
-                    local n=3
-                    for _,open in ipairs(state.open or {}) do
-                        n+=1
-                        if n<20 then
-                            local leader=open.leaderId
-                            row(phoneList,n,"Join "..open.leaderName.." ("..open.riders..")",open.meet,
-                                act(function()remote:InvokeServer("join",leader)end))
-                        end
-                    end
-                end
-                row(phoneList,11,"Personal best wheelie",tostring((prof.bikeLife or {}).bestWheelie or 0).." sec")
-                local bikes={}
-                for id in pairs(prof.vehicles or {}) do
-                    if Catalog.Vehicles[id] and Catalog.Vehicles[id].rideType then
-                        table.insert(bikes,id)
-                    end
-                end
-                table.sort(bikes)
-                local colors={"Red","Blue","Silver","Black","White","Forest","Slate","Brown"}
-                for i,id in ipairs(bikes) do
-                    if i<=3 then
-                        local spec=Catalog.Vehicles[id]
-                        local current=(prof.vehicles[id] or {}).paint or 1
-                        row(phoneList,12+i,"Paint "..spec.name,colors[current].." $100",
-                            act(function()
-                                remote:InvokeServer("paint",{model=id,color=current%#colors+1})
-                            end))
-                    end
-                end
-                row(phoneList,22,"Bike: A / Space to wheelie","")
-                local available={"bike_110","bike_250","bike_450","quad_450","quad_700"}
-                for i,itemId in ipairs(available) do
-                    local item=Catalog.Items[itemId]
-                    if item and not (prof.vehicles and prof.vehicles[item.model]) then
-                        local requirement=item.repRequired and (" / REP "..item.repRequired) or ""
-                        row(phoneList,24+i,"Buy "..item.name,"$"..item.price..requirement,
-                            act(function()remote:InvokeServer("buy",itemId)end))
-                    end
-                end
-            end
-        else
-            row(phoneList,1,"Rideout system loading...","")
-        end
+	elseif tab == "rideout" then
+		-- Bike Life (Exit6BikeLife.server): rideouts, wheelie stats, your rides
+		phoneTitle.Text = "BIKE LIFE"
+		phoneSub.Text = "Rideouts / wheelies / your rides"
+		local remote = remoteNamed("BikeLifeAction")
+		local st = bikeState
+		if remote and not st then
+			local ok, r = pcall(function() return remote:InvokeServer("status") end)
+			if ok and type(r) == "table" then st, bikeState = r, r end
+		end
+		if not remote or not st then
+			row(phoneList, 1, "Bike Life loading...", "")
+		else
+			local n = 0
+			local function line(l, r, f) n += 1 return row(phoneList, n, l, r, f) end
+			local function cmd(c, v)
+				return act(function()
+					local r = remote:InvokeServer(c, v)
+					if type(r) == "table" and type(r.status) == "table" then bikeState = r.status end
+				end)
+			end
+			local mine = st.mine
+			if mine then
+				local stage = mine.started and (mine.done and "DONE: " or "LIVE: ") or "MEETUP: "
+				line(stage .. mine.route, #mine.members .. "/" .. mine.max .. " riders")
+				if mine.next then
+					local label = mine.started and string.format("Next %d/%d: %s", mine.next.index - 1, mine.stops - 1, mine.next.name)
+						or ("Meet at " .. mine.next.name)
+					line(label, "MARK", act(function() markHome(mine.next.pos, "RIDEOUT") end))
+				end
+				line(mine.place and ("You finished #" .. mine.place) or "Your rideout points", tostring(mine.score) .. " pts")
+				for i, m in ipairs(mine.members) do
+					if i <= 8 then
+						local pos = m.place and ("#" .. m.place) or (mine.started and (m.cp - 1 .. "/" .. (mine.stops - 1)) or "-")
+						line(pos .. "  " .. m.name .. (m.leader and " (lead)" or "") .. "  " .. (m.ride or "on foot"), m.score .. " pts")
+					end
+				end
+				if mine.isLeader and not mine.started then
+					line("START RIDEOUT (on your ride at the meetup)", "", cmd("start"))
+					local invited = 0
+					for _, p in ipairs(Players:GetPlayers()) do
+						if p ~= player and invited < 6 then
+							invited += 1
+							line("Invite " .. p.DisplayName, "", cmd("invite", p.UserId))
+						end
+					end
+				end
+				line(mine.isLeader and "End rideout" or "Leave rideout", "", cmd(mine.isLeader and "finish" or "leave"))
+			else
+				for i, r in ipairs(st.routes or {}) do
+					line("Start rideout: " .. r.name, r.from, cmd("create", i))
+				end
+				for i, o in ipairs(st.open or {}) do
+					if i <= 6 then
+						line((o.invited and "INVITED: " or "Join ") .. o.leaderName .. " (" .. o.riders .. ")", o.route, cmd("join", o.leaderId))
+					end
+				end
+			end
+			local stats = st.stats or {}
+			line("Personal best wheelie", string.format("%.1fs", stats.bestWheelie or 0))
+			line("Rideouts ridden / finished", (stats.rideouts or 0) .. " / " .. (stats.finished or 0))
+			line("Wheelie time / best rideout", (stats.totalWheelie or 0) .. "s / " .. (stats.bestRide or 0))
+			for i, b in ipairs(st.board or {}) do
+				if i <= 5 then
+					line(string.format("#%d %s%s", i, b.name, b.me and " (you)" or ""), string.format("%.1fs  PB %.1fs", b.session, b.best))
+				end
+			end
+			local bikes = {}
+			for id in pairs(prof.vehicles or {}) do
+				if Catalog.Vehicles[id] and Catalog.Vehicles[id].rideType then table.insert(bikes, id) end
+			end
+			table.sort(bikes)
+			for _, id in ipairs(bikes) do
+				line("Call my " .. Catalog.Vehicles[id].name, "", act(function() remoteNamed("CallCar"):InvokeServer(id) end))
+			end
+			line("Bike shop & test rides: Exit 6 Motors", "MARK", act(function()
+				markHome(Workspace:GetAttribute("Exit6DealershipAt"), "EXIT 6 MOTORS")
+			end))
+			line("Ride: RT/W gas  LT/S brake  A/Space wheelie  X/F off", "")
+		end
 	elseif tab == "bag" then
 		local items, n = bag(), 0
 		local ids = {}
@@ -569,16 +574,15 @@ drawPhone = function()
 	end
 end
 
--- Refresh open rideout lobby when riders join/leave or a ride begins.
+-- Bike Life pushes its state whenever a rideout / wheelie / stat changes
 task.spawn(function()
-    local event=remotes:WaitForChild("BikeLifeChanged",60)
-    if event then
-        event.OnClientEvent:Connect(function()
-            if phone.Visible and tab=="rideout" and drawPhone then
-                drawPhone()
-            end
-        end)
-    end
+	local event = remotes:WaitForChild("BikeLifeChanged", 60)
+	if event then
+		event.OnClientEvent:Connect(function(state)
+			if type(state) == "table" then bikeState = state end
+			if phone.Visible and tab == "rideout" and drawPhone then drawPhone() end
+		end)
+	end
 end)
 
 openTab = function(name)

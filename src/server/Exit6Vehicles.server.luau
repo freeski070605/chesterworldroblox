@@ -19,6 +19,7 @@ local Catalog = require(Shared:WaitForChild("Exit6Catalog"))
 local CarPhysics = require(Shared:WaitForChild("Exit6CarPhysics"))
 local Profile = require(script.Parent:WaitForChild("Exit6Profile"))
 local Builder = require(script.Parent:WaitForChild("Exit6CarBuilder"))
+local BikeBuilder = require(script.Parent:WaitForChild("Exit6BikeBuilder"))
 local remotes = ReplicatedStorage:WaitForChild("Exit6Remotes")
 local function remote(class, name)
 	local r = Instance.new(class)
@@ -142,8 +143,9 @@ local function call(player, modelId)
 		local at = base + spot.axis * t + Vector3.new(0, 3.2, 0)
 		if clear(at) then pos = at break end
 	end
-	local car = Builder.Build(modelId, CFrame.lookAt(pos, pos + facing),
-		{ owner = player, paint = paintFor(player, modelId), fuel = prof.vehicles[modelId].fuel })
+	local builder = spec.rideType and BikeBuilder or Builder
+    local car = builder.Build(modelId, CFrame.lookAt(pos, pos + facing),
+        { owner = player, paint = paintFor(player, modelId), fuel = prof.vehicles[modelId].fuel })
 	car.Parent = folder
 	pcall(function() car.PrimaryPart:SetNetworkOwner(nil) end)
 	cars[player] = car
@@ -470,7 +472,9 @@ local function buildDealership()
 		local x = -26 + (i - 1) * 13   -- between the painted bay lines
 		-- nose to the street (lot -Z)
 		local cf = lotCf * CFrame.new(x, 3.0, -LOT.Z / 2 + 10)
-		local car = Builder.Build(item.model, cf, { display = true, paint = PAINT[(i * 3) % #PAINT + 1] })
+		local spec = Catalog.Vehicles[item.model]
+        local builder = spec and spec.rideType and BikeBuilder or Builder
+        local car = builder.Build(item.model, cf, { display = true, paint = PAINT[(i * 3) % #PAINT + 1] })
 		car.Name = "Display_" .. itemId
 		car.Parent = m
 		local bb = Instance.new("BillboardGui")

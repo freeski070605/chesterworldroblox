@@ -70,6 +70,12 @@ Catalog.Items = {
 	car_pickup = { name = "2012 Pickup", price = 4200, kind = "vehicle", model = "pickup" },
 	car_suv = { name = "2015 SUV", price = 6500, kind = "vehicle", model = "suv" },
 	car_coupe = { name = "2018 Coupe", price = 9500, kind = "vehicle", model = "coupe" },
+    -- Bike Life: permanent garage ownership; all reputation gates remain server-enforced.
+    bike_110 = { name = "110 Trail Dirt Bike", price = 1200, kind = "vehicle", model = "bike110" },
+    bike_250 = { name = "250 MX Dirt Bike", price = 2600, kind = "vehicle", model = "bike250" },
+    bike_450 = { name = "450 MX Dirt Bike", price = 4200, kind = "vehicle", model = "bike450", repRequired = 25 },
+    quad_450 = { name = "450 Sport Quad", price = 4700, kind = "vehicle", model = "quad450" },
+    quad_700 = { name = "700 Sport Quad", price = 6900, kind = "vehicle", model = "quad700", repRequired = 45 },
 }
 
 -- Free development collection. IDs are stable profile keys; none are sold by
@@ -111,7 +117,7 @@ Catalog.Menus = {
 	-- validates the actual accessory before equipping or saving.
 	barber = { "test_hair_sharp_low_taper", "test_hair_mid_skin_fade", "test_hair_high_top_fade", "test_hair_waves_360", "test_hair_starter_locs", "test_hair_medium_locs", "test_hair_shoulder_locs", "test_hair_two_strand_twists", "test_hair_cornrows", "test_hair_box_braids", "test_hair_afro_taper", "test_hair_braided_ponytail", "cut_bald", "cut_own" },
 	clothing = { "fit_own" },
-	dealer = { "car_hatch", "car_van", "car_pickup", "car_suv", "car_coupe" },
+	dealer = { "car_hatch", "car_van", "car_pickup", "car_suv", "car_coupe", "bike_110", "bike_250", "bike_450", "quad_450", "quad_700" },
 }
 
 -- what kind of store a name is (store names come from Street View / Overture)
@@ -172,6 +178,11 @@ Catalog.Vehicles = {
 	pickup = { name = "Pickup", body = "pickup", len = 19, wid = 7.8, topSpeed = 112, accel = 25, tank = 20, perGallon = 1800 },
 	suv = { name = "SUV", body = "suv", len = 17.8, wid = 7.8, topSpeed = 115, accel = 26, tank = 18, perGallon = 2000 },
 	coupe = { name = "Coupe", body = "coupe", len = 15.6, wid = 7.2, topSpeed = 135, accel = 34, tank = 13, perGallon = 2100 },
+    bike110 = { name = "110 Trail", body = "dirtbike", rideType = "bike", len = 8, wid = 2.6, topSpeed = 54, accel = 19, tank = 2.3, perGallon = 1800 },
+    bike250 = { name = "250 MX", body = "dirtbike", rideType = "bike", len = 8.5, wid = 2.7, topSpeed = 78, accel = 28, tank = 2.8, perGallon = 1750 },
+    bike450 = { name = "450 MX", body = "dirtbike", rideType = "bike", len = 8.9, wid = 2.8, topSpeed = 94, accel = 39, tank = 3.2, perGallon = 1600 },
+    quad450 = { name = "450 Sport Quad", body = "sportquad", rideType = "quad", len = 8.7, wid = 5.7, topSpeed = 84, accel = 30, tank = 3.6, perGallon = 1550 },
+    quad700 = { name = "700 Sport Quad", body = "sportquad", rideType = "quad", len = 9.2, wid = 6.0, topSpeed = 96, accel = 36, tank = 4.0, perGallon = 1450 },
 }
 Catalog.StarterVehicle = "sedan"
 Catalog.FuelPrice = 3.29          -- per gallon when a station has no price sign

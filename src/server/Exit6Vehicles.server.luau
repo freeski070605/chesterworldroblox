@@ -19,6 +19,7 @@ local Catalog = require(Shared:WaitForChild("Exit6Catalog"))
 local CarPhysics = require(Shared:WaitForChild("Exit6CarPhysics"))
 local Profile = require(script.Parent:WaitForChild("Exit6Profile"))
 local Builder = require(script.Parent:WaitForChild("Exit6CarBuilder"))
+local BikeBuilder = require(script.Parent:WaitForChild("Exit6BikeBuilder"))
 local remotes = ReplicatedStorage:WaitForChild("Exit6Remotes")
 local function remote(class, name)
 	local r = Instance.new(class)
@@ -50,6 +51,11 @@ end
 local function paintFor(player, modelId)
 	local h = player.UserId
 	for i = 1, #modelId do h += string.byte(modelId, i) * i end
+    local prof = Profile.Get(player)
+    local owned = prof and prof.vehicles[modelId]
+    if owned and Catalog.Vehicles[modelId] and Catalog.Vehicles[modelId].rideType and owned.paint then
+        return PAINT[math.clamp(owned.paint,1,#PAINT)]
+    end
 	return PAINT[(h % #PAINT) + 1]
 end
 
@@ -142,8 +148,9 @@ local function call(player, modelId)
 		local at = base + spot.axis * t + Vector3.new(0, 3.2, 0)
 		if clear(at) then pos = at break end
 	end
-	local car = Builder.Build(modelId, CFrame.lookAt(pos, pos + facing),
-		{ owner = player, paint = paintFor(player, modelId), fuel = prof.vehicles[modelId].fuel })
+	local builder = spec.rideType and BikeBuilder or Builder
+    local car = builder.Build(modelId, CFrame.lookAt(pos, pos + facing),
+        { owner = player, paint = paintFor(player, modelId), fuel = prof.vehicles[modelId].fuel })
 	car.Parent = folder
 	pcall(function() car.PrimaryPart:SetNetworkOwner(nil) end)
 	cars[player] = car
@@ -172,6 +179,19 @@ RunService.Heartbeat:Connect(function(dt)
 	for player, car in pairs(cars) do
 		local chassis = car.Parent and car.PrimaryPart
 		if chassis then
+            -- Bike Life client predicts movement for responsive Xbox controls,
+            -- but the server rejects impossible horizontal speeds.
+            local rideType=car:GetAttribute("Exit6BikeLife")
+            local spec=rideType and Catalog.Vehicles[car:GetAttribute("Exit6Model")]
+            if spec then
+                local velocity=chassis.AssemblyLinearVelocity
+                local horizontal=Vector3.new(velocity.X,0,velocity.Z)
+                local limit=spec.topSpeed*1.65
+                if horizontal.Magnitude>limit then
+                    local legal=horizontal.Unit*limit
+                    chassis.AssemblyLinearVelocity=Vector3.new(legal.X,velocity.Y,legal.Z)
+                end
+            end
 			if not car:GetAttribute("Driver") then
 				-- parked: hold it on its suspension
 				CarPhysics.Step(car, dt, { throttle = 0, steer = 0, handbrake = true })
@@ -464,13 +484,15 @@ local function buildDealership()
 	m:SetAttribute("BrandFascia", BLUE)
 	m.Parent = Workspace
 	-- display cars along the front bays, a price board on each
-	local shown = { "car_hatch", "car_pickup", "car_suv", "car_coupe", "car_van" }
+	local shown = { "car_hatch", "bike_250", "quad_450", "car_coupe", "car_suv" }
 	for i, itemId in ipairs(shown) do
 		local item = Catalog.Items[itemId]
 		local x = -26 + (i - 1) * 13   -- between the painted bay lines
 		-- nose to the street (lot -Z)
 		local cf = lotCf * CFrame.new(x, 3.0, -LOT.Z / 2 + 10)
-		local car = Builder.Build(item.model, cf, { display = true, paint = PAINT[(i * 3) % #PAINT + 1] })
+		local spec = Catalog.Vehicles[item.model]
+        local builder = spec and spec.rideType and BikeBuilder or Builder
+        local car = builder.Build(item.model, cf, { display = true, paint = PAINT[(i * 3) % #PAINT + 1] })
 		car.Name = "Display_" .. itemId
 		car.Parent = m
 		local bb = Instance.new("BillboardGui")

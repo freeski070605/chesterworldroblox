@@ -1,63 +1,119 @@
 # W 9th Street, Lincoln to Concord/five-point junction
 
-The county polygon intersection envelope is longitude -75.37465 to -75.37020,
-latitude 39.84720 to 39.84870. It includes both W 9th frontages and their
-adjoining 8th-to-10th blocks. The reproducible 68-OBJECTID list, footprint
-centres, local photo paths and review status are in `9th_kerlin_footprints.csv`.
-`tools/reconstruction/kerlin_neighborhood.py` rebuilds that list and the runtime
-`NeighborhoodScope.lua` from the county GeoJSON. It uses polygon intersection,
-not a tenant-name search. Existing county footprints and all 102 world tiles
-remain the placement source.
+Scope: county polygons intersecting lon -75.37465..-75.37020, lat
+39.84720..39.84870 (both W 9th frontages plus the 8th-to-10th blocks), 68
+ChesterBuildingIds (county OBJECTIDs). All 102 tiles, IDs, rentals, stores
+and the Exit 6 Motors forecourt are unchanged in placement.
 
-Full-size Google building photos were visually screened in four neighborhood
-contact sheets alongside a 2025 DVRPC aerial overlay of the county footprints.
-The sheets were temporary private reference files. Every changed ID has its
-specific local image path and confidence in `BuildingReviewOverrides.lua`.
-`medium` records a visible type/material/porch match where the single view does
-not prove all sides or individual-unit details. Photo-reviewed buildings use
-fixed source-matched finishes and forms in both server and client house kits;
-unreviewed IDs keep their tile footprint and get `ReconstructionStatus=unverified`.
+## Pipeline (repeatable, block by block)
 
-## Applied to the live world
+`tools/reconstruction/property_evidence.py`
 
-- 42 buildings: 32 residential structures, two named storefront structures
-  (147448 and 93584), three garage structures (23871, 97558, 44085), one
-  other commercial structure (28482), and four institutional structures
-  (25111, 82905, 20046, 17618). The three sections of 97558 get separate
-  roll-up bays and upper windows, matching its mixed-use frontage.
-- 147448 is the 900 W 9th / Lincoln corner parcel. The 2024 photograph shows
-  **777 Food Market**, its door toward W 9th and an opaque side wall. The
-  conflicting older Sherllynn building sign is removed; the existing 777 store
-  gameplay section and stable ID remain.
-- 93584 is the county footprint of the five-point strip. Its photographed
-  white side wall, glazed front, sign/front direction and lack of a projecting
-  metal canopy are applied. The 2020 photo cannot distinguish the Boost and
-  J&S unit doors, so their existing gameplay sections are retained.
-- Exit 6 Motors uses the paved frontage at source metres (7381, 6660), east of
-  93584 and south of W 9th in the 2025 aerial, facing the street. Its old
-  unrelated free-lot fallback is removed. The placement refuses to overlap a
-  generated building and reports `J&S-front-unavailable` if the forecourt is
-  obstructed at runtime. This is one reconstructed parking/dealer lot layout.
+1. Indexes every county footprint (source metres, same frame as the tiles).
+2. Frontage: each wall's outward normal is probed toward the county road
+   centrelines (Delaware County RCL). The primary street is the nearest
+   street weighted by wall length and road class. Corner = more than one
+   street. The address is interpolated from the centreline address range.
+3. Party walls: county polygons that share 2 m of wall or more.
+4. Every camera pose in the Street View and Mapillary manifests casts 41
+   rays across its field of view. The nearest polygon hit per ray wins, so
+   occlusion is modelled. Each photo is attached to EVERY building it shows,
+   with its field-of-view share, whether it is centred, and which wall
+   (front, side or rear relative to that building's frontage) it sees. A
+   photo downloaded "for" one ID that actually centres on a neighbour gets
+   the verdict `views_other:<id>`.
+5. Observations are kept side by side and never overwritten:
+   - GIS zoning: not a building observation.
+   - The old photo override, with its ray verdict.
+   - The user's Google review, down-weighted because the Maps link chose the
+     pano and heading. Notes such as "backyard of rowhome on Hughes" are
+     resolved against the footprint's own frontage.
+   - `pose_reviews.csv`: the structural review of a ray-verified, centred
+     photo.
 
-## Remaining evidence limits
+   The resolver accepts a type only from observations about that building.
+   Disagreements stay in `conflicts`.
+6. `--fresh-panos`: free Street View metadata calls, one probe opposite every
+   street wall. Records the pano ID, camera position, date and the heading
+   that points at that wall, as a keyless Google Maps link. `--fetch-images N`
+   (billed, hard cap) is off by default.
+7. Outputs:
+   - `build/property_evidence/<block>.json` and `.csv`: full evidence records
+     (git-ignored).
+   - `src/server/World/PropertyReconstruction.lua`: the runtime status and
+     structure per ID.
 
-14 IDs have a local image, but the available view is obstructed, covers a
-neighbor or rear, or cannot establish a per-building facade or tenant door:
-33881, 185789, 20571, 158068, 107445, 191030, 170780,
-58063, 133503, 156812, 415, 50221, 154877, 113749.
-The station views among these remain in their existing builders.
+Next block: `py -3 tools/reconstruction/property_evidence.py --bbox W,S,E,N --fresh-panos --render`.
+Then inspect the photos it lists as centred, add `pose_reviews.csv` rows,
+and re-run. `--all` writes citywide evidence (no Lua) as the review queue.
 
-12 IDs have no local building photo: 161384, 84792, 128777, 171786, 6108,
-120546, 40756, 92299, 194208, 157435, 203535, 91150. Several are tiny
-county outbuilding polygons. No parcel GIS was supplied for vacant-lot legal
-boundaries, so those boundaries are not asserted from pixels in the aerial.
+## Applied to the live world (39 reconstructed + 1 finish)
+
+Structure from pose-verified photos: roof form, parapet, door pattern per
+unit, unit count, storeys, porch, bay, garage bays, finish, and frontage
+where the photo shows the entrance wall.
+
+- **Restored to residential from zoning storefront/commercial**: 28482 (a
+  three-storey hipped Victorian, previously overridden as commercial),
+  154877, 170780 and 185789 (a long flat-roof brick row; the user's "PARK"
+  view was the adjacent park). Also 5723, 7613, 68468, 82547, 99994,
+  121174, 142656, 162137, 164928, 178372 and 95043, which keep their
+  residential reading with corrected structure.
+- **Roof forms**: the 1940s-50s brick rows 34237, 37959, 39766, 113017,
+  139660, 153497, 181213 and 81089 get low side-gable roofs instead of flat
+  cornices. Twins with flat cornices (4639, 17385, 68468, 7613, 58981,
+  184587) lose their invented gables. 94400 gets a hip with a dormer,
+  121174 a front gable, 162137 a mansard and 79594 a shingled pent front.
+- **Frontage corrected** (the photo faces the entrance wall): 139660 faces
+  Butler, not Macdonald (eight-unit row re-oriented); 37959 and 153497 face
+  Lincoln; 81089 faces Hughes; 170780 faces 9th; 415 and 20046 face 8th.
+- **Doors**: 58981 and 121174 have paired centre doors, 94400 outer-end
+  doors, and 82547, 99994, 142656 and 170780 their photographed position.
+  164928 (house number 908) has its entrance on the west side wall; that
+  single house is not rentable because the hollow interior assumes a front
+  door.
+- **Garages**: 23871 is a one-storey gabled single-bay garage on the Hughes
+  alley (the user's "rowhouse" was the 9th St houses behind it). 44085 has
+  two bays on one wall. 138612 is a one-storey brick workshop with a roll-up
+  door, and at 3.5 m it cannot be the old "colonial house". 158068 is a
+  shed.
+- **97558**: the 9th St photo (heading 182, centred on the front) shows an
+  attached red-brick and sided block with roll-up bays at grade and flats
+  above. The result is three bays, the upper windows and the photographed
+  street door to the flats. The user's "rowhouse" link had an unknown pose.
+  The stoop house at the left of the frame is 68468's east unit.
+- **147448 / 777 Food Market**: the camera on Lincoln (heading 282) centres
+  on the Lincoln wall, which carries the fascia and poster-glazed windows.
+  That face is now glazed with no second door. The customer door stays at
+  the W 9th corner. The graffiti brick wall from the user's view is the
+  west/rear side.
+- **68468, 4639, 17385**: the user's "Hughes backyard" observation resolves
+  to the rear of the 181213 row across W 9th. These twins front 9th and
+  keep their porches.
+
+## Unresolved, and why
+
+- **JF Auto Sales (714 W 10th)**: no county footprint, POI or photo places
+  it. 79594 is a four-unit row (the user's link landed on the neighbouring
+  lot). Pano queued in `panos_to_review`.
+- **164928 vs "902"**: the centred photo shows "908". The user's 902
+  storefront is a different, unidentified parcel.
+- **33881, 84792, 161384, 128777, 171786, 6108, 120546, 113749, 182911,
+  64004, 150015, 183747**: no centred front view, the view is obstructed, or
+  a tiny outbuilding. They keep their prior state with status
+  supported/needs_imagery.
+- Gas stations (50221, 58063, 156812, 133503) and 191030/107445 keep their
+  existing builders.
+- 93584: units still cannot be separated from the 2020 photo.
+- Roofs are read from street views only. Google 3D tiles and LiDAR roof
+  pitch are not in this pipeline yet (`roof_3d` is listed as missing on
+  every record).
 
 ## Studio check
 
-Run from the existing 9th/Kerlin spawn. Walk both sides of W 9th from Lincoln
-to Concord, and the adjoining side streets. Inspect 147448's W 9th door and
-opaque Lincoln wall, 97558's garage bays, the porch rows and Exit 6 Motors in
-front of 93584. Confirm `Workspace.CW_Exit6DealershipPlacement` reads `J&S-front`,
-then enter the 777 and five-point stores and use a rental door. Check no car
-route or sidewalk is blocked at the dealer forecourt. Studio/Xbox was not run
-in this source checkout.
+In Play, from the Server command bar:
+`require(game.ServerScriptService.Server.World.ReconstructionInspector).Run({radius=600})`
+
+Green = reconstructed, teal = finish only, yellow = older photo override,
+red = conflict or needs imagery, grey = fallback. Labels show ID, style and
+spec.

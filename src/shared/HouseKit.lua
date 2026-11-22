@@ -142,6 +142,11 @@ function HouseKit.Decode(s)
 	return {
 		front = tonumber(h[1]), corner = tonumber(h[2]), porch = h[3] == "1", porchDepth = tonumber(h[4]),
 		style = h[5], material = ok and mat or Enum.Material.Brick,
+        -- Optional appended fields in the packed client kit. Old 8-field
+        -- descriptions remain valid and keep their procedural behavior.
+        arch = h[9] ~= "" and h[9] or nil,
+        bay = h[10] == "1",
+        reviewed = h[11] == "1",
 		wall = Color3.fromRGB(tonumber(col[1]) or 150, tonumber(col[2]) or 80, tonumber(col[3]) or 60),
 		rects = rects,
 	}, homes

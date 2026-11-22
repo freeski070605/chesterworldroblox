@@ -383,6 +383,7 @@ drawPhone = function()
                         tostring(mine.riders).." riders")
                     row(phoneList,2,"Leader: "..mine.leaderName,"")
                     row(phoneList,3,"Wheelie points",tostring(mine.score or 0))
+                    row(phoneList,6,"Rideout longest wheelie",tostring(mine.best or 0).." sec")
                     row(phoneList,10,"Show rideout meetup","",act(function()
                         markHome(mine.meetPos,"RIDEOUT")
                     end))
@@ -407,6 +408,7 @@ drawPhone = function()
                         end
                     end
                 end
+                row(phoneList,11,"Personal best wheelie",tostring((prof.bikeLife or {}).bestWheelie or 0).." sec")
                 local bikes={}
                 for id in pairs(prof.vehicles or {}) do
                     if Catalog.Vehicles[id] and Catalog.Vehicles[id].rideType then

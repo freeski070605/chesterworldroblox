@@ -179,6 +179,19 @@ RunService.Heartbeat:Connect(function(dt)
 	for player, car in pairs(cars) do
 		local chassis = car.Parent and car.PrimaryPart
 		if chassis then
+            -- Bike Life client predicts movement for responsive Xbox controls,
+            -- but the server rejects impossible horizontal speeds.
+            local rideType=car:GetAttribute("Exit6BikeLife")
+            local spec=rideType and Catalog.Vehicles[car:GetAttribute("Exit6Model")]
+            if spec then
+                local velocity=chassis.AssemblyLinearVelocity
+                local horizontal=Vector3.new(velocity.X,0,velocity.Z)
+                local limit=spec.topSpeed*1.65
+                if horizontal.Magnitude>limit then
+                    local legal=horizontal.Unit*limit
+                    chassis.AssemblyLinearVelocity=Vector3.new(legal.X,velocity.Y,legal.Z)
+                end
+            end
 			if not car:GetAttribute("Driver") then
 				-- parked: hold it on its suspension
 				CarPhysics.Step(car, dt, { throttle = 0, steer = 0, handbrake = true })

@@ -2312,6 +2312,8 @@ end
 
 local BuildingReviewOverrides = require(script.Parent:WaitForChild("BuildingReviewOverrides"))
 local NeighborhoodScope = require(script.Parent:WaitForChild("NeighborhoodScope"))
+local PropertyReconstruction = require(script.Parent:WaitForChild("PropertyReconstruction"))
+local HouseKitSpec = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("HouseKit"))
 local function buildFootprintBuilding(parent, building, shapeData)
 	local review = shapeData._review
 	local style = BUILDING_STYLES[shapeData.style] or BUILDING_STYLES.generic
@@ -2347,8 +2349,21 @@ local function buildFootprintBuilding(parent, building, shapeData)
 	model:SetAttribute("ChesterBuildingId", tostring(building.id))
 	model:SetAttribute("BuildingStyle", shapeData.style)
 	model:SetAttribute("SourceHeightMeters", shapeData.h)
-	if NeighborhoodScope[tostring(building.id)] then
-		model:SetAttribute("ReconstructionStatus", review and "photo_verified" or "unverified")
+	-- Studio inspection (ReconstructionInspector.lua): reconstructed = pose-
+	-- verified structure applied; photo_override = older single-photo review;
+	-- fallback = county footprint + procedural kit only.
+	local recon = shapeData._recon
+	if recon or NeighborhoodScope[tostring(building.id)] then
+		model:SetAttribute("ReconstructionStatus", review and review.reconstructed and "reconstructed"
+			or recon and recon.status == "finish_verified" and "finish_verified"
+			or review and "photo_override" or "fallback")
+		if recon then
+			model:SetAttribute("ReconstructionEvidenceStatus", recon.evidence)
+			model:SetAttribute("ReconstructionAttachment", recon.attach)
+			if recon.street then model:SetAttribute("ReconstructionStreet", recon.street) end
+			if recon.geoFront then model:SetAttribute("ReconstructionGeoFront", recon.geoFront) end
+			if recon.spec then model:SetAttribute("ReconstructionSpec", recon.spec) end
+		end
 	end
 	if review then
 		model:SetAttribute("ReconstructionConfidence", review.confidence)
@@ -2445,6 +2460,7 @@ local function buildFootprintBuilding(parent, building, shapeData)
 				porchDepth = shapeData.pd and shapeData.pd * S or nil,
 				style = shapeData.style, material = material, wall = wall,
 				arch = review and review.arch, bay = review and review.bay, reviewed = review ~= nil,
+				spec = review and review.spec and HouseKitSpec.ParseSpec(review.spec) or nil,
 				seed = seed, buildingId = tostring(building.id), applyFacade = applyFacade, stats = RealBuildings.stats,
 				lite = not core }
 			if review and review.porch ~= nil then realCtx.porch = review.porch end
@@ -2611,16 +2627,32 @@ local function buildFootprintBuilding(parent, building, shapeData)
         for _,rect in ipairs(builtRects) do
             if rect.area > bestArea then best, bestArea = rect,rect.area end
         end
-        local bayRects = review and review.garageBays and builtRects or {best}
-        for _,best in ipairs(bayRects) do
+        -- Reviewed bay count: one door per section when the county polygon
+        -- has a section per bay (97558), otherwise that many doors side by
+        -- side on the largest section's street wall (44085: two bays).
+        local nBays = review and review.garageBays or 1
+        local bays = {}
+        if nBays > 1 and #builtRects >= nBays then
+            for _, rect in ipairs(builtRects) do table.insert(bays, { rect = rect, slot = 0, of = 1 }) end
+        else
+            for k = 1, nBays do table.insert(bays, { rect = best, slot = k, of = nBays }) end
+        end
+        for bayIndex, bay in ipairs(bays) do
+            local best = bay.rect
             local frame = CFrame.new(best.x,0,best.z)*yaw
             local normal = faceToward(frame,shapeData.fb)
             local extent = normal.X ~= 0 and best.along/2 or best.across/2
             local span = normal.X ~= 0 and best.across or best.along
-            if span >= 10 and best.wallTop-best.streetLevel >= 8 then
+            local slotSpan = span / bay.of
+            if slotSpan >= 9 and best.wallTop-best.streetLevel >= 8 then
                 local worldNormal = frame:VectorToWorldSpace(normal)
-                local faceCenter = frame*Vector3.new(normal.X*extent,0,normal.Z*extent)
-                local width = math.min(span-2.2,15)
+                local alongWall = Vector3.new(-worldNormal.Z, 0, worldNormal.X)
+                local slotOffset = bay.slot > 0 and (-span/2 + (bay.slot - 0.5) * slotSpan) or 0
+                local hasEntry = bayIndex == 1 and review and review.use and string.find(review.use, "housing") ~= nil
+                    and slotSpan >= 14
+                if hasEntry then slotOffset -= 2.4 end
+                local faceCenter = frame*Vector3.new(normal.X*extent,0,normal.Z*extent) + alongWall*slotOffset
+                local width = hasEntry and math.min(slotSpan-6.8,13) or math.min(slotSpan-2.2,15)
                 local height = math.min(8.5,best.wallTop-best.streetLevel-1.4)
                 if width > 6 and height > 6 then
                     local center=Vector3.new(faceCenter.X,best.streetLevel+height/2+0.2,faceCenter.Z)+worldNormal*0.16
@@ -2640,6 +2672,14 @@ local function buildFootprintBuilding(parent, building, shapeData)
 							CFrame.lookAt(windowCenter,windowCenter+worldNormal),Enum.Material.Glass,Color3.fromRGB(105,128,139))
 						upper.Transparency=0.25
 						upper.CanCollide=false
+					end
+					if hasEntry then
+						-- the photographed street door to the flats above,
+						-- beside the first bay
+						local doorCenter = center + alongWall*(width/2 + 2.0) + Vector3.new(0, -height/2 + 3.65, 0)
+						local door = newPart(model,"ResidentialEntryDoor",Vector3.new(3.4,7.3,0.3),
+							CFrame.lookAt(doorCenter,doorCenter+worldNormal),Enum.Material.Wood,Color3.fromRGB(210,206,196))
+						door.CanCollide=false
 					end
                 end
             end
@@ -2684,7 +2724,9 @@ local function buildFootprintBuilding(parent, building, shapeData)
 			tostring(realCtx.corner or ""), realCtx.porch and 1 or 0, realCtx.porchDepth or 0, tostring(shapeData.style),
 			realCtx.material.Name, math.floor(realCtx.wall.R * 255 + 0.5), math.floor(realCtx.wall.G * 255 + 0.5),
 			math.floor(realCtx.wall.B * 255 + 0.5), shapeData.a,
-            tostring(realCtx.arch or ""), realCtx.bay and 1 or 0, realCtx.reviewed and 1 or 0) .. ";" .. table.concat(kitRects, ";"))
+            tostring(realCtx.arch or ""), realCtx.bay and 1 or 0, realCtx.reviewed and 1 or 0)
+            -- field 12: pose-verified structure (roof/parapet/door/units/floors)
+            .. "|" .. tostring(review and review.spec or "") .. ";" .. table.concat(kitRects, ";"))
 	end
 	if built > 0 then
 		model.Parent = parent
@@ -2694,16 +2736,46 @@ local function buildFootprintBuilding(parent, building, shapeData)
 	return false
 end
 
+-- Geographic reconstruction (tools/reconstruction/property_evidence.py):
+-- a pose-verified structural review layered over the older photo override.
+-- Only "reconstructed" entries change geometry; every entry sets status.
+local function reviewFor(id)
+    local old = BuildingReviewOverrides[id]
+    local recon = PropertyReconstruction[id]
+    if not (recon and (recon.status == "reconstructed" or recon.status == "finish_verified")) then return old, recon end
+    local merged = {}
+    if old then for k, v in pairs(old) do merged[k] = v end end
+    for k, v in pairs(recon) do merged[k] = v end
+    merged.evidence = recon.photo
+    merged.reconstructed = recon.status == "reconstructed"
+    return merged, recon
+end
+
 local function buildBuilding(parent, building, shapes)
     local shapeData = shapes and shapes[tostring(building.id)]
-    local correction = BuildingReviewOverrides[tostring(building.id)]
+    local correction, recon = reviewFor(tostring(building.id))
+    if shapeData and recon and not correction then
+        -- evidence status only (no verified structure): keep the fallback shape
+        local copy = {}
+        for key, value in pairs(shapeData) do copy[key] = value end
+        copy._recon = recon
+        shapeData = copy
+    end
     if shapeData and correction then
         -- Never mutate the shared tile's original shape record. Replacing only
         -- the reviewed archetype preserves source geometry and the gameplay ID.
         local copy = {}
         for key, value in pairs(shapeData) do copy[key] = value end
         copy._review = correction
+        copy._recon = recon
         if correction.style then copy.style = correction.style end
+        if correction.style and GROUND_FOR_STYLE[correction.style] == "residential" then
+            -- verified residential: drop the zoning-derived shopfront ground
+            -- storey and generic store sign; a gameplay store section (ss with
+            -- a place id) is never silently removed
+            copy.gs = nil
+            if not copy.ss then copy.sb, copy.name, copy.sc = nil, nil, nil end
+        end
         if correction.front then copy.fb = correction.front end
         if correction.name == false then copy.name = nil end
         if correction.sb == false then copy.sb = nil end

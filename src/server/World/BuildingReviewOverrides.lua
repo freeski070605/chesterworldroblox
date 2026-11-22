@@ -4,7 +4,11 @@ local G = "25_GoogleStreetView_Buildings/images/"
 return {
  ["13452"]={style="garage",confidence="verified_type",evidence="2026-11-21 citywide full-size review"},
  ["147448"]={style="storefront",wall=0xddd0bf,material="Brick",name=false,sb=false,
-   shops={[0]={front=154,entrance=154,entranceOffset=-0.57,corner=false,canopy=false,
+   -- Camera on Lincoln, heading 282, ray-cast centred on this polygon's
+   -- Lincoln wall: the yellow 777 fascia and poster-glazed shop windows run
+   -- along Lincoln (tile fb2=64 keeps that face glazed), the customer door is
+   -- at the W 9th corner. The opaque graffiti wall is the west/rear side.
+   shops={[0]={front=154,entrance=154,entranceOffset=-0.57,canopy=false,
      signBg=0x183b88,signFg=0xf2ebcf}},confidence="high",
    evidence=G.."147448/front_7zG-idlY0xSp7aFu6woIUw.jpg; county 900 W 9th footprint"},
  ["93584"]={style="commercial",wall=0xe8e6e0,material="Brick",shopCanopy=false,

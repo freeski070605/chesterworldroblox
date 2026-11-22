@@ -85,15 +85,12 @@ UserInputService.InputBegan:Connect(function(input, processed)
  end
 end)
 local handbrake = false
-local wheelie = false
 local conn = nil
 
 local function stop()
 	if conn then conn:Disconnect() conn = nil end
 	gui.Enabled = false
 	handbrake = false
-    wheelie = false
-    ContextActionService:UnbindAction("Exit6Wheelie")
 	ContextActionService:UnbindAction("Exit6Handbrake")
 	ContextActionService:UnbindAction("Exit6CarExit")
 end
@@ -117,45 +114,11 @@ local function start(seat)
   end
   return Enum.ContextActionResult.Sink
  end, false, Enum.KeyCode.X, Enum.KeyCode.ButtonX)
-    local rideType = car:GetAttribute("Exit6BikeLife")
-    if rideType then
-        -- A / Space = lean back / controlled wheelie. No additional bind on cars.
-        ContextActionService:BindAction("Exit6Wheelie",function(_,state)
-            wheelie = state == Enum.UserInputState.Begin
-            return Enum.ContextActionResult.Sink
-        end,true,Enum.KeyCode.Space,Enum.KeyCode.ButtonA)
-        ContextActionService:SetTitle("Exit6Wheelie","WHEELIE")
-    end
 	conn = RunService.PreSimulation:Connect(function(dt)
 		if not car.Parent or seat.Occupant == nil then stop() return end
 		local speed = CarPhysics.Step(car, dt, {
 			throttle = seat.ThrottleFloat, steer = seat.SteerFloat, handbrake = handbrake,
-            wheelie = wheelie and rideType ~= nil,
 		})
-        if rideType then
-            local chassis=car.PrimaryPart
-            if chassis and chassis.Parent then
-                -- Bikes use narrow hidden suspension contacts; keep a subtle
-                -- low-speed upright assist. Quads do not receive bike balancing.
-                if rideType == "bike" then
-                    local axis=chassis.CFrame.UpVector:Cross(Vector3.yAxis)
-                    local lean=chassis.CFrame.RightVector:Dot(Vector3.yAxis)
-                    local mass=chassis.AssemblyMass
-                    if axis.Magnitude > 0.005 and math.abs(lean)>0.01 then
-                        chassis:ApplyAngularImpulse(axis.Unit*mass*math.min(1,dt*6)*math.abs(lean)*14)
-                    end
-                end
-                if wheelie and math.abs(speed)>9 and car:GetAttribute("Fuel")>0 then
-                    -- Positive rotation around the local right axis lifts
-                    -- the front wheel on both sport quads and MX bikes.
-                    local axis=chassis.CFrame.RightVector
-                    local pitch=chassis.CFrame.LookVector.Y
-                    if pitch < 0.58 then
-                        chassis:ApplyAngularImpulse(axis*chassis.AssemblyMass*dt*(rideType=="bike" and 29 or 20))
-                    end
-                end
-            end
-        end
 		speedLabel.Text = tostring(math.floor(math.abs(speed) / STUDS_PER_MPH + 0.5))
 		local fuel, tank = car:GetAttribute("Fuel") or 0, car:GetAttribute("Tank") or 1
 		local f = math.clamp(fuel / tank, 0, 1)
@@ -169,7 +132,9 @@ local function watch(character)
 	local hum = character:WaitForChild("Humanoid", 10)
 	if not hum then return end
 	hum.Seated:Connect(function(active, seat)
-		if active and seat and seat:IsA("VehicleSeat") and seat.Parent and seat.Parent:GetAttribute("Exit6Car") then
+		-- Bike Life rides (Exit6BikeLife attribute) are ridden by Exit6Riding.client
+		if active and seat and seat:IsA("VehicleSeat") and seat.Parent and seat.Parent:GetAttribute("Exit6Car")
+			and not seat.Parent:GetAttribute("Exit6BikeLife") then
 			start(seat)
 		else
 			stop()

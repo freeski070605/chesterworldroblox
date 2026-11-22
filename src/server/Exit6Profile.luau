@@ -4,6 +4,9 @@
 -- as the JSON attribute Exit6Profile (phone apps).
 --
 --   vehicles = { [modelId] = { fuel = gallons } }   active = modelId
+--              Bike Life rides also: paint (0 = factory), accent, number,
+--              engine / handling (upgrade stages)
+--   bikeLife = { bestWheelie (s), totalWheelie (s), rideouts, finished, bestRide (points) }
 --   style    = { hair, top, bottom, hat }            (catalog item ids)
 --   home     = { id = "building:door", street = "..." }
 --   stash    = { [itemId] = count }                 (kept at home)
@@ -29,7 +32,7 @@ local function fresh()
 		business = {},
 		music = { pen = 0, flow = 0, beats = 0, fans = 0, tracks = {} },
 		hoops = { makes = 0, wins = 0 },
-        bikeLife = { bestWheelie = 0, rideouts = 0 },
+		bikeLife = { bestWheelie = 0, totalWheelie = 0, rideouts = 0, finished = 0, bestRide = 0 },
 		trials = {},
 		pens = { best = 0 },
 	}
@@ -49,9 +52,16 @@ function Profile.Import(player, saved)
 				local spec = Catalog.Vehicles[id]
 				if spec and type(v) == "table" then
 					p.vehicles[id] = { fuel = math.clamp(tonumber(v.fuel) or spec.tank, 0, spec.tank) }
-                    if spec.rideType then
-                        p.vehicles[id].paint = math.clamp(math.floor(tonumber(v.paint) or 1),1,8)
-                    end
+					if spec.rideType then
+						local BL = Catalog.BikeLife
+						local function int(x, lo, hi, d) return math.clamp(math.floor(tonumber(x) or d), lo, hi) end
+						local rec = p.vehicles[id]
+						rec.paint = int(v.paint, 0, #BL.paints, 0)
+						rec.accent = int(v.accent, 1, #BL.accents, 1)
+						rec.number = int(v.number, 0, 99, (player.UserId % 99) + 1)
+						rec.engine = int(v.engine, 0, BL.upgrades.engine.maxLevel, 0)
+						rec.handling = int(v.handling, 0, BL.upgrades.handling.maxLevel, 0)
+					end
 				end
 			end
 		end
@@ -88,10 +98,14 @@ function Profile.Import(player, saved)
 		if type(saved.hoops) == "table" then
 			p.hoops.makes, p.hoops.wins = math.floor(num(saved.hoops.makes, 0, 1e9)), math.floor(num(saved.hoops.wins, 0, 1e9))
 		end
-        if type(saved.bikeLife) == "table" then
-            p.bikeLife.bestWheelie = math.floor(num(saved.bikeLife.bestWheelie,0,1000000))
-            p.bikeLife.rideouts = math.floor(num(saved.bikeLife.rideouts,0,100000))
-        end
+		if type(saved.bikeLife) == "table" then
+			local b = saved.bikeLife
+			p.bikeLife.bestWheelie = math.floor(num(b.bestWheelie, 0, 3600) * 10 + 0.5) / 10
+			p.bikeLife.totalWheelie = math.floor(num(b.totalWheelie, 0, 1e7))
+			p.bikeLife.rideouts = math.floor(num(b.rideouts, 0, 100000))
+			p.bikeLife.finished = math.floor(num(b.finished, 0, 100000))
+			p.bikeLife.bestRide = math.floor(num(b.bestRide, 0, 1e7))
+		end
 		if type(saved.trials) == "table" then
 			for k, v in pairs(saved.trials) do
 				if type(k) == "string" and tonumber(v) then p.trials[k] = num(v, 1, 36000) end

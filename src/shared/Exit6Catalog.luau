@@ -70,12 +70,13 @@ Catalog.Items = {
 	car_pickup = { name = "2012 Pickup", price = 4200, kind = "vehicle", model = "pickup" },
 	car_suv = { name = "2015 SUV", price = 6500, kind = "vehicle", model = "suv" },
 	car_coupe = { name = "2018 Coupe", price = 9500, kind = "vehicle", model = "coupe" },
-    -- Bike Life: permanent garage ownership; all reputation gates remain server-enforced.
-    bike_110 = { name = "110 Trail Dirt Bike", price = 1200, kind = "vehicle", model = "bike110" },
-    bike_250 = { name = "250 MX Dirt Bike", price = 2600, kind = "vehicle", model = "bike250" },
-    bike_450 = { name = "450 MX Dirt Bike", price = 4200, kind = "vehicle", model = "bike450", repRequired = 25 },
-    quad_450 = { name = "450 Sport Quad", price = 4700, kind = "vehicle", model = "quad450" },
-    quad_700 = { name = "700 Sport Quad", price = 6900, kind = "vehicle", model = "quad700", repRequired = 45 },
+	-- Bike Life (Exit6BikeLife.server / Exit6Garage): bought at the Exit 6 Motors
+	-- kiosk or counter, owned for good; reputation gates are checked before cash
+	bike_110 = { name = "110 Trail Dirt Bike", price = 1200, kind = "vehicle", model = "bike110" },
+	bike_250 = { name = "250 MX Dirt Bike", price = 2600, kind = "vehicle", model = "bike250" },
+	bike_450 = { name = "450 MX Dirt Bike", price = 4200, kind = "vehicle", model = "bike450", repRequired = 25 },
+	quad_450 = { name = "450 Sport Quad", price = 4700, kind = "vehicle", model = "quad450" },
+	quad_700 = { name = "700 Sport Quad", price = 6900, kind = "vehicle", model = "quad700", repRequired = 45 },
 }
 
 -- Free development collection. IDs are stable profile keys; none are sold by
@@ -178,14 +179,74 @@ Catalog.Vehicles = {
 	pickup = { name = "Pickup", body = "pickup", len = 19, wid = 7.8, topSpeed = 112, accel = 25, tank = 20, perGallon = 1800 },
 	suv = { name = "SUV", body = "suv", len = 17.8, wid = 7.8, topSpeed = 115, accel = 26, tank = 18, perGallon = 2000 },
 	coupe = { name = "Coupe", body = "coupe", len = 15.6, wid = 7.2, topSpeed = 135, accel = 34, tank = 13, perGallon = 2100 },
-    bike110 = { name = "110 Trail", body = "dirtbike", rideType = "bike", len = 8, wid = 2.6, topSpeed = 54, accel = 19, tank = 2.3, perGallon = 1800 },
-    bike250 = { name = "250 MX", body = "dirtbike", rideType = "bike", len = 8.5, wid = 2.7, topSpeed = 78, accel = 28, tank = 2.8, perGallon = 1750 },
-    bike450 = { name = "450 MX", body = "dirtbike", rideType = "bike", len = 8.9, wid = 2.8, topSpeed = 94, accel = 39, tank = 3.2, perGallon = 1600 },
-    quad450 = { name = "450 Sport Quad", body = "sportquad", rideType = "quad", len = 8.7, wid = 5.7, topSpeed = 84, accel = 30, tank = 3.6, perGallon = 1550 },
-    quad700 = { name = "700 Sport Quad", body = "sportquad", rideType = "quad", len = 9.2, wid = 6.0, topSpeed = 96, accel = 36, tank = 4.0, perGallon = 1450 },
+	-- Bike Life rides (Exit6BikeBuilder / Exit6BikePhysics). Speeds in studs/s
+	-- (the speedo reads ~1.75 studs/s per mph), accel in studs/s^2, steerLock in
+	-- degrees, wheelie = the balance-point pitch in degrees at full throttle.
+	bike110 = { name = "110 Trail", body = "dirtbike", rideType = "bike", len = 5.9, wid = 2.5, topSpeed = 58, accel = 22,
+		brake = 60, grip = 1.15, steerLock = 36, wheelie = 24, mass = 22, tank = 2.3, perGallon = 1800 },
+	bike250 = { name = "250 MX", body = "dirtbike", rideType = "bike", len = 7.5, wid = 3.0, topSpeed = 80, accel = 31,
+		brake = 66, grip = 1.2, steerLock = 33, wheelie = 30, mass = 26, tank = 2.8, perGallon = 1750 },
+	bike450 = { name = "450 MX", body = "dirtbike", rideType = "bike", len = 7.8, wid = 3.2, topSpeed = 96, accel = 40,
+		brake = 70, grip = 1.25, steerLock = 32, wheelie = 34, mass = 28, tank = 3.2, perGallon = 1600 },
+	quad450 = { name = "450 Sport Quad", body = "sportquad", rideType = "quad", len = 6.8, wid = 4.4, topSpeed = 82, accel = 30,
+		brake = 64, grip = 1.3, steerLock = 32, wheelie = 18, mass = 44, tank = 3.6, perGallon = 1550 },
+	quad700 = { name = "700 Sport Quad", body = "sportquad", rideType = "quad", len = 7.2, wid = 4.8, topSpeed = 96, accel = 37,
+		brake = 68, grip = 1.35, steerLock = 30, wheelie = 22, mass = 50, tank = 4.0, perGallon = 1450 },
 }
 Catalog.StarterVehicle = "sedan"
 Catalog.FuelPrice = 3.29          -- per gallon when a station has no price sign
+
+-- Bike Life customisation and upgrades (server-priced; Exit6Garage)
+Catalog.BikeLife = {
+	-- plastics colours; 0 = factory graphics (the mesh's own textures)
+	paints = {
+		{ name = "Race Red", rgb = { 196, 28, 32 } }, { name = "Factory Blue", rgb = { 24, 76, 186 } },
+		{ name = "Lime", rgb = { 118, 196, 30 } }, { name = "Orange", rgb = { 236, 110, 20 } },
+		{ name = "Yellow", rgb = { 240, 196, 20 } }, { name = "White", rgb = { 236, 236, 232 } },
+		{ name = "Blackout", rgb = { 26, 26, 28 } }, { name = "Purple", rgb = { 110, 48, 170 } },
+		{ name = "Teal", rgb = { 20, 150, 150 } }, { name = "Pink", rgb = { 230, 80, 150 } },
+	},
+	paintPrice = 150,
+	-- number plate / grips / seat trim accent
+	accents = {
+		{ name = "White", rgb = { 240, 240, 236 } }, { name = "Black", rgb = { 22, 22, 24 } },
+		{ name = "Red", rgb = { 196, 28, 32 } }, { name = "Blue", rgb = { 24, 76, 186 } },
+		{ name = "Yellow", rgb = { 240, 196, 20 } }, { name = "Green", rgb = { 40, 160, 60 } },
+	},
+	accentPrice = 60,
+	numberPrice = 25,
+	-- engine: top speed / acceleration; handling: grip, steering, wheelie control
+	upgrades = {
+		engine = { name = "Engine", maxLevel = 3, priceFactor = { 0.18, 0.32, 0.5 }, rep = { 0, 10, 30 },
+			topSpeed = 0.06, accel = 0.1 },
+		handling = { name = "Suspension & tyres", maxLevel = 3, priceFactor = { 0.12, 0.22, 0.36 }, rep = { 0, 5, 20 },
+			grip = 0.06, steer = 0.04, wheelie = 0.12 },
+	},
+	testRideSeconds = 120,
+	testRideRadius = 700,   -- studs from the dealership before the test ride returns itself
+	shopReach = 40,         -- studs from the kiosk / a display ride to use the shop
+	-- wheelies (server-observed): minimum pitch, minimum speed, scoring
+	wheelieMinPitch = 8, wheelieMinSpeed = 8, wheelieMinSeconds = 1.0, wheeliePointsPerSecond = 10,
+	-- rideouts: routes are named junctions on the city's real street graph; the
+	-- server snaps each to the rendered intersection pad (Exit6BikeLife.server).
+	-- Source metres = county road-centreline endpoints shared by both streets.
+	routes = {
+		{ id = "fivepoints", name = "Five Points Loop", stops = {
+			{ "9th & Kerlin", 7284.6, 6695.7 }, { "8th & Kerlin", 7336.1, 6582.4 }, { "8th & Concord", 7451.5, 6637.0 },
+			{ "9th & Parker", 7403.0, 6756.2 }, { "9th & Kerlin", 7284.6, 6695.7 } } },
+		{ id = "butler", name = "Butler Run", stops = {
+			{ "9th & Butler", 7154.1, 6636.6 }, { "8th & Butler", 7205.0, 6523.0 }, { "8th & Kerlin", 7336.1, 6582.4 },
+			{ "10th & Kerlin", 7211.2, 6835.6 }, { "10th & Concord", 7101.0, 6778.0 } } },
+		{ id = "lincoln", name = "Lincoln Cruise", stops = {
+			{ "9th & Lincoln", 7024.0, 6577.0 }, { "10th & Lincoln", 6961.0, 6711.0 }, { "10th & Kerlin", 7211.2, 6835.6 },
+			{ "9th & Kerlin", 7284.6, 6695.7 } } },
+	},
+	checkpointRadius = 45,
+	meetRadius = 160,           -- riders inside this at the start ride along
+	maxRiders = 12,
+	finishCash = { 60, 40, 25 }, -- by finishing place; everyone else who finishes gets the last
+	finishRep = 1,
+}
 
 -- housing (Exit6Housing.server): rent a real front door in the city
 Catalog.Housing = {

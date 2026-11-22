@@ -15,6 +15,7 @@ local Config = require(Shared:WaitForChild("Exit6Config"))
 local Inventory = require(script.Parent:WaitForChild("Exit6Inventory"))
 local Profile = require(script.Parent:WaitForChild("Exit6Profile"))
 local Style = require(script.Parent:WaitForChild("Exit6Style"))
+local Garage = require(script.Parent:WaitForChild("Exit6Garage"))
 if not Config.ShopSystem then return end
 
 -- remotes
@@ -117,6 +118,12 @@ local function purchase(player, storeId, itemId)
 	end
 	if not onMenu then return false, "Not sold here" end
 	if not inReach(player, store.counter, REACH) then return false, "Walk up to the counter" end
+	if item.kind == "vehicle" then
+		-- dealership: rep gate, cash, no duplicates -> the saved garage (Exit6Garage)
+		local ok, msg = Garage.Buy(player, itemId)
+		if ok then notify(player, msg) end
+		return ok, msg
+	end
 	local cash = stats(player)
 	if not cash or cash.Value < item.price then return false, "Not enough Chester Cash" end
     if item.repRequired then
@@ -125,19 +132,7 @@ local function purchase(player, storeId, itemId)
             return false, "Requires "..item.repRequired.." reputation to unlock"
         end
     end
-	if item.kind == "vehicle" then
-		-- dealership: into the garage (Exit6Vehicles calls it from the phone)
-		local prof = Profile.Get(player)
-		local spec = Catalog.Vehicles[item.model]
-		if not prof or not spec then return false, "Can't buy that here" end
-		if prof.vehicles[item.model] then return false, "You already own a " .. spec.name end
-		prof.vehicles[item.model] = { fuel = spec.tank }
-		prof.active = item.model
-		Profile.Publish(player)
-		cash.Value -= item.price
-		notify(player, "Bought the " .. item.name .. "! Call it from your phone (Car)")
-		return true
-	elseif item.kind == "haircut" or item.kind == "clothing" then
+	if item.kind == "haircut" or item.kind == "clothing" then
 		if not Style.Wear(player, itemId) then return false, "Can't do that right now" end
 		cash.Value -= item.price
 		notify(player, (item.kind == "haircut" and "Fresh cut: " or "Wearing: ") .. item.name ..

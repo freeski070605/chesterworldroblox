@@ -1,12 +1,17 @@
 -- EXIT 6 vehicles (master plan Phase D): garage, calling a car, fuel, gas
 -- pumps and the dealership lot.
---   garage     Exit6Profile.vehicles (saved): every car the player owns + its fuel
---   call       phone Car tab -> the car pulls up kerbside on the nearest street
---   fuel       burned by distance while driven; empty = no power (Exit6CarPhysics)
+--   garage     Exit6Profile.vehicles (saved): every car / bike / quad the player
+--              owns + its fuel (Bike Life rides also their looks and upgrades)
+--   call       phone Car tab -> the ride pulls up kerbside on the nearest street
+--   fuel       burned by distance while driven; empty = no power
 --   pumps      every station dispenser: "Pump gas" at the station's sign price
---   dealership Exit 6 Motors lot near 9th & Kerlin; the salesman's counter sells
---              Catalog.Menus.dealer through the shop menu (Exit6Shop.server)
--- Physics: Exit6CarPhysics on the driver's client while driven; parked cars here.
+--   dealership Exit 6 Motors at the front of the J&S lot on W 9th (building
+--              93584); the salesman's counter sells Catalog.Menus.dealer through
+--              the shop menu (Exit6Shop.server), the Bike Life kiosk is wired by
+--              Exit6BikeLife.server
+-- Physics: cars run Exit6CarPhysics, Bike Life rides Exit6BikePhysics, on the
+-- driver's client while driven (network owner) and here while parked. The
+-- server bounds what a client-owned ride may do (speed, climb).
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,9 +22,12 @@ Workspace:SetAttribute("CW_Exit6DealershipReady", false)
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Catalog = require(Shared:WaitForChild("Exit6Catalog"))
 local CarPhysics = require(Shared:WaitForChild("Exit6CarPhysics"))
+local BikePhysics = require(Shared:WaitForChild("Exit6BikePhysics"))
 local Profile = require(script.Parent:WaitForChild("Exit6Profile"))
 local Builder = require(script.Parent:WaitForChild("Exit6CarBuilder"))
 local BikeBuilder = require(script.Parent:WaitForChild("Exit6BikeBuilder"))
+local Garage = require(script.Parent:WaitForChild("Exit6Garage"))
+local Fleet = require(script.Parent:WaitForChild("Exit6Fleet"))
 local remotes = ReplicatedStorage:WaitForChild("Exit6Remotes")
 local function remote(class, name)
 	local r = Instance.new(class)
@@ -30,9 +38,8 @@ end
 local CallCar = remote("RemoteFunction", "CallCar")
 local SendHome = remote("RemoteEvent", "SendCarHome")
 
-local folder = Instance.new("Folder")
-folder.Name = "Exit6Vehicles"
-folder.Parent = Workspace
+local folder = Fleet.folder
+local cars = Fleet.cars   -- player -> model (one ride out at a time)
 
 local CALL_COOLDOWN = 8
 local PUMP_REACH = 32
@@ -40,8 +47,8 @@ local PAINT = {
 	Color3.fromRGB(148, 18, 28), Color3.fromRGB(22, 36, 70), Color3.fromRGB(196, 198, 200), Color3.fromRGB(28, 28, 30),
 	Color3.fromRGB(236, 236, 232), Color3.fromRGB(60, 74, 60), Color3.fromRGB(110, 112, 118), Color3.fromRGB(90, 40, 30),
 }
-local cars = {}        -- player -> model (one car out at a time)
 local lastCall = {}
+local overSince = {}   -- model -> os.clock() a client-owned ride first broke the limits
 local lastPos = {}     -- model -> last horizontal position (fuel burn)
 
 local function notify(player, text)
@@ -51,11 +58,6 @@ end
 local function paintFor(player, modelId)
 	local h = player.UserId
 	for i = 1, #modelId do h += string.byte(modelId, i) * i end
-    local prof = Profile.Get(player)
-    local owned = prof and prof.vehicles[modelId]
-    if owned and Catalog.Vehicles[modelId] and Catalog.Vehicles[modelId].rideType and owned.paint then
-        return PAINT[math.clamp(owned.paint,1,#PAINT)]
-    end
 	return PAINT[(h % #PAINT) + 1]
 end
 
@@ -92,70 +94,65 @@ local function curbside(pos, radius, minWidth)
 end
 
 -- ------------------------------------------------------------------ garage
-local function saveFuel(player, car)
-	local p = Profile.Get(player)
-	local id = car and car:GetAttribute("Exit6Model")
-	if p and id and p.vehicles[id] then
-		p.vehicles[id].fuel = math.floor((car:GetAttribute("Fuel") or 0) * 100 + 0.5) / 100
-	end
-end
 local function despawn(player)
 	local car = cars[player]
-	cars[player] = nil
-	if car then
-		saveFuel(player, car)
-		lastPos[car] = nil
-		car:Destroy()
-		Profile.Publish(player)
+	if car then lastPos[car] = nil end
+	Fleet.Despawn(player)
+end
+
+local spotClear = Fleet.SpotClear
+
+-- build a garage ride for its owner (looks, upgrades and fuel from the save)
+local function buildOwned(player, modelId, cf)
+	local prof = Profile.Get(player)
+	local rec = prof.vehicles[modelId]
+	local spec = Catalog.Vehicles[modelId]
+	if spec.rideType then
+		return BikeBuilder.Build(modelId, cf, { owner = player, fuel = rec.fuel, look = rec,
+			stats = Garage.Effective(modelId, rec) })
 	end
+	return Builder.Build(modelId, cf, { owner = player, paint = paintFor(player, modelId), fuel = rec.fuel })
 end
 
 local function call(player, modelId)
 	local prof = Profile.Get(player)
 	if player:GetAttribute("Exit6DataReady") ~= true or not prof then return false, "Not ready" end
 	modelId = (type(modelId) == "string" and prof.vehicles[modelId]) and modelId or prof.active
-	if not prof.vehicles[modelId] then return false, "You don't own that" end
+	if not prof.vehicles[modelId] or not Catalog.Vehicles[modelId] then return false, "You don't own that" end
 	local now = os.clock()
-	if lastCall[player] and now - lastCall[player] < CALL_COOLDOWN then return false, "Your car is on the way" end
+	if lastCall[player] and now - lastCall[player] < CALL_COOLDOWN then return false, "Your ride is on the way" end
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-	if not root or (hum and hum.SeatPart) then return false, "Get out first" end
+	if not root or (hum and hum.SeatPart) then return false, "Get off first" end
 	local spot = curbside(root.Position)
 	if not spot then return false, "No street nearby - walk to a road" end
-	lastCall[player] = now
-	despawn(player)
-	prof.active = modelId
+	local spec = Catalog.Vehicles[modelId]
 	-- park in the lane on the side nearest the player, facing with traffic
 	local right = Vector3.new(-spot.axis.Z, 0, spot.axis.X)
 	local side = (root.Position - spot.pos):Dot(right) >= 0 and 1 or -1
 	local facing = spot.axis * side
-	-- slide along the kerb to a spot with nothing standing in the car's way
-	-- (a signal pole, a bench, a wall); road-level parts don't count
-	local spec = Catalog.Vehicles[modelId]
-	local blockParams = OverlapParams.new()
-	blockParams.FilterType = Enum.RaycastFilterType.Exclude
-	blockParams.FilterDescendantsInstances = { Workspace.Terrain, player.Character, folder }
-	local function clear(at)
-		local cf = CFrame.lookAt(at, at + facing)
-		for _, b in ipairs(Workspace:GetPartBoundsInBox(cf, Vector3.new(spec.wid + 1, 5, spec.len + 1), blockParams)) do
-			if b.Position.Y + b.Size.Y / 2 > spot.pos.Y + 1.2 and b.CanCollide then return false end
-		end
-		return true
-	end
-	local base = spot.pos + right * side * math.max(0, spot.width / 2 - 5)
-	local pos = base + Vector3.new(0, 3.2, 0)
+	local lift = spec.rideType and (BikeBuilder.RideHeight(modelId) + 0.25) or 3.2
+	local inset = spec.rideType and 3.5 or 5
+	local base = spot.pos + right * side * math.max(0, spot.width / 2 - inset)
+	local ignore = { Workspace.Terrain, player.Character, folder }
+	local size = Vector3.new(spec.wid + 1, 5, spec.len + 1)
+	local pos
+	-- slide along the kerb to a spot with nothing standing in the ride's way
 	for _, t in ipairs({ 0, 12, -12, 24, -24, 36, -36, 48, -48 }) do
-		local at = base + spot.axis * t + Vector3.new(0, 3.2, 0)
-		if clear(at) then pos = at break end
+		local at = base + spot.axis * t
+		if spotClear(CFrame.lookAt(at + Vector3.new(0, 2.6, 0), at + Vector3.new(0, 2.6, 0) + facing), size, spot.pos.Y, ignore) then
+			pos = at + Vector3.new(0, lift, 0)
+			break
+		end
 	end
-	local builder = spec.rideType and BikeBuilder or Builder
-    local car = builder.Build(modelId, CFrame.lookAt(pos, pos + facing),
-        { owner = player, paint = paintFor(player, modelId), fuel = prof.vehicles[modelId].fuel })
-	car.Parent = folder
-	pcall(function() car.PrimaryPart:SetNetworkOwner(nil) end)
-	cars[player] = car
+	if not pos then return false, "The kerb here is blocked - try another spot" end
+	lastCall[player] = now
+	despawn(player)
+	prof.active = modelId
+	local car = buildOwned(player, modelId, CFrame.lookAt(pos, pos + facing))
+	Fleet.Put(player, car)
 	Profile.Publish(player)
-	notify(player, "Your " .. Catalog.Vehicles[modelId].name .. " is parked on " .. tostring(spot.street))
+	notify(player, "Your " .. spec.name .. " is parked on " .. tostring(spot.street))
 	return true
 end
 CallCar.OnServerInvoke = function(player, modelId)
@@ -174,27 +171,42 @@ end)
 
 -- ------------------------------------------------------------------ simulation + fuel
 local fuelSync = 0
+local PARKED = { parked = true }
+local PARKED_CAR = { throttle = 0, steer = 0, handbrake = true }
 RunService.Heartbeat:Connect(function(dt)
 	fuelSync += dt
 	for player, car in pairs(cars) do
 		local chassis = car.Parent and car.PrimaryPart
 		if chassis then
-            -- Bike Life client predicts movement for responsive Xbox controls,
-            -- but the server rejects impossible horizontal speeds.
-            local rideType=car:GetAttribute("Exit6BikeLife")
-            local spec=rideType and Catalog.Vehicles[car:GetAttribute("Exit6Model")]
-            if spec then
-                local velocity=chassis.AssemblyLinearVelocity
-                local horizontal=Vector3.new(velocity.X,0,velocity.Z)
-                local limit=spec.topSpeed*1.65
-                if horizontal.Magnitude>limit then
-                    local legal=horizontal.Unit*limit
-                    chassis.AssemblyLinearVelocity=Vector3.new(legal.X,velocity.Y,legal.Z)
-                end
-            end
+			local bike = car:GetAttribute("Exit6BikeLife") ~= nil
+			if bike and car:GetAttribute("Driver") then
+				-- the rider's client simulates the ride (network owner); a client
+				-- that reports impossible speed or climb for more than a moment
+				-- loses the ride: off the seat, physics back to the server, clamped
+				local v = chassis.AssemblyLinearVelocity
+				local limit = (car:GetAttribute("TopSpeed") or 80) * 1.25 + 8
+				local flat = Vector3.new(v.X, 0, v.Z)
+				if flat.Magnitude > limit or v.Y > 80 then
+					local now = os.clock()
+					overSince[car] = overSince[car] or now
+					if now - overSince[car] > 0.75 then
+						overSince[car] = nil
+						local seat = car:FindFirstChild("DriverSeat")
+						if seat and seat.Occupant then seat.Occupant.Sit = false end
+						pcall(function() chassis:SetNetworkOwner(nil) end)
+						local f = flat.Magnitude > limit and flat.Unit * limit * 0.5 or flat
+						chassis.AssemblyLinearVelocity = Vector3.new(f.X, math.min(v.Y, 0), f.Z)
+						notify(player, "Ride reset - it was moving faster than it can")
+						warn(string.format("[EXIT6 Vehicles] %s's %s exceeded limits (%.0f studs/s, climb %.0f)",
+							player.Name, tostring(car:GetAttribute("Exit6Model")), flat.Magnitude, v.Y))
+					end
+				else
+					overSince[car] = nil
+				end
+			end
 			if not car:GetAttribute("Driver") then
-				-- parked: hold it on its suspension
-				CarPhysics.Step(car, dt, { throttle = 0, steer = 0, handbrake = true })
+				-- parked: hold it on its suspension (a bike on its stand)
+				if bike then BikePhysics.Step(car, dt, PARKED) else CarPhysics.Step(car, dt, PARKED_CAR) end
 				lastPos[car] = nil
 			else
 				-- driven: burn fuel by distance (the server sees the replicated chassis)
@@ -220,7 +232,7 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 	if fuelSync > 10 then
 		fuelSync = 0
-		for player, car in pairs(cars) do saveFuel(player, car) end
+		for player, car in pairs(cars) do Fleet.SaveFuel(player, car) end
 	end
 end)
 
@@ -253,6 +265,7 @@ local function setupPumps()
 				if not car or not car.PrimaryPart then notify(player, "Call your car first (phone > Car)") return end
 				if (car.PrimaryPart.Position - d.Position).Magnitude > PUMP_REACH then notify(player, "Pull your car up to the pump") return end
 				if car.PrimaryPart.AssemblyLinearVelocity.Magnitude > 3 then notify(player, "Stop the car first") return end
+				if car:GetAttribute("TestRide") then notify(player, "Test rides come fuelled by the dealer") return end
 				local ls = player:FindFirstChild("leaderstats")
 				local cash = ls and ls:FindFirstChild("Chester Cash")
 				local tank = car:GetAttribute("Tank") or 12
@@ -266,7 +279,7 @@ local function setupPumps()
 				fuel += gallons
 				car:SetAttribute("FuelExact", fuel)
 				car:SetAttribute("Fuel", math.floor(fuel * 100 + 0.5) / 100)
-				saveFuel(player, car)
+				Fleet.SaveFuel(player, car)
 				Profile.Publish(player)
 				notify(player, string.format("Pumped %.1f gal at %s (-$%d)", gallons, brand, cost))
 			end)

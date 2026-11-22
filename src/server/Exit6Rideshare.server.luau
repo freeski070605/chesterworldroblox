@@ -29,7 +29,9 @@ end
 local function myCar(player)
 	local folder = Workspace:FindFirstChild("Exit6Vehicles")
 	for _, m in ipairs(folder and folder:GetChildren() or {}) do
-		if m:IsA("Model") and m.PrimaryPart and m:GetAttribute("Owner") == player.UserId and m:GetAttribute("Driver") == player.UserId then return m end
+		-- a dirt bike / quad has no passenger seat: rideshare needs a car
+		if m:IsA("Model") and m.PrimaryPart and m:GetAttribute("Owner") == player.UserId and m:GetAttribute("Driver") == player.UserId
+			and not m:GetAttribute("Exit6BikeLife") then return m end
 	end
 	return nil
 end

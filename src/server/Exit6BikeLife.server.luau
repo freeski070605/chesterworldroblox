@@ -69,6 +69,30 @@ action.OnServerInvoke=function(player,command,value)
     local now=os.clock()
     if cooldown[player] and now-cooldown[player]<1.25 then return status(player) end
     cooldown[player]=now
+    if command=="buy" and type(value)=="string" then
+        local item=Catalog.Items[value]
+        local spec=item and Catalog.Vehicles[item.model]
+        local prof=Profile.Get(player)
+        local stats=player:FindFirstChild("leaderstats")
+        local cash=stats and stats:FindFirstChild("Chester Cash")
+        local rep=stats and stats:FindFirstChild("Reputation")
+        if player:GetAttribute("Exit6DataReady")==true and item and spec and spec.rideType
+            and item.kind=="vehicle" and prof and cash and rep then
+            if prof.vehicles[item.model] then
+                player:SetAttribute("Exit6Notice","You already own this ride.")
+            elseif item.repRequired and rep.Value<item.repRequired then
+                player:SetAttribute("Exit6Notice","Requires "..item.repRequired.." reputation.")
+            elseif cash.Value<item.price then
+                player:SetAttribute("Exit6Notice","Not enough Chester Cash.")
+            else
+                cash.Value-=item.price
+                prof.vehicles[item.model]={fuel=spec.tank,paint=1}
+                prof.active=item.model
+                Profile.Publish(player)
+                player:SetAttribute("Exit6Notice","Bought "..spec.name.."! Call it from Car.")
+            end
+            player:SetAttribute("Exit6NoticeId",(player:GetAttribute("Exit6NoticeId") or 0)+1)
+        end
     if command=="paint" and type(value)=="table" then
         local id=type(value.model)=="string" and value.model or ""
         local spec=Catalog.Vehicles[id]

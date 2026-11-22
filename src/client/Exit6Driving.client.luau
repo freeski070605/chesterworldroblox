@@ -130,6 +130,7 @@ local function start(seat)
 		if not car.Parent or seat.Occupant == nil then stop() return end
 		local speed = CarPhysics.Step(car, dt, {
 			throttle = seat.ThrottleFloat, steer = seat.SteerFloat, handbrake = handbrake,
+            wheelie = wheelie and rideType ~= nil,
 		})
         if rideType then
             local chassis=car.PrimaryPart

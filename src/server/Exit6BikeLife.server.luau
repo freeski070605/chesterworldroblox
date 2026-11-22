@@ -46,11 +46,19 @@ local function status(player)
     end
     table.sort(open,function(a,b)return a.leaderId<b.leaderId end)
     if not mine then return {mine=nil,open=open} end
+    local leaderboard={}
+    for uid in pairs(mine.members) do
+        local rider=Players:GetPlayerByUserId(uid)
+        table.insert(leaderboard,{userId=uid,name=rider and rider.DisplayName or tostring(uid),
+            points=math.floor((mine.memberScores or {})[uid] or 0)})
+    end
+    table.sort(leaderboard,function(a,b)return a.points>b.points end)
     return {mine={leaderId=mine.leader.UserId,leaderName=mine.leader.DisplayName,
         riders=count(mine),started=mine.started,meet=checkpoints[mine.waypoint].name,
         meetPos=checkpoints[mine.waypoint].pos,
         score=math.floor(mine.score),best=math.floor(mine.best),
-        personalBest=(Profile.Get(player) and Profile.Get(player).bikeLife and Profile.Get(player).bikeLife.bestWheelie) or 0},open=open}
+        personalBest=(Profile.Get(player) and Profile.Get(player).bikeLife and Profile.Get(player).bikeLife.bestWheelie) or 0,
+        leaderboard=leaderboard},open=open}
 end
 local function emit()
     for _,player in ipairs(Players:GetPlayers()) do changed:FireClient(player,status(player)) end
@@ -59,6 +67,7 @@ local function drop(player)
     local ride=getRide(player)
     if not ride then return end
     ride.members[player.UserId]=nil
+    if ride.memberScores then ride.memberScores[player.UserId]=nil end
     current[player.UserId]=nil
     wheelieStreak[player]=nil
     if player == ride.leader or count(ride)==0 then
@@ -116,13 +125,14 @@ action.OnServerInvoke=function(player,command,value)
     elseif command=="create" and not getRide(player) and #Players:GetPlayers()>0 then
         local i=math.clamp(math.floor(tonumber(value) or 1),1,#checkpoints)
         rides[player.UserId]={leader=player,members={[player.UserId]=true},
-            waypoint=i,started=false,score=0,best=0}
+            waypoint=i,started=false,score=0,best=0,memberScores={[player.UserId]=0}}
         current[player.UserId]=player.UserId
     elseif command=="join" and not getRide(player) then
         local id=tonumber(value)
         local ride=id and rides[id]
         if ride and not ride.started and count(ride)<12 then
             ride.members[player.UserId]=true
+            ride.memberScores[player.UserId]=0
             current[player.UserId]=id
         end
     elseif command=="leave" then
@@ -151,11 +161,13 @@ action.OnServerInvoke=function(player,command,value)
     return status(player)
 end
 local elapsed=0
+local broadcastElapsed=0
 RunService.Heartbeat:Connect(function(dt)
     elapsed+=dt
     if elapsed<0.25 then return end
     local step=math.min(elapsed,0.5)
     elapsed=0
+    broadcastElapsed+=step
     for _,ride in pairs(rides) do
         if ride.started then
             for uid in pairs(ride.members) do
@@ -172,6 +184,7 @@ RunService.Heartbeat:Connect(function(dt)
                     if speed>12 and speed<145 and pitch>0.11 and pitch<0.7 then
                         local points=step*(1+math.min(3,pitch*4))
                         ride.score+=points
+                        ride.memberScores[uid]=(ride.memberScores[uid] or 0)+points
                         wheelieStreak[player]=(wheelieStreak[player] or 0)+step
                         local personal=Profile.Get(player)
                         if personal and personal.bikeLife and
@@ -189,6 +202,10 @@ RunService.Heartbeat:Connect(function(dt)
                 end
             end
         end
+    end
+    if broadcastElapsed>=2 then
+        broadcastElapsed=0
+        emit()
     end
 end)
 Players.PlayerRemoving:Connect(function(player)

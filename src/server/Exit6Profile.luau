@@ -29,6 +29,7 @@ local function fresh()
 		business = {},
 		music = { pen = 0, flow = 0, beats = 0, fans = 0, tracks = {} },
 		hoops = { makes = 0, wins = 0 },
+        bikeLife = { bestWheelie = 0, rideouts = 0 },
 		trials = {},
 		pens = { best = 0 },
 	}
@@ -87,6 +88,10 @@ function Profile.Import(player, saved)
 		if type(saved.hoops) == "table" then
 			p.hoops.makes, p.hoops.wins = math.floor(num(saved.hoops.makes, 0, 1e9)), math.floor(num(saved.hoops.wins, 0, 1e9))
 		end
+        if type(saved.bikeLife) == "table" then
+            p.bikeLife.bestWheelie = math.floor(num(saved.bikeLife.bestWheelie,0,1000000))
+            p.bikeLife.rideouts = math.floor(num(saved.bikeLife.rideouts,0,100000))
+        end
 		if type(saved.trials) == "table" then
 			for k, v in pairs(saved.trials) do
 				if type(k) == "string" and tonumber(v) then p.trials[k] = num(v, 1, 36000) end

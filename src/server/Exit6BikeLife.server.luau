@@ -16,6 +16,7 @@ changed.Parent=remotes
 local rides={} -- leader userId -> {leader, members, waypoint, started, best, score}
 local current={} -- userId -> leader userId
 local cooldown={}
+local wheelieStreak={} -- player -> consecutive controlled wheelie seconds
 local checkpoints={
     {name="9th & Kerlin",pos=Vector3.new(2810,61,1519)},
     {name="9th & Concord",pos=Vector3.new(3040,61,1690)},
@@ -48,7 +49,8 @@ local function status(player)
     return {mine={leaderId=mine.leader.UserId,leaderName=mine.leader.DisplayName,
         riders=count(mine),started=mine.started,meet=checkpoints[mine.waypoint].name,
         meetPos=checkpoints[mine.waypoint].pos,
-        score=math.floor(mine.score),best=math.floor(mine.best)},open=open}
+        score=math.floor(mine.score),best=math.floor(mine.best),
+        personalBest=(Profile.Get(player) and Profile.Get(player).bikeLife and Profile.Get(player).bikeLife.bestWheelie) or 0},open=open}
 end
 local function emit()
     for _,player in ipairs(Players:GetPlayers()) do changed:FireClient(player,status(player)) end
@@ -58,6 +60,7 @@ local function drop(player)
     if not ride then return end
     ride.members[player.UserId]=nil
     current[player.UserId]=nil
+    wheelieStreak[player]=nil
     if player == ride.leader or count(ride)==0 then
         for uid in pairs(ride.members) do current[uid]=nil end
         rides[ride.leader.UserId]=nil
@@ -130,6 +133,14 @@ action.OnServerInvoke=function(player,command,value)
             local pos=locationFor(player)
             if pos and (pos-checkpoints[ride.waypoint].pos).Magnitude<400 then
                 ride.started=true
+                for uid in pairs(ride.members) do
+                    local rider=Players:GetPlayerByUserId(uid)
+                    local p=rider and Profile.Get(rider)
+                    if p and p.bikeLife then
+                        p.bikeLife.rideouts+=1
+                        Profile.Publish(rider)
+                    end
+                end
             end
         end
     elseif command=="finish" then
@@ -161,9 +172,20 @@ RunService.Heartbeat:Connect(function(dt)
                     if speed>12 and speed<145 and pitch>0.11 and pitch<0.7 then
                         local points=step*(1+math.min(3,pitch*4))
                         ride.score+=points
-                        ride.best=math.max(ride.best,ride.score)
+                        wheelieStreak[player]=(wheelieStreak[player] or 0)+step
+                        local personal=Profile.Get(player)
+                        if personal and personal.bikeLife and
+                            math.floor(wheelieStreak[player])>personal.bikeLife.bestWheelie then
+                            personal.bikeLife.bestWheelie=math.floor(wheelieStreak[player])
+                            Profile.Publish(player)
+                        end
+                        ride.best=math.max(ride.best,wheelieStreak[player])
                         player:SetAttribute("BikeLifeWheelieScore",math.floor(ride.score))
+                    else
+                        wheelieStreak[player]=nil
                     end
+                else
+                    if player then wheelieStreak[player]=nil end
                 end
             end
         end

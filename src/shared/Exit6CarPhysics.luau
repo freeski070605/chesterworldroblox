@@ -78,9 +78,10 @@ function CarPhysics.Step(model, dt, input)
 	local topSpeed = model:GetAttribute("TopSpeed") or T.topSpeed
 	local accel = model:GetAttribute("EngineAccel") or T.engineAccel
 	local noFuel = (model:GetAttribute("Fuel") or 1) <= 0
+    local rideType=model:GetAttribute("Exit6BikeLife")
 	local steer = math.clamp(input.steer or 0, -1, 1)
 	-- less lock at speed
-	local steerAngle = -steer * T.maxSteer / (1 + math.abs(speed) / 55)
+	local steerAngle = -steer * T.maxSteer * (rideType=="bike" and 0.72 or rideType=="quad" and 0.9 or 1) / (1 + math.abs(speed) / 55)
 
 	local grounded = 0
 	local compression = {}
@@ -124,7 +125,7 @@ function CarPhysics.Step(model, dt, input)
 			elseif throttle < -0.05 then
 				if vF > 2 then
 					jF = -math.min(T.brakeDecel * share * dt, vF * share)
-				elseif not w[2] then
+				elseif not w[2] and rideType~="bike" then
 					local fall = 1 - math.clamp(-vF / T.reverseSpeed, 0, 1) ^ 2
 					jF = noFuel and 0 or throttle * accel * 0.6 * mass / 2 * fall * dt
 				end
@@ -163,7 +164,8 @@ function CarPhysics.Step(model, dt, input)
 	local tilt = math.acos(math.clamp(up:Dot(worldUp), -1, 1))
 	local inertia = mass * 12
 	local spinRP = ang - up * ang:Dot(up)
-	chassis:ApplyAngularImpulse(-spinRP * inertia * math.min(1, dt * (grounded > 0 and 2 or 6)))
+	local damping=(rideType and input.wheelie and grounded>0) and 0.6 or (grounded > 0 and 2 or 6)
+	chassis:ApplyAngularImpulse(-spinRP * inertia * math.min(1, dt * damping))
 	if tilt > math.rad(55) and math.abs(speed) < 8 then
 		local axis = up:Cross(worldUp)
 		if axis.Magnitude > 1e-3 then

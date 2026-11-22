@@ -404,6 +404,24 @@ drawPhone = function()
                         end
                     end
                 end
+                local bikes={}
+                for id in pairs(prof.vehicles or {}) do
+                    if Catalog.Vehicles[id] and Catalog.Vehicles[id].rideType then
+                        table.insert(bikes,id)
+                    end
+                end
+                table.sort(bikes)
+                local colors={"Red","Blue","Silver","Black","White","Forest","Slate","Brown"}
+                for i,id in ipairs(bikes) do
+                    if i<=3 then
+                        local spec=Catalog.Vehicles[id]
+                        local current=(prof.vehicles[id] or {}).paint or 1
+                        row(phoneList,12+i,"Paint "..spec.name,colors[current].." $100",
+                            act(function()
+                                remote:InvokeServer("paint",{model=id,color=current%#colors+1})
+                            end))
+                    end
+                end
                 row(phoneList,22,"Bike: A / Space to wheelie","")
                 row(phoneList,23,"Buy bikes/quads: Exit 6 Motors","")
             end

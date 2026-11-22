@@ -94,7 +94,7 @@ action.OnServerInvoke=function(player,command,value)
             end
             player:SetAttribute("Exit6NoticeId",(player:GetAttribute("Exit6NoticeId") or 0)+1)
         end
-    if command=="paint" and type(value)=="table" then
+    elseif command=="paint" and type(value)=="table" then
         local id=type(value.model)=="string" and value.model or ""
         local spec=Catalog.Vehicles[id]
         local color=tonumber(value.color)
@@ -110,7 +110,7 @@ action.OnServerInvoke=function(player,command,value)
             player:SetAttribute("Exit6Notice","Custom paint saved ($100). Re-call your ride to apply.")
             player:SetAttribute("Exit6NoticeId",(player:GetAttribute("Exit6NoticeId") or 0)+1)
         end
-    if command=="create" and not getRide(player) and #Players:GetPlayers()>0 then
+    elseif command=="create" and not getRide(player) and #Players:GetPlayers()>0 then
         local i=math.clamp(math.floor(tonumber(value) or 1),1,#checkpoints)
         rides[player.UserId]={leader=player,members={[player.UserId]=true},
             waypoint=i,started=false,score=0,best=0}

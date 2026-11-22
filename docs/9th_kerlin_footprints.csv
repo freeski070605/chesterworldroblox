@@ -40,9 +40,9 @@ id,lon,lat,address,use,archetype,height_m,area_sqm,photo_count,photos,review
 158068,-75.37246700897947,39.84743162680698,,residential,detached_house,3.70580945,43.41916971,1,25_GoogleStreetView_Buildings/images/158068/front_V99n-tUnkc3XdF7gnDIxLg.jpg,unresolved_photo_match
 107445,-75.37244440837922,39.84826485788156,,commercial,small_commercial_storefront,6.13359952,61.98631666,1,25_GoogleStreetView_Buildings/images/107445/front_8tdAsuuqF4fIIu59re7egw.jpg,unresolved_photo_match
 64004,-75.37241772480316,39.84723033187532,,residential,twin_semi_detached,10.77968369,91.84475852,1,25_GoogleStreetView_Buildings/images/64004/front_hANPWwtjz8nEurDsKIGAXw.jpg,photo_verified
-25111,-75.37227349369189,39.84782983626489,733 West 9th Street,education,school_building,9.58381109,158.5932857,1,25_GoogleStreetView_Buildings/images/25111/front_CHHY-R-CVqOHneA5elpMhQ.jpg,unresolved_photo_match
+25111,-75.37227349369189,39.84782983626489,733 West 9th Street,education,school_building,9.58381109,158.5932857,1,25_GoogleStreetView_Buildings/images/25111/front_CHHY-R-CVqOHneA5elpMhQ.jpg,photo_verified
 191030,-75.37215888857804,39.84833280833721,,commercial,small_commercial_storefront,6.12251005,185.61572109,1,25_GoogleStreetView_Buildings/images/191030/front_L7tQF_KEi9S-7dmbKemwBQ.jpg,unresolved_photo_match
-82905,-75.37201197025257,39.84753536209461,,religious,religious_building,14.51295357,886.31273041,1,25_GoogleStreetView_Buildings/images/82905/front_9YUPzXIbZkcGxZHk5X9CcA.jpg,unresolved_photo_match
+82905,-75.37201197025257,39.84753536209461,,religious,religious_building,14.51295357,886.31273041,1,25_GoogleStreetView_Buildings/images/82905/front_9YUPzXIbZkcGxZHk5X9CcA.jpg,photo_verified
 170780,-75.37198718567271,39.847932029734054,,commercial,small_commercial_storefront,8.52541561,107.78039433,1,25_GoogleStreetView_Buildings/images/170780/front_yVXerIOi9vnQY4Pgiwhabw.jpg,unresolved_photo_match
 58063,-75.37196469814972,39.84871608763763,916 Kerlin Street,commercial,small_commercial_storefront,5.69696655,48.00172952,1,25_GoogleStreetView_Buildings/images/58063/front_YKnzOPoZCBw1-xtxgc09-w.jpg,unresolved_photo_match
 133503,-75.3718619234331,39.84845559414441,,commercial,small_commercial_storefront,5.66891479,74.61669746,1,25_GoogleStreetView_Buildings/images/133503/front_1jtgIG4g5-D2DcFzB0HXFA.jpg,unresolved_photo_match
@@ -52,10 +52,10 @@ id,lon,lat,address,use,archetype,height_m,area_sqm,photo_count,photos,review
 92299,-75.37127644437717,39.84852921010312,,commercial,small_commercial_storefront,0.0,1.68770427,0,,no_local_photo
 50221,-75.37126636182455,39.8487230355301,610 West 9th Street,commercial,commercial_lowrise,5.5013813,388.87833338,1,25_GoogleStreetView_Buildings/images/50221/front_nxM1qSy7xa3iTzV-Rmo2Sw.jpg,unresolved_photo_match
 93584,-75.37090127309489,39.84801414311224,823 Kerlin Street,commercial,commercial_lowrise,5.00960989,538.13466991,1,25_GoogleStreetView_Buildings/images/93584/front_mekg61gwAx6XAn-CWPos4g.jpg,photo_verified
-20046,-75.37081650177001,39.84775879219881,614 West 8th Street,religious,religious_building,5.62933807,276.45026353,1,25_GoogleStreetView_Buildings/images/20046/front_xOR3BKjM9hb7znEWEsTsZA.jpg,unresolved_photo_match
+20046,-75.37081650177001,39.84775879219881,614 West 8th Street,religious,religious_building,5.62933807,276.45026353,1,25_GoogleStreetView_Buildings/images/20046/front_xOR3BKjM9hb7znEWEsTsZA.jpg,photo_verified
 154877,-75.37074212444818,39.84837837124648,,commercial,small_commercial_storefront,11.5927392,214.75925176,1,25_GoogleStreetView_Buildings/images/154877/front_mekg61gwAx6XAn-CWPos4g.jpg,unresolved_photo_match
 194208,-75.3706887917995,39.84789985247838,,commercial,small_commercial_storefront,4.75147486,16.27540759,0,,no_local_photo
-17618,-75.37066042081429,39.84751837555053,717 Kerlin Street,religious,religious_building,12.20892658,214.88269513,1,25_GoogleStreetView_Buildings/images/17618/front_X51leE7-kVlny4tWq7GIGw.jpg,unresolved_photo_match
+17618,-75.37066042081429,39.84751837555053,717 Kerlin Street,religious,religious_building,12.20892658,214.88269513,1,25_GoogleStreetView_Buildings/images/17618/front_X51leE7-kVlny4tWq7GIGw.jpg,photo_verified
 113749,-75.37058910556922,39.84737293459425,,residential,apartment_multifamily,11.20020981,144.40276027,1,25_GoogleStreetView_Buildings/images/113749/front_As4vThp1AprhOCjYfRGDfw.jpg,unresolved_photo_match
 157435,-75.37043825243711,39.84837579508408,,commercial,small_commercial_storefront,4.63567343,23.77885833,0,,no_local_photo
 182911,-75.37041215226446,39.84786690348979,,commercial,small_commercial_storefront,7.74296613,77.93106805,1,25_GoogleStreetView_Buildings/images/182911/front_4KGv8fExb6V4PCDoCocIew.jpg,photo_verified

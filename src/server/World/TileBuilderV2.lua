@@ -2361,7 +2361,7 @@ local function buildFootprintBuilding(parent, building, shapeData)
 		if review.bay then model:SetAttribute("ReconstructionBay", true) end
 		model:SetAttribute("ReconstructionReviewed", true)
 	end
-	local gable = style.roof == "gable" and #shapeData.r <= 3
+	local gable = (style.roof == "gable" or (review and review.roof == "gable")) and #shapeData.r <= 3
 	local roofColor = style.roofs and pick(style.roofs, seed, 2)
 	-- measured roof colour from the 2025 aerial (tools/build_building_tiles.py),
 	-- slightly darkened: the orthophoto is brighter than in-game lighting
@@ -2644,6 +2644,32 @@ local function buildFootprintBuilding(parent, building, shapeData)
             end
         end
     end
+	if built > 0 and review and review.gothic and signRect and shapeData.fb then
+		local frame = CFrame.new(signRect.x,0,signRect.z)*yaw
+		local normal = faceToward(frame,shapeData.fb)
+		local extent = normal.X ~= 0 and signRect.along/2 or signRect.across/2
+		local span = normal.X ~= 0 and signRect.across or signRect.along
+		local outward = frame:VectorToWorldSpace(normal)
+		local p = frame*Vector3.new(normal.X*extent,0,normal.Z*extent)
+		local face = CFrame.lookAt(Vector3.new(p.X,0,p.Z),Vector3.new(p.X,0,p.Z)+outward)
+		local count = math.clamp(math.floor(span/15),3,7)
+		for i=1,count do
+			local u=-span/2+(i-0.5)*span/count
+			local y=signRect.streetLevel+math.min(21,(signRect.wallTop-signRect.streetLevel)*0.58)
+			local glass=newPart(model,"GothicLancet",Vector3.new(4.2,11,0.25),
+				face*CFrame.new(u,y,-0.25),Enum.Material.Glass,Color3.fromRGB(83,68,62))
+			glass.Transparency=0.18
+			glass.CanCollide=false
+			local mullion=newPart(model,"GothicMullion",Vector3.new(0.35,11,0.35),
+				face*CFrame.new(u,y,-0.48),Enum.Material.Cobblestone,Color3.fromRGB(198,187,164))
+			mullion.CanCollide=false
+			if i<count then
+				local buttress=newPart(model,"GothicButtress",Vector3.new(1.2,26,1.4),
+				face*CFrame.new(u+span/count/2,signRect.streetLevel+13,-0.7),Enum.Material.Cobblestone,wall)
+				buttress.CanCollide=false
+			end
+		end
+	end
 	if built > 0 and shapeData.pb and shapeData.pd and signRect and not (realCtx and realCtx.homeBuilt) then
 		buildPorch(model, shapeData, signRect, yaw)
 	end

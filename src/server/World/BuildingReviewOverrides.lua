@@ -48,4 +48,12 @@ return {
  ["142656"]={style="twin",arch="colonial_twin",porch=true,wall=0xe2dfd2,material="WoodPlanks",confidence="medium",evidence=G.."142656/front_gvwq1FsvFoMYlt9bAICsRg.jpg"},
  ["564"]={style="house",arch="victorian_house",porch=true,bay=true,wall=0x9e6450,material="Brick",confidence="medium",evidence=G.."564/front_hDIgeqfGu6AUJwPHvE0atw.jpg"},
  ["44085"]={style="garage",wall=0x855b4e,material="Brick",confidence="medium",evidence=G.."44085/front_PAFNzwxTo10RXRTk26WYqA.jpg"},
+ ["25111"]={style="school",use="education",roof="gable",wall=0x777774,material="Cobblestone",
+   confidence="high",evidence=G.."25111/front_CHHY-R-CVqOHneA5elpMhQ.jpg; county 733 W 9th footprint"},
+ ["82905"]={style="church",use="religious",gothic=true,wall=0xa59983,material="Cobblestone",
+   confidence="high",evidence=G.."82905/front_9YUPzXIbZkcGxZHk5X9CcA.jpg"},
+ ["20046"]={style="church",use="religious",wall=0xa96c55,material="Brick",
+   confidence="medium",evidence=G.."20046/front_xOR3BKjM9hb7znEWEsTsZA.jpg"},
+ ["17618"]={style="church",use="religious",wall=0xe4e3dc,material="SmoothPlastic",
+   confidence="medium",evidence=G.."17618/front_X51leE7-kVlny4tWq7GIGw.jpg"},
 }

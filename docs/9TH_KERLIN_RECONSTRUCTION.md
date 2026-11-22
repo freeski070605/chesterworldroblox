@@ -20,9 +20,10 @@ unreviewed IDs keep their tile footprint and get `ReconstructionStatus=unverifie
 
 ## Applied to the live world
 
-- 38 buildings: 32 residential structures, two named storefront structures
-  (147448 and 93584), three garage structures (23871, 97558, 44085), and one
-  other commercial structure (28482). The three sections of 97558 get separate
+- 42 buildings: 32 residential structures, two named storefront structures
+  (147448 and 93584), three garage structures (23871, 97558, 44085), one
+  other commercial structure (28482), and four institutional structures
+  (25111, 82905, 20046, 17618). The three sections of 97558 get separate
   roll-up bays and upper windows, matching its mixed-use frontage.
 - 147448 is the 900 W 9th / Lincoln corner parcel. The 2024 photograph shows
   **777 Food Market**, its door toward W 9th and an opaque side wall. The
@@ -40,11 +41,11 @@ unreviewed IDs keep their tile footprint and get `ReconstructionStatus=unverifie
 
 ## Remaining evidence limits
 
-18 IDs have a local image, but the available view is obstructed, covers a
+14 IDs have a local image, but the available view is obstructed, covers a
 neighbor or rear, or cannot establish a per-building facade or tenant door:
-33881, 185789, 20571, 158068, 107445, 25111, 191030, 82905, 170780,
-58063, 133503, 156812, 415, 50221, 20046, 154877, 17618, 113749.
-The station and church views among these remain in their existing builders.
+33881, 185789, 20571, 158068, 107445, 191030, 170780,
+58063, 133503, 156812, 415, 50221, 154877, 113749.
+The station views among these remain in their existing builders.
 
 12 IDs have no local building photo: 161384, 84792, 128777, 171786, 6108,
 120546, 40756, 92299, 194208, 157435, 203535, 91150. Several are tiny

@@ -1,0 +1,133 @@
+-- Exit 6 Bike Life: server-owned neighborhood rideouts and wheelie scoring.
+-- No client-supplied cash, scores, vehicle ownership, or coordinates are trusted.
+local Players=game:GetService("Players")
+local ReplicatedStorage=game:GetService("ReplicatedStorage")
+local RunService=game:GetService("RunService")
+local remotes=ReplicatedStorage:WaitForChild("Exit6Remotes")
+local action=Instance.new("RemoteFunction")
+action.Name="BikeLifeAction"
+action.Parent=remotes
+local changed=Instance.new("RemoteEvent")
+changed.Name="BikeLifeChanged"
+changed.Parent=remotes
+
+local rides={} -- leader userId -> {leader, members, waypoint, started, best, score}
+local current={} -- userId -> leader userId
+local cooldown={}
+local checkpoints={
+    {name="9th & Kerlin",pos=Vector3.new(2810,61,1519)},
+    {name="9th & Concord",pos=Vector3.new(3040,61,1690)},
+    {name="9th & Lincoln",pos=Vector3.new(2400,61,1430)},
+}
+local function locationFor(player)
+    local root=player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    return root and root.Position
+end
+local function getRide(player)
+    local key=current[player.UserId]
+    return key and rides[key]
+end
+local function count(ride)
+    local n=0
+    for _ in pairs(ride.members) do n+=1 end
+    return n
+end
+local function status(player)
+    local mine=getRide(player)
+    local open={}
+    for leaderId,ride in pairs(rides) do
+        if not ride.started then
+            table.insert(open,{leaderId=leaderId,leaderName=ride.leader.DisplayName,
+                riders=count(ride),meet=checkpoints[ride.waypoint].name})
+        end
+    end
+    table.sort(open,function(a,b)return a.leaderId<b.leaderId end)
+    if not mine then return {mine=nil,open=open} end
+    return {mine={leaderId=mine.leader.UserId,leaderName=mine.leader.DisplayName,
+        riders=count(mine),started=mine.started,meet=checkpoints[mine.waypoint].name,
+        score=math.floor(mine.score),best=math.floor(mine.best)},open=open}
+end
+local function emit()
+    for _,player in ipairs(Players:GetPlayers()) do changed:FireClient(player,status(player)) end
+end
+local function drop(player)
+    local ride=getRide(player)
+    if not ride then return end
+    ride.members[player.UserId]=nil
+    current[player.UserId]=nil
+    if player == ride.leader or count(ride)==0 then
+        for uid in pairs(ride.members) do current[uid]=nil end
+        rides[ride.leader.UserId]=nil
+    end
+    emit()
+end
+action.OnServerInvoke=function(player,command,value)
+    if type(command)~="string" then return status(player) end
+    if command=="status" then return status(player) end
+    local now=os.clock()
+    if cooldown[player] and now-cooldown[player]<1.25 then return status(player) end
+    cooldown[player]=now
+    if command=="create" and not getRide(player) and #Players:GetPlayers()>0 then
+        local i=math.clamp(math.floor(tonumber(value) or 1),1,#checkpoints)
+        rides[player.UserId]={leader=player,members={[player.UserId]=true},
+            waypoint=i,started=false,score=0,best=0}
+        current[player.UserId]=player.UserId
+    elseif command=="join" and not getRide(player) then
+        local id=tonumber(value)
+        local ride=id and rides[id]
+        if ride and not ride.started and count(ride)<12 then
+            ride.members[player.UserId]=true
+            current[player.UserId]=id
+        end
+    elseif command=="leave" then
+        drop(player)
+    elseif command=="start" then
+        local ride=getRide(player)
+        if ride and ride.leader==player and not ride.started then
+            local pos=locationFor(player)
+            if pos and (pos-checkpoints[ride.waypoint].pos).Magnitude<400 then
+                ride.started=true
+            end
+        end
+    elseif command=="finish" then
+        local ride=getRide(player)
+        if ride and ride.leader==player and ride.started then drop(player) end
+    end
+    emit()
+    return status(player)
+end
+local elapsed=0
+RunService.Heartbeat:Connect(function(dt)
+    elapsed+=dt
+    if elapsed<0.25 then return end
+    local step=math.min(elapsed,0.5)
+    elapsed=0
+    for _,ride in pairs(rides) do
+        if ride.started then
+            for uid in pairs(ride.members) do
+                local player=Players:GetPlayerByUserId(uid)
+                local hum=player and player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+                local seat=hum and hum.SeatPart
+                local vehicle=seat and seat.Parent
+                if seat and seat:IsA("VehicleSeat") and vehicle and vehicle:GetAttribute("Exit6BikeLife")
+                    and vehicle:GetAttribute("Owner")==uid and vehicle.PrimaryPart then
+                    local chassis=vehicle.PrimaryPart
+                    local speed=chassis.AssemblyLinearVelocity.Magnitude
+                    local pitch=chassis.CFrame.LookVector.Y
+                    -- Score only actually moving, front-elevated owned rides.
+                    if speed>12 and speed<145 and pitch>0.11 and pitch<0.7 then
+                        local points=step*(1+math.min(3,pitch*4))
+                        ride.score+=points
+                        ride.best=math.max(ride.best,ride.score)
+                        player:SetAttribute("BikeLifeWheelieScore",math.floor(ride.score))
+                    end
+                end
+            end
+        end
+    end
+end)
+Players.PlayerRemoving:Connect(function(player)
+    drop(player)
+    cooldown[player]=nil
+end)
+print("[Exit6 Bike Life] rideout server ready")

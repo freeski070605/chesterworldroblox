@@ -423,7 +423,15 @@ drawPhone = function()
                     end
                 end
                 row(phoneList,22,"Bike: A / Space to wheelie","")
-                row(phoneList,23,"Buy bikes/quads: Exit 6 Motors","")
+                local available={"bike_110","bike_250","bike_450","quad_450","quad_700"}
+                for i,itemId in ipairs(available) do
+                    local item=Catalog.Items[itemId]
+                    if item and not (prof.vehicles and prof.vehicles[item.model]) then
+                        local requirement=item.repRequired and (" / REP "..item.repRequired) or ""
+                        row(phoneList,24+i,"Buy "..item.name,"$"..item.price..requirement,
+                            act(function()remote:InvokeServer("buy",itemId)end))
+                    end
+                end
             end
         else
             row(phoneList,1,"Rideout system loading...","")

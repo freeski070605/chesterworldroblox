@@ -718,6 +718,8 @@ def main():
     ap.add_argument("--name", default="9th_kerlin")
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--reviewed", action="store_true", help="scope = every ID in pose_reviews.csv")
+    ap.add_argument("--unresolved", action="store_true",
+                    help="scope = IDs left unresolved in docs/*_review_log.csv (use with --fresh-panos)")
     ap.add_argument("--fresh-panos", action="store_true", help="free Google metadata probes per street wall")
     ap.add_argument("--fetch-images", type=int, default=0, help="billed Static images, hard cap")
     ap.add_argument("--render", action="store_true")
@@ -727,7 +729,14 @@ def main():
     fps = load_footprints()
     ROADS = load_roads()
     ROAD_TREE = STRtree([r["line"] for r in ROADS])
-    if a.reviewed:
+    if a.unresolved:
+        scope = sorted({r["building_id"] for log in ("zoning_review_log.csv", "structure_review_log.csv")
+                        if (ROOT / "docs" / log).exists()
+                        for r in csv.DictReader((ROOT / "docs" / log).open(newline="", encoding="utf-8"))
+                        if r["verdict"] == "unresolved_no_change" and r["building_id"] in fps})
+        a.name = "unresolved"
+        a.no_lua = True   # evidence only: nothing about these IDs is verified
+    elif a.reviewed:
         scope = [i for i in load_pose_reviews() if i in fps]
         a.name = "reviewed"
     elif a.all:

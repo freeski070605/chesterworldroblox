@@ -133,4 +133,8 @@ function BikeBuilder.Build(id, cf, opts)
     end)
     return m
 end
+-- chassis centre height above the ground at rest (display stands / spawns)
+function BikeBuilder.RideHeight(id)
+    return 2.25
+end
 return BikeBuilder

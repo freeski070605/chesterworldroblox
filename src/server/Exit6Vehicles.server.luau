@@ -277,8 +277,32 @@ end
 task.spawn(setupPumps)
 
 -- ------------------------------------------------------------------ dealership
+-- Exit 6 Motors stands at the FRONT of the J&S / Boost Mobile / 5 Points
+-- Market parking lot (county building 93584, tile r06_c07), facing the
+-- W 9th St / Kerlin St / Concord Ave five-point node - NOT Concord Avenue.
+-- Verified 2026-11-22 against
+--   * DVRPC 2025 orthophoto + county footprints (tools/harness/intersection_aerial.py,
+--     build/aerial/js_lot_93584.png): a triangular paved lot in front of the
+--     strip's NW face, apex at the 9th / Kerlin crossing;
+--   * OpenStreetMap names: West 9th Street runs through that node, Concord
+--     Avenue leaves it ESE along the lot's NE edge, Kerlin St on the west;
+--   * the rendered Studio geometry (tools/harness/probes/js_lot_fit.py): lot =
+--     terrain pavement (Y 51.0) between the Kerlin east sidewalk (yaw 24.4),
+--     the Concord south sidewalk (yaw 65.7) and the 9th / Kerlin pad; the
+--     strip's lot-facing doors (Boost Mobile, J & S) look along bearing 335.
+-- Frame: origin = Boost Mobile's ShopDoor at ground level, local -Z = that
+-- door's LookVector (out across the lot toward W 9th), +X = ENE along the
+-- storefronts. Layout (studs): display pad for the five Bike Life rides at the
+-- 9th Street end, the car row behind it, the sales office behind the cars at
+-- the Kerlin end (clear of every door), and a 30-stud aisle kept open in front
+-- of all three storefronts. Every piece is box-checked against the real
+-- sidewalks, roads, buildings and furniture before it is built; a blocked
+-- piece is left out and reported - the dealership is never moved elsewhere.
 local DEALER_NAME = "Exit 6 Motors"
-local LOT = Vector3.new(64, 0, 46)   -- along the road / depth
+local STRIP_ID = "93584"
+local STRIP_TILE = "tile_r06_c07"
+local VERIFIED_DOOR = Vector3.new(2927.469, 0, 1636.098)     -- Boost Mobile ShopDoor, studs
+local VERIFIED_OUT = Vector3.new(-0.4223842, 0, -0.9064169)  -- its LookVector (bearing 335)
 local terrainOnly = RaycastParams.new()
 terrainOnly.FilterType = Enum.RaycastFilterType.Include
 terrainOnly.FilterDescendantsInstances = { Workspace.Terrain }
@@ -286,77 +310,91 @@ local function groundAt(x, z)
 	local hit = Workspace:Raycast(Vector3.new(x, 600, z), Vector3.new(0, -900, 0), terrainOnly)
 	return hit and hit.Position.Y
 end
--- nothing built on it at all, ground-level paving included (a gas station
--- forecourt or a parking lot is not an empty lot)
-local function lotFree(cf)
+
+-- the strip by its stable county id, and its lot-facing storefront doors
+local function stripFrame()
+	local tile = world and world:WaitForChild(STRIP_TILE, 300)
+	local buildings = tile and tile:WaitForChild("Buildings", 120)
+	local strip
+	for _, b in ipairs(buildings and buildings:GetChildren() or {}) do
+		if tostring(b:GetAttribute("ChesterBuildingId")) == STRIP_ID then strip = b break end
+	end
+	local origin, out, source = VERIFIED_DOOR, VERIFIED_OUT, "verified-constants"
+	if strip then
+		local along = Vector3.new(-VERIFIED_OUT.Z, 0, VERIFIED_OUT.X)
+		local west
+		for _, d in ipairs(strip:GetChildren()) do
+			if d:IsA("BasePart") and d.Name == "ShopDoor" and d.CFrame.LookVector:Dot(VERIFIED_OUT) > 0.97 then
+				if not west or d.Position:Dot(along) < west.Position:Dot(along) then west = d end
+			end
+		end
+		if west then
+			local look = west.CFrame.LookVector
+			origin, out, source = west.Position, Vector3.new(look.X, 0, look.Z).Unit, "building-93584-doors"
+			local drift = (Vector3.new(origin.X, 0, origin.Z) - VERIFIED_DOOR).Magnitude
+			if drift > 6 then
+				warn(string.format("[EXIT6 Vehicles] strip 93584 door moved %.1f studs from the verified survey", drift))
+			end
+		else
+			warn("[EXIT6 Vehicles] strip 93584 found but no lot-facing ShopDoor; using verified survey")
+		end
+	else
+		warn("[EXIT6 Vehicles] strip 93584 not found in " .. STRIP_TILE .. "; using verified survey")
+	end
+	local probe = origin + out * 60
+	local y = groundAt(probe.X, probe.Z)
+	if not y then return nil, "no ground in the J&S lot" end
+	local right = Vector3.new(-out.Z, 0, out.X)
+	return CFrame.fromMatrix(Vector3.new(origin.X, y, origin.Z), right, Vector3.yAxis, -out), source
+end
+
+-- everything standing inside a footprint (terrain, this dealership, parked /
+-- driven vehicles and people excluded): real sidewalks, kerbs, roads, walls,
+-- poles and trees all count
+local function blockers(frame, lx, lz, w, h, d, ignore)
 	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { Workspace.Terrain }
-	params.MaxParts = 1
-	return #Workspace:GetPartBoundsInBox(cf * CFrame.new(0, 12, 0), Vector3.new(LOT.X + 6, 23.5, LOT.Z + 2), params) == 0
+	params.FilterDescendantsInstances = ignore
+	params.MaxParts = 40
+	local cf = frame * CFrame.new(lx, 0.12 + h / 2, lz)
+	local found = {}
+	for _, p in ipairs(Workspace:GetPartBoundsInBox(cf, Vector3.new(w, h, d), params)) do
+		local m = p:FindFirstAncestorOfClass("Model")
+		if not (m and m:FindFirstChildOfClass("Humanoid")) then
+			table.insert(found, p:GetFullName())
+			if #found >= 3 then break end
+		end
+	end
+	-- the ground under every corner must be the lot's own level
+	for _, c in ipairs({ { -1, -1 }, { -1, 1 }, { 1, -1 }, { 1, 1 } }) do
+		local wp = frame * Vector3.new(lx + c[1] * w / 2, 0, lz + c[2] * d / 2)
+		local gy = groundAt(wp.X, wp.Z)
+		if not gy or math.abs(gy - frame.Y) > 1.5 then
+			table.insert(found, string.format("ground %.1f at (%.0f, %.0f)", gy or -1, wp.X, wp.Z))
+			break
+		end
+	end
+	return found
 end
--- keep clear of the gas stations and of the 9th & Kerlin corner (a visual staple)
-local KEEP_CLEAR = { { Vector3.new(2810, 0, 1518), 250 } }
-local function awayFromLandmarks(pos)
-	for _, k in ipairs(KEEP_CLEAR) do
-		if (Vector3.new(pos.X, 0, pos.Z) - k[1]).Magnitude < k[2] then return false end
+
+-- the lot's terrain is uneven by a stud or two: each piece stands on the
+-- highest ground under its footprint (nothing sinks into the paving) and
+-- slabs get a footing down to the lowest point (nothing floats)
+local function groundSpan(frame, lx, lz, w, d)
+	local lo, hi = math.huge, -math.huge
+	for _, u in ipairs({ -0.5, 0, 0.5 }) do
+		for _, v in ipairs({ -0.5, 0, 0.5 }) do
+			local wp = frame * Vector3.new(lx + u * w, 0, lz + v * d)
+			local y = groundAt(wp.X, wp.Z)
+			if y then lo, hi = math.min(lo, y), math.max(hi, y) end
+		end
 	end
-	local stations = Workspace:FindFirstChild("ChesterGasStations")
-	for _, st in ipairs(stations and stations:GetChildren() or {}) do
-		local ok, pivot = pcall(function() return st:GetPivot().Position end)
-		if ok and (Vector3.new(pivot.X, 0, pivot.Z) - Vector3.new(pos.X, 0, pos.Z)).Magnitude < 150 then return false end
-	end
-	return true
+	if lo == math.huge then return frame.Y, frame.Y end
+	return lo, hi
 end
-local function findLot(near)
-	local region = require(Shared:WaitForChild("WorldConfig")).REAL_BUILDINGS_REGION
-	local cands = {}
-	-- the tiles' Roads folders only (never world:GetDescendants(): a million instances)
-	local roads = {}
-	for _, tile in ipairs(world and world:GetChildren() or {}) do
-		local f = tile:FindFirstChild("Roads")
-		if f then
-			task.wait()
-			for _, p in ipairs(f:GetChildren()) do table.insert(roads, p) end
-		end
-	end
-	for _, p in ipairs(roads) do
-		if p:IsA("BasePart") and p:GetAttribute("ChesterStreet")
-			and not p:GetAttribute("CW_HighwayProfiled") then
-			local pos = p.Position
-			if pos.X > region.minX and pos.X < region.maxX and pos.Z > region.minZ and pos.Z < region.maxZ then
-				local size = p.Size
-				local width = math.min(size.X, size.Z)
-				local len = math.max(size.X, size.Z)
-				if width >= 18 and len >= 40 then table.insert(cands, { p = p, d = (pos - near).Magnitude }) end
-			end
-		end
-	end
-	table.sort(cands, function(a, b) return a.d < b.d end)
-	for i, c in ipairs(cands) do
-		if i > 400 then break end
-		local p = c.p
-		local axis = (p.Size.Z > p.Size.X) and p.CFrame.LookVector or p.CFrame.RightVector
-		axis = Vector3.new(axis.X, 0, axis.Z).Unit
-		local width = math.min(p.Size.X, p.Size.Z)
-		local right = Vector3.new(-axis.Z, 0, axis.X)
-		for _, side in ipairs({ 1, -1 }) do
-			local center = p.Position + right * side * (width / 2 + 14 + LOT.Z / 2)
-			local gy = awayFromLandmarks(center) and groundAt(center.X, center.Z)
-			if gy then
-				local flat = true
-				for _, o in ipairs({ { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } }) do
-					local cp = center + axis * o[1] * LOT.X / 2 + right * o[2] * LOT.Z / 2
-					local y = groundAt(cp.X, cp.Z)
-					if not y or math.abs(y - gy) > 2.5 then flat = false break end
-				end
-				-- front (-Z) faces the road
-				local cf = CFrame.lookAt(Vector3.new(center.X, gy, center.Z), Vector3.new(center.X, gy, center.Z) - right * side)
-				if flat and lotFree(cf) then return cf, p:GetAttribute("ChesterStreet") end
-			end
-		end
-	end
-	return nil
+local function onGround(frame, lx, lz, w, d)
+	local lo, hi = groundSpan(frame, lx, lz, w, d)
+	return frame + Vector3.new(0, hi - frame.Y, 0), hi - lo
 end
 
 local function block(parent, name, size, cf, color, material)
@@ -371,149 +409,193 @@ local function block(parent, name, size, cf, color, material)
 	p.Parent = parent
 	return p
 end
+local function label(part, face, text, ppm)
+	local g = Instance.new("SurfaceGui")
+	g.Face = face
+	g.PixelsPerStud = ppm or 40
+	g.LightInfluence = 0
+	g.Parent = part
+	local l = Instance.new("TextLabel")
+	l.Size = UDim2.fromScale(1, 1)
+	l.BackgroundTransparency = 1
+	l.Text = text
+	l.TextColor3 = Color3.new(1, 1, 1)
+	l.Font = Enum.Font.GothamBlack
+	l.TextScaled = true
+	l.Parent = g
+	return l
+end
+local function priceBoard(parent, text, height)
+	local bb = Instance.new("BillboardGui")
+	bb.Size = UDim2.fromOffset(150, 46)
+	bb.StudsOffset = Vector3.new(0, height, 0)
+	bb.MaxDistance = 60
+	bb.Parent = parent
+	local l = Instance.new("TextLabel")
+	l.Size = UDim2.fromScale(1, 1)
+	l.BackgroundColor3 = Color3.fromRGB(18, 21, 27)
+	l.BackgroundTransparency = 0.15
+	l.TextColor3 = Color3.fromRGB(245, 245, 242)
+	l.Font = Enum.Font.GothamBold
+	l.TextSize = 13
+	l.Text = text
+	l.Parent = bb
+end
+
+-- layout, in the dealership frame (studs; -Z toward W 9th)
+local PAD = { x = -9, z = -97, w = 46, d = 18 }        -- Bike Life showroom pad
+local CARS = { x = 4, z = -70, w = 72, d = 20 }        -- used-car row
+local OFFICE = { x = -17, z = -43, w = 22, d = 14, h = 11 }
+local PYLON = { x = -30, z = -103 }
+local KIOSK = { x = 19, z = -94 }
+local TEST_SPAWN = { x = 30, z = -46 }                 -- test rides leave toward Concord's kerb cut
+local BIKE_DISPLAY = { "bike_110", "bike_250", "bike_450", "quad_450", "quad_700" }
+local CAR_DISPLAY = { "car_hatch", "car_suv", "car_coupe" }
 
 local function buildDealership()
 	local t0 = os.clock()
 	while not Workspace:GetAttribute("CW_StreetFurnitureComplete") and os.clock() - t0 < 400 do task.wait(2) end
-    -- J&S frontage is the authoritative landmark, not a random open parcel.
-    -- Place an anchored BasePart named Exit6JSLotFront in Workspace at the
-    -- front of the J&S parcel, with its -Z axis facing the street. The
-    -- part's position is ground-level; it is an editor marker, not a road.
-    local marker = Workspace:FindFirstChild("Exit6JSLotFront", true)
-    local lotCf, street
-    if marker and marker:IsA("BasePart") then
-        lotCf, street = marker.CFrame, "J&S front lot"
-        Workspace:SetAttribute("CW_Exit6DealershipPlacement", "J&S-marker")
-    else
-        -- DVRPC 2025 aerial and county footprint 93584: the paved front lot
-        -- lies east of the strip and directly south of W 9th. Source metres
-        -- (7381, 6660) place the dealer pad within that photographed frontage.
-        local sourceX, sourceZ = 7381, 6660
-        local x = (sourceX - 6347.889) * 3
-        local z = (7201.973 - sourceZ) * 3
-        local ground = groundAt(x,z)
-        if ground then
-            local outward = Vector3.new(math.sin(math.rad(335)),0,-math.cos(math.rad(335)))
-            local cf = CFrame.lookAt(Vector3.new(x,ground,z),Vector3.new(x,ground,z)+outward)
-            -- Forecourt asphalt already exists. Check generated buildings for
-            -- overlap without treating the parking surface as an obstruction.
-            local buildings = {}
-            for _,tile in ipairs(world and world:GetChildren() or {}) do
-                local folder = tile:FindFirstChild("Buildings")
-                if folder then table.insert(buildings,folder) end
-            end
-            local params = OverlapParams.new()
-            params.FilterType = Enum.RaycastFilterType.Include
-            params.FilterDescendantsInstances = buildings
-            params.MaxParts = 1
-            if #Workspace:GetPartBoundsInBox(cf*CFrame.new(0,8,0),Vector3.new(LOT.X,15,LOT.Z),params) == 0 then
-                lotCf, street = cf, "J&S front lot / W 9th Street"
-                Workspace:SetAttribute("CW_Exit6DealershipPlacement","J&S-front")
-            end
-        end
-        if not lotCf then
-            warn("[EXIT6 Vehicles] verified J&S front parcel unavailable; dealership not spawned")
-            Workspace:SetAttribute("CW_Exit6DealershipPlacement","J&S-front-unavailable")
-        end
-    end
-	if not lotCf then
-        warn("[EXIT6 Vehicles] no free lot for the dealership")
-        Workspace:SetAttribute("CW_Exit6DealershipStatus", "lot-unavailable")
-        Workspace:SetAttribute("CW_Exit6DealershipReady", true)
-        return
-    end
+	local frame, source = stripFrame()
+	if not frame then
+		warn("[EXIT6 Vehicles] J&S lot unavailable (" .. tostring(source) .. "); Exit 6 Motors not built")
+		Workspace:SetAttribute("CW_Exit6DealershipStatus", "lot-unavailable")
+		Workspace:SetAttribute("CW_Exit6DealershipReady", true)
+		return
+	end
 	local m = Instance.new("Model")
 	m.Name = DEALER_NAME
-	-- lot: asphalt, painted bays, kerb lights
-	block(m, "Lot", Vector3.new(LOT.X, 0.6, LOT.Z), lotCf * CFrame.new(0, 0.3, 0), Color3.fromRGB(58, 58, 62), Enum.Material.Asphalt)
-	-- five 13-stud bays along the front (the mesh cars are up to ~10 wide)
-	for i = 0, 5 do
-		block(m, "BayLine", Vector3.new(0.4, 0.05, 16), lotCf * CFrame.new(-32.5 + i * 13, 0.62, -LOT.Z / 2 + 10), Color3.fromRGB(230, 230, 226))
+	local ignore = { Workspace.Terrain, m, folder }
+	local problems = {}
+	local function place(name, lx, lz, w, h, d)
+		local hit = blockers(frame, lx, lz, w, h, d, ignore)
+		if #hit > 0 then
+			table.insert(problems, name .. " <- " .. table.concat(hit, "; "))
+			warn("[EXIT6 Vehicles] " .. DEALER_NAME .. " " .. name .. " blocked by " .. table.concat(hit, "; "))
+			return false
+		end
+		return true
 	end
-	-- sales office at the back of the lot
-	local ow, od, oh = 26, 16, 12
-	local officeCf = lotCf * CFrame.new(LOT.X / 2 - ow / 2 - 3, 0.6, LOT.Z / 2 - od / 2 - 2)
-	local WALL = Color3.fromRGB(226, 222, 214)
+	local WHITE = Color3.fromRGB(236, 236, 230)
 	local BLUE = Color3.fromRGB(22, 70, 150)
-	block(m, "Floor", Vector3.new(ow, 0.4, od), officeCf * CFrame.new(0, 0.2, 0), Color3.fromRGB(214, 210, 200))
-	block(m, "BackWall", Vector3.new(ow, oh, 0.8), officeCf * CFrame.new(0, oh / 2, od / 2), WALL, Enum.Material.Brick)
-	for _, s in ipairs({ -1, 1 }) do
-		block(m, "SideWall", Vector3.new(0.8, oh, od), officeCf * CFrame.new(s * ow / 2, oh / 2, 0), WALL, Enum.Material.Brick)
-		local g = block(m, "Window", Vector3.new(ow / 2 - 3, oh - 3.4, 0.3), officeCf * CFrame.new(s * (ow / 4 + 1.5), (oh - 3.4) / 2 + 0.4, -od / 2),
-			Color3.fromRGB(150, 190, 210), Enum.Material.Glass)
-		g.Transparency = 0.4
+	local ORANGE = Color3.fromRGB(229, 120, 30)
+
+	-- Bike Life showroom pad at the 9th Street end
+	if place("showroom pad", PAD.x, PAD.z, PAD.w, 7, PAD.d) then
+		local padFrame, drop = onGround(frame, PAD.x, PAD.z, PAD.w, PAD.d)
+		local thick = 0.3 + drop
+		block(m, "ShowroomPad", Vector3.new(PAD.w, thick, PAD.d), padFrame * CFrame.new(PAD.x, 0.3 - thick / 2, PAD.z),
+			Color3.fromRGB(170, 170, 166), Enum.Material.Concrete)
+		block(m, "PadEdge", Vector3.new(PAD.w, thick + 0.02, 0.6), padFrame * CFrame.new(PAD.x, 0.31 - thick / 2, PAD.z - PAD.d / 2 + 0.3), ORANGE)
+		for i, itemId in ipairs(BIKE_DISPLAY) do
+			local item = Catalog.Items[itemId]
+			local x = PAD.x - PAD.w / 2 + 5 + (i - 1) * 9
+			local yaw = math.rad((i % 2 == 0) and 14 or -14)
+			local base = padFrame * CFrame.new(x, 0.3, PAD.z + 1) * CFrame.Angles(0, yaw, 0)
+			local ride = BikeBuilder.Build(item.model, base * CFrame.new(0, BikeBuilder.RideHeight(item.model), 0),
+				{ display = true })
+			ride.Name = "Display_" .. itemId
+			ride:SetAttribute("Exit6ShopItem", itemId)
+			ride.Parent = m
+			priceBoard(ride.PrimaryPart, item.name .. "\n$" .. item.price .. (item.repRequired and ("  REP " .. item.repRequired) or "")
+				.. "\nFREE TEST RIDE", 4.2 + (i % 2) * 1.4)
+		end
 	end
-	block(m, "Header", Vector3.new(ow, 3.0, 0.8), officeCf * CFrame.new(0, oh - 1.5, -od / 2), BLUE)
-	block(m, "Roof", Vector3.new(ow + 1, 0.6, od + 1), officeCf * CFrame.new(0, oh + 0.3, 0), Color3.fromRGB(70, 72, 76))
-	local signPart = block(m, "SignBoard", Vector3.new(ow - 2, 2.4, 0.2), officeCf * CFrame.new(0, oh - 1.5, -od / 2 - 0.5), BLUE)
-	local sg = Instance.new("SurfaceGui")
-	sg.Face = Enum.NormalId.Front
-	sg.PixelsPerStud = 40
-	sg.Parent = signPart
-	local tl = Instance.new("TextLabel")
-	tl.Size = UDim2.fromScale(1, 1)
-	tl.BackgroundTransparency = 1
-	tl.Text = string.upper(DEALER_NAME)
-	tl.TextColor3 = Color3.new(1, 1, 1)
-	tl.Font = Enum.Font.GothamBlack
-	tl.TextScaled = true
-	tl.Parent = sg
-	-- pylon by the road
-	local pylonCf = lotCf * CFrame.new(-LOT.X / 2 + 4, 0, -LOT.Z / 2 + 2)
-	block(m, "PylonPost", Vector3.new(1.2, 14, 1.2), pylonCf * CFrame.new(0, 7, 0), Color3.fromRGB(180, 182, 186), Enum.Material.Metal)
-	local board = block(m, "PylonSign", Vector3.new(10, 4, 0.8), pylonCf * CFrame.new(0, 15.5, 0) * CFrame.Angles(0, math.rad(90), 0), BLUE)
-	for _, face in ipairs({ Enum.NormalId.Front, Enum.NormalId.Back }) do
-		local g = Instance.new("SurfaceGui")
-		g.Face = face
-		g.PixelsPerStud = 30
-		g.Parent = board
-		local l = tl:Clone()
-		l.Text = "EXIT 6 MOTORS\nUSED CARS"
-		l.Parent = g
+
+	-- used cars behind the bikes
+	if place("car row", CARS.x, CARS.z, CARS.w, 7, CARS.d) then
+		for i, itemId in ipairs(CAR_DISPLAY) do
+			local item = Catalog.Items[itemId]
+			local x = CARS.x - CARS.w / 2 + 12 + (i - 1) * 24
+			local bay = onGround(frame, x, CARS.z, 13, 16)
+			for _, s in ipairs({ -1, 1 }) do
+				local lineFrame = onGround(frame, x + s * 6.5, CARS.z, 0.4, 16)
+				block(m, "BayLine", Vector3.new(0.4, 0.05, 16), lineFrame * CFrame.new(x + s * 6.5, 0.03, CARS.z), WHITE)
+			end
+			local car = Builder.Build(item.model, bay * CFrame.new(x, 3.0, CARS.z), { display = true, paint = PAINT[(i * 3) % #PAINT + 1] })
+			car.Name = "Display_" .. itemId
+			car:SetAttribute("Exit6ShopItem", itemId)
+			car.Parent = m
+			priceBoard(car.PrimaryPart, item.name .. "\n$" .. item.price, 6.5)
+		end
 	end
-	-- the salesman's office is a shop (Exit6Storefronts fits it, Exit6Shop staffs it)
-	local anchor = block(m, "Exit6StoreAnchor", Vector3.new(1, 1, 1), officeCf * CFrame.new(0, 0.4, 0), Color3.new(1, 1, 1))
-	anchor.Transparency = 1
-	anchor.CanCollide = false
-	m:SetAttribute("ShopName", DEALER_NAME)
-	m:SetAttribute("BrandName", DEALER_NAME)
-	m:SetAttribute("Exit6StoreShell", "building")
-	m:SetAttribute("Exit6StoreWidth", ow - 1.6)
-	m:SetAttribute("Exit6StoreDepth", od - 1.6)
-	m:SetAttribute("Exit6StoreHeight", oh)
-	m:SetAttribute("BrandFascia", BLUE)
+
+	-- sales office behind the display rows, at the Kerlin end of the lot
+	local officeOk = place("sales office", OFFICE.x, OFFICE.z, OFFICE.w + 1, OFFICE.h, OFFICE.d + 1)
+	if officeOk then
+		local ow, od, oh = OFFICE.w, OFFICE.d, OFFICE.h
+		local officeFrame, drop = onGround(frame, OFFICE.x, OFFICE.z, ow, od)
+		local officeCf = officeFrame * CFrame.new(OFFICE.x, 0, OFFICE.z)
+		local WALL = Color3.fromRGB(226, 222, 214)
+		block(m, "Floor", Vector3.new(ow, 0.4 + drop, od), officeCf * CFrame.new(0, 0.4 - (0.4 + drop) / 2, 0), Color3.fromRGB(214, 210, 200))
+		block(m, "BackWall", Vector3.new(ow, oh, 0.8), officeCf * CFrame.new(0, oh / 2, od / 2), WALL, Enum.Material.Brick)
+		for _, s in ipairs({ -1, 1 }) do
+			block(m, "SideWall", Vector3.new(0.8, oh, od), officeCf * CFrame.new(s * ow / 2, oh / 2, 0), WALL, Enum.Material.Brick)
+			local g = block(m, "Window", Vector3.new(ow / 2 - 3, oh - 3.4, 0.3), officeCf * CFrame.new(s * (ow / 4 + 1.5), (oh - 3.4) / 2 + 0.4, -od / 2),
+				Color3.fromRGB(150, 190, 210), Enum.Material.Glass)
+			g.Transparency = 0.4
+		end
+		block(m, "Header", Vector3.new(ow, 3.0, 0.8), officeCf * CFrame.new(0, oh - 1.5, -od / 2), BLUE)
+		block(m, "Roof", Vector3.new(ow + 1, 0.6, od + 1), officeCf * CFrame.new(0, oh + 0.3, 0), Color3.fromRGB(70, 72, 76))
+		local signPart = block(m, "SignBoard", Vector3.new(ow - 2, 2.4, 0.2), officeCf * CFrame.new(0, oh - 1.5, -od / 2 - 0.5), BLUE)
+		label(signPart, Enum.NormalId.Front, string.upper(DEALER_NAME))
+		-- the salesman's office is a shop (Exit6Storefronts fits it, Exit6Shop staffs it)
+		local anchor = block(m, "Exit6StoreAnchor", Vector3.new(1, 1, 1), officeCf * CFrame.new(0, 0.4, 0), Color3.new(1, 1, 1))
+		anchor.Transparency = 1
+		anchor.CanCollide = false
+		m:SetAttribute("ShopName", DEALER_NAME)
+		m:SetAttribute("BrandName", DEALER_NAME)
+		m:SetAttribute("Exit6StoreShell", "building")
+		m:SetAttribute("Exit6StoreWidth", ow - 1.6)
+		m:SetAttribute("Exit6StoreDepth", od - 1.6)
+		m:SetAttribute("Exit6StoreHeight", oh)
+		m:SetAttribute("BrandFascia", BLUE)
+	end
+
+	-- pylon on the corner nearest W 9th & Kerlin, readable from both directions
+	if place("pylon", PYLON.x, PYLON.z, 3, 17, 3) then
+		local pylonCf = onGround(frame, PYLON.x, PYLON.z, 2, 2) * CFrame.new(PYLON.x, 0, PYLON.z)
+		block(m, "PylonPost", Vector3.new(1.2, 14, 1.2), pylonCf * CFrame.new(0, 7, 0), Color3.fromRGB(180, 182, 186), Enum.Material.Metal)
+		local board = block(m, "PylonSign", Vector3.new(11, 4.4, 0.8), pylonCf * CFrame.new(0, 15.6, 0), BLUE)
+		for _, face in ipairs({ Enum.NormalId.Front, Enum.NormalId.Back }) do
+			label(board, face, "EXIT 6 MOTORS\nDIRT BIKES  QUADS  CARS", 30)
+		end
+	end
+
+	-- Bike Life kiosk: buy, upgrade, paint, test ride (Exit6BikeLife.server wires it)
+	if place("bike life kiosk", KIOSK.x, KIOSK.z, 7, 9, 5) then
+		local kCf = onGround(frame, KIOSK.x, KIOSK.z, 6, 2.2) * CFrame.new(KIOSK.x, 0, KIOSK.z)
+		local counter = block(m, "BikeShopKiosk", Vector3.new(6, 3.6, 2.2), kCf * CFrame.new(0, 1.8, 0), Color3.fromRGB(28, 30, 34))
+		block(m, "KioskTop", Vector3.new(6.4, 0.3, 2.6), kCf * CFrame.new(0, 3.75, 0), ORANGE)
+		for _, s in ipairs({ -1, 1 }) do
+			block(m, "KioskPost", Vector3.new(0.4, 5, 0.4), kCf * CFrame.new(s * 2.9, 6.4, 0.9), Color3.fromRGB(180, 182, 186), Enum.Material.Metal)
+		end
+		local sign = block(m, "KioskSign", Vector3.new(6.6, 1.8, 0.3), kCf * CFrame.new(0, 8.6, 0.9), ORANGE)
+		for _, face in ipairs({ Enum.NormalId.Front, Enum.NormalId.Back }) do
+			label(sign, face, "BIKE LIFE - BUY / UPGRADE / TEST RIDE", 30)
+		end
+		counter:SetAttribute("Exit6BikeShop", true)
+	end
+
+	-- where test rides are handed over: open lot between the cars and the stores
+	if place("test-ride bay", TEST_SPAWN.x, TEST_SPAWN.z, 8, 6, 12) then
+		local spawnPart = block(m, "TestRideSpawn", Vector3.new(3, 0.2, 9),
+			onGround(frame, TEST_SPAWN.x, TEST_SPAWN.z, 9, 3) * CFrame.new(TEST_SPAWN.x, 0.1, TEST_SPAWN.z) * CFrame.Angles(0, math.rad(-90), 0), ORANGE, Enum.Material.Neon)
+		spawnPart.Transparency = 0.6
+		spawnPart.CanCollide = false
+		spawnPart.CanQuery = false
+	end
+
+	if officeOk then CollectionService:AddTag(m, "Exit6Store") end
 	m.Parent = Workspace
-	-- display cars along the front bays, a price board on each
-	local shown = { "car_hatch", "bike_250", "quad_450", "car_coupe", "car_suv" }
-	for i, itemId in ipairs(shown) do
-		local item = Catalog.Items[itemId]
-		local x = -26 + (i - 1) * 13   -- between the painted bay lines
-		-- nose to the street (lot -Z)
-		local cf = lotCf * CFrame.new(x, 3.0, -LOT.Z / 2 + 10)
-		local spec = Catalog.Vehicles[item.model]
-        local builder = spec and spec.rideType and BikeBuilder or Builder
-        local car = builder.Build(item.model, cf, { display = true, paint = PAINT[(i * 3) % #PAINT + 1] })
-		car.Name = "Display_" .. itemId
-		car.Parent = m
-		local bb = Instance.new("BillboardGui")
-		bb.Size = UDim2.fromOffset(120, 36)
-		bb.StudsOffset = Vector3.new(0, 5.5 + (i % 2) * 2.2, 0)
-		bb.MaxDistance = 45
-		bb.Parent = car.PrimaryPart
-		local l = Instance.new("TextLabel")
-		l.Size = UDim2.fromScale(1, 1)
-		l.BackgroundColor3 = Color3.fromRGB(18, 21, 27)
-		l.BackgroundTransparency = 0.15
-		l.TextColor3 = Color3.fromRGB(245, 245, 242)
-		l.Font = Enum.Font.GothamBold
-		l.TextSize = 13
-		l.Text = item.name .. "\n$" .. item.price
-		l.Parent = bb
-	end
-	CollectionService:AddTag(m, "Exit6Store")
-	Workspace:SetAttribute("Exit6DealershipAt", lotCf.Position)
-	print(string.format("[EXIT6 Vehicles] %s on %s at (%.0f, %.0f, %.0f)", DEALER_NAME, tostring(street), lotCf.X, lotCf.Y, lotCf.Z))
-    Workspace:SetAttribute("CW_Exit6DealershipStatus", "ready")
-    Workspace:SetAttribute("CW_Exit6DealershipReady", true)
+	local facing = frame.LookVector   -- local -Z: out of the doors toward W 9th
+	local bearing = (math.deg(math.atan2(facing.X, -facing.Z)) + 360) % 360
+	Workspace:SetAttribute("Exit6DealershipAt", frame.Position)
+	Workspace:SetAttribute("CW_Exit6DealershipPlacement", "J&S-front-lot:" .. STRIP_ID .. ":" .. tostring(source))
+	Workspace:SetAttribute("CW_Exit6DealershipFacing", bearing)
+	Workspace:SetAttribute("CW_Exit6DealershipClearance", #problems == 0 and "clear" or table.concat(problems, " | "))
+	print(string.format("[EXIT6 Vehicles] %s: J&S lot (building %s, %s) origin (%.1f, %.1f, %.1f) facing bearing %.0f toward W 9th; clearance %s",
+		DEALER_NAME, STRIP_ID, tostring(source), frame.X, frame.Y, frame.Z, bearing, #problems == 0 and "clear" or (#problems .. " piece(s) skipped")))
+	Workspace:SetAttribute("CW_Exit6DealershipStatus", "ready")
+	Workspace:SetAttribute("CW_Exit6DealershipReady", true)
 end
 task.spawn(buildDealership)

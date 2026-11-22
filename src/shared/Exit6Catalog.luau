@@ -73,9 +73,9 @@ Catalog.Items = {
     -- Bike Life: permanent garage ownership; all reputation gates remain server-enforced.
     bike_110 = { name = "110 Trail Dirt Bike", price = 1200, kind = "vehicle", model = "bike110" },
     bike_250 = { name = "250 MX Dirt Bike", price = 2600, kind = "vehicle", model = "bike250" },
-    bike_450 = { name = "450 MX Dirt Bike", price = 4200, kind = "vehicle", model = "bike450" },
+    bike_450 = { name = "450 MX Dirt Bike", price = 4200, kind = "vehicle", model = "bike450", repRequired = 25 },
     quad_450 = { name = "450 Sport Quad", price = 4700, kind = "vehicle", model = "quad450" },
-    quad_700 = { name = "700 Sport Quad", price = 6900, kind = "vehicle", model = "quad700" },
+    quad_700 = { name = "700 Sport Quad", price = 6900, kind = "vehicle", model = "quad700", repRequired = 45 },
 }
 
 -- Free development collection. IDs are stable profile keys; none are sold by

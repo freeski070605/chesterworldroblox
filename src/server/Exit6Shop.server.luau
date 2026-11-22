@@ -119,6 +119,12 @@ local function purchase(player, storeId, itemId)
 	if not inReach(player, store.counter, REACH) then return false, "Walk up to the counter" end
 	local cash = stats(player)
 	if not cash or cash.Value < item.price then return false, "Not enough Chester Cash" end
+    if item.repRequired then
+        local _,rep = stats(player)
+        if not rep or rep.Value < item.repRequired then
+            return false, "Requires "..item.repRequired.." reputation to unlock"
+        end
+    end
 	if item.kind == "vehicle" then
 		-- dealership: into the garage (Exit6Vehicles calls it from the phone)
 		local prof = Profile.Get(player)

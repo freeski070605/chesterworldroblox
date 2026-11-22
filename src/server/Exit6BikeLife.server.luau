@@ -47,6 +47,7 @@ local function status(player)
     if not mine then return {mine=nil,open=open} end
     return {mine={leaderId=mine.leader.UserId,leaderName=mine.leader.DisplayName,
         riders=count(mine),started=mine.started,meet=checkpoints[mine.waypoint].name,
+        meetPos=checkpoints[mine.waypoint].pos,
         score=math.floor(mine.score),best=math.floor(mine.best)},open=open}
 end
 local function emit()

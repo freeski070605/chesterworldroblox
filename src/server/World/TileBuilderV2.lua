@@ -2562,8 +2562,24 @@ local function buildFootprintBuilding(parent, building, shapeData)
 	return false
 end
 
+local BuildingReviewOverrides = require(script.Parent:WaitForChild("BuildingReviewOverrides"))
 local function buildBuilding(parent, building, shapes)
-	local shapeData = shapes and shapes[tostring(building.id)]
+    local shapeData = shapes and shapes[tostring(building.id)]
+    local correction = BuildingReviewOverrides[tostring(building.id)]
+    if shapeData and correction and correction.style then
+        -- Never mutate the shared tile's original shape record. Replacing only
+        -- the reviewed archetype preserves source geometry and the gameplay ID.
+        local copy = {}
+        for key, value in pairs(shapeData) do copy[key] = value end
+        copy.style = correction.style
+        if correction.style == "garage" then
+            -- Prevent an old house entry from spawning a phantom residential
+            -- stoop/porch or retail door after the garage classification.
+            copy.gs, copy.ss, copy.sb, copy.name = nil, nil, nil, nil
+            copy.pb, copy.pd = nil, nil
+        end
+        shapeData = copy
+    end
 	if shapeData and buildFootprintBuilding(parent, building, shapeData) then
 		return
 	end

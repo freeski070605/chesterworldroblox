@@ -177,6 +177,20 @@ function RealBuildings.Store(model, r, ctx, shop)
 			end
 			local bandH = math.max(h - 10, 2.4)
 			part(model, "SignBandWall", Vector3.new(span, bandH, 0.8), at(0, y0 + h - bandH / 2, 0.4), ctx.material, ctx.wall)
+            -- Readable ground-floor shopfront framing: make the canopy,
+            -- sign-band edge and glass transom physically distinct instead
+            -- of leaving all commercial ground floors as a flat texture.
+            -- These are procedural facade details, not photo-specific claims.
+            if shop.name and span >= 12 and h >= 9 then
+                local canopy = part(model,"StorefrontCanopy",Vector3.new(span-1.6,0.28,2.1),
+                    at(0,y0+h-bandH-0.2,-0.85),Enum.Material.Metal,
+                    shop.signBg or Color3.fromRGB(90,94,98))
+                canopy.CanCollide=false
+                local fascia = part(model,"StorefrontFascia",Vector3.new(span-1.6,0.7,0.24),
+                    at(0,y0+h-bandH+0.08,-1.9),Enum.Material.SmoothPlastic,
+                    Color3.fromRGB(45,47,50))
+                fascia.CanCollide=false
+            end
 			local glassTop = y0 + h - bandH
 			local doorW = math.min(5, span * 0.3)
             local glassHeight = glassTop - (y0+1.6)

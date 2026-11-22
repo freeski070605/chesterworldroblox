@@ -563,6 +563,28 @@ function HouseKit.Build(model, r, ctx, H)
 				Enum.Material.Concrete, STONE)
 			sill.CanCollide = false
 		end
+        -- A lightweight projecting second-floor bay. Chester's older brick
+        -- rows/twins frequently have faceted front bays; this is an archetype
+        -- variation, NOT a claim that this exact building was photo-verified.
+        -- Three non-colliding parts per eligible nearby unit, including lite
+        -- client decoration. The storefront and rental door remain untouched.
+        if floors >= 2 and w >= 15 and
+            (ctx.style == "rowhouse" or ctx.style == "twin" or
+             (ctx.style == "house" and arch == "victorian_house")) and hu % 4 == 0 then
+            local bayY = floorY + storeyH * 1.52
+            local bayW = math.min(w * 0.58, 10)
+            local bayH = math.min(storeyH * 0.72, 7)
+            local bay = solid("UpperBayFace",Vector3.new(bayW,bayH,0.65),
+                at(fcf,u,bayY,-1.65),Enum.Material.SmoothPlastic,trim)
+            bay.CanCollide=false
+            local glass = solid("UpperBayGlass",Vector3.new(bayW-1.1,bayH-1.1,0.12),
+                at(fcf,u,bayY,-2.04),Enum.Material.Glass,WINDOW_GLASS)
+            glass.Transparency=0.2
+            glass.CanCollide=false
+            local ledge = solid("UpperBayLedge",Vector3.new(bayW+0.8,0.4,2.1),
+                at(fcf,u,bayY-bayH/2-0.18,-1.1),Enum.Material.Concrete,STONE)
+            ledge.CanCollide=false
+        end
 		for k = 1, floors - 1 do
 			local y = floorY + k * storeyH + storeyH * 0.52
 			if w >= 15 then

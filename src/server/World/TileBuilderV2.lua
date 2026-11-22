@@ -2574,7 +2574,8 @@ local function buildFootprintBuilding(parent, building, shapeData)
     -- street-facing rectangle when a frontage bearing exists. This improves
     -- the correct building TYPE, without inventing a verified door position
     -- for garages whose imagery does not establish a frontage.
-    if built > 0 and shapeData.style == "garage" and shapeData.fb and #builtRects > 0 then
+    if built > 0 and (shapeData.style == "garage" or tostring(building.id) == "75470")
+        and shapeData.fb and #builtRects > 0 then
         local best, bestArea = nil, -1
         for _,rect in ipairs(builtRects) do
             if rect.area > bestArea then best, bestArea = rect,rect.area end

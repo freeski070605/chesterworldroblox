@@ -48,6 +48,9 @@ function Profile.Import(player, saved)
 				local spec = Catalog.Vehicles[id]
 				if spec and type(v) == "table" then
 					p.vehicles[id] = { fuel = math.clamp(tonumber(v.fuel) or spec.tank, 0, spec.tank) }
+                    if spec.rideType then
+                        p.vehicles[id].paint = math.clamp(math.floor(tonumber(v.paint) or 1),1,8)
+                    end
 				end
 			end
 		end

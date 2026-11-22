@@ -2680,10 +2680,11 @@ local function buildFootprintBuilding(parent, building, shapeData)
 		end
 	end
 	if built > 0 and kitHomes and realCtx then
-		model:SetAttribute("Exit6Kit", string.format("%s|%s|%d|%.2f|%s|%s|%d,%d,%d|%.3f", tostring(realCtx.front or ""),
+		model:SetAttribute("Exit6Kit", string.format("%s|%s|%d|%.2f|%s|%s|%d,%d,%d|%.3f|%s|%d|%d", tostring(realCtx.front or ""),
 			tostring(realCtx.corner or ""), realCtx.porch and 1 or 0, realCtx.porchDepth or 0, tostring(shapeData.style),
 			realCtx.material.Name, math.floor(realCtx.wall.R * 255 + 0.5), math.floor(realCtx.wall.G * 255 + 0.5),
-			math.floor(realCtx.wall.B * 255 + 0.5), shapeData.a) .. ";" .. table.concat(kitRects, ";"))
+			math.floor(realCtx.wall.B * 255 + 0.5), shapeData.a,
+            tostring(realCtx.arch or ""), realCtx.bay and 1 or 0, realCtx.reviewed and 1 or 0) .. ";" .. table.concat(kitRects, ";"))
 	end
 	if built > 0 then
 		model.Parent = parent

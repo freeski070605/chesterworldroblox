@@ -335,3 +335,131 @@ building_id,verdict,tile_style,tile,street,photo,fov_share,sheet,roof,porch,floo
 205171,residential_rowhouse,generic,tile_r04_c06,West 3rd Street,25_GoogleStreetView_Buildings/images/205171/front_dMJ5Uw-MNgAajwGQI5uPbQ.jpg,0.9,z020#333,flat,0,3,medium
 177129,residential_house,storefront,tile_r07_c09,East 7th Street,25_GoogleStreetView_Buildings/images/177129/front_geumE6VSKlj1acJixk1iRA.jpg,0.32,z020#334,flat,1,2,medium
 122924,residential_rowhouse,storefront,tile_r07_c09,North Street,25_GoogleStreetView_Buildings/images/122924/front_XKqplBmu75eXVpQJhN3udw.jpg,0.8,z020#335,flat,0,2,medium
+115387,residential_twin,storefront,tile_r04_c06,West 2nd Street,25_GoogleStreetView_Buildings/images/115387/front_vIlTNyFHjFs5qfF1Exsd5Q.jpg,0.44,z021#336,flat,1,2,medium
+97396,residential_twin,storefront,tile_r04_c06,Mary Street,25_GoogleStreetView_Buildings/images/97396/front_gOAR6M3DVMsqObFrpImZxw.jpg,0.8,z021#337,flat,0,2,medium
+202396,confirmed_commercial_no_change,warehouse,tile_r07_c09,East 5th Street,25_GoogleStreetView_Buildings/images/202396/front_2-YWSgkvZVsSQNnStklDmQ.jpg,0.73,z021#338,,,,medium
+84082,residential_house,storefront,tile_r07_c08,East 9th Street,25_GoogleStreetView_Buildings/images/84082/front_A9tJRmIFgJF27F9g0DYBsA.jpg,0.34,z021#339,front_gable,0,2,medium
+48735,residential_house,storefront,tile_r04_c06,West 2nd Street,25_GoogleStreetView_Buildings/images/48735/front_dDH33zfMFuSxranf9L9MFQ.jpg,0.59,z021#340,flat,0,2,medium
+46235,residential_rowhouse,storefront,tile_r04_c06,Yarnall Street,25_GoogleStreetView_Buildings/images/46235/front_AAMiO5tdC_3kFG2qQI0VSQ.jpg,0.54,z021#341,flat,1,2,high
+105673,unresolved_no_change,storefront,tile_r07_c09,North Street,25_GoogleStreetView_Buildings/images/105673/front_XKqplBmu75eXVpQJhN3udw.jpg,0.76,z021#342,,,,medium
+17446,residential_house,storefront,tile_r07_c09,North Street,25_GoogleStreetView_Buildings/images/17446/front_79Ef5DGNqFXw52mXPe9eig.jpg,0.44,z021#343,flat,0,2,high
+125292,unresolved_no_change,storefront,tile_r04_c06,West 2nd Street,25_GoogleStreetView_Buildings/images/125292/front_3squVJpN1I2fUmk8y_hZOA.jpg,0.41,z021#344,,,,medium
+102389,residential_twin,storefront,tile_r07_c09,East 8th Street,25_GoogleStreetView_Buildings/images/102389/front_odYLaujZz38R4P_Abya3XQ.jpg,0.8,z021#345,mansard,0,2,high
+18908,residential_rowhouse,storefront,tile_r05_c05,Jeffrey Street,25_GoogleStreetView_Buildings/images/18908/front_x0gtpOPbcauOOvcsFAaCBA.jpg,0.68,z021#346,flat,0,2,high
+182777,residential_twin,storefront,tile_r04_c06,Yarnall Street,25_GoogleStreetView_Buildings/images/182777/front_F0fYZN4sjVkaOpWc0HUaTQ.jpg,0.54,z021#347,flat,1,2,high
+135632,unresolved_no_change,storefront,tile_r04_c06,West 3rd Street,25_GoogleStreetView_Buildings/images/135632/front_il5pnkc1oEZ0y_PRoisTBw.jpg,0.44,z021#348,,,,medium
+194607,confirmed_commercial_no_change,storefront,tile_r07_c09,East 4th Street,25_GoogleStreetView_Buildings/images/194607/front_EMz1BmXqRcn6h2ds8tuDyQ.jpg,0.51,z021#349,,,,medium
+141920,garage,storefront,tile_r04_c06,Mary Street,25_GoogleStreetView_Buildings/images/141920/front_lzjVUUJryAaVbsSXtQmesQ.jpg,0.54,z021#350,front_gable,,,medium
+121063,residential_twin,storefront,tile_r07_c09,Potter Street,25_GoogleStreetView_Buildings/images/121063/front_FmHz_qgq2seyo1mEEU74eA.jpg,0.59,z021#351,flat,0,2,high
+48613,confirmed_commercial_no_change,commercial,tile_r07_c09,Potter Street,25_GoogleStreetView_Buildings/images/48613/front_RHr7rtUoKgFqrCsNDBRH2w.jpg,0.85,z022#352,,,,medium
+18523,unresolved_no_change,storefront,tile_r04_c06,Mary Street,25_GoogleStreetView_Buildings/images/18523/front_lzjVUUJryAaVbsSXtQmesQ.jpg,0.73,z022#353,,,,medium
+71028,garage,storefront,tile_r05_c05,John Street,25_GoogleStreetView_Buildings/images/71028/front_QrteOhy5Eo9poRhnW-vn1g.jpg,0.59,z022#354,flat,,,medium
+63754,residential_rowhouse,storefront,tile_r05_c05,Engle Street,25_GoogleStreetView_Buildings/images/146875/front_78vUevvvS_9rvlgNOXV9EA.jpg,1.0,z022#355,side_gable,0,2,high
+110504,unresolved_no_change,storefront,tile_r04_c06,Mary Street,25_GoogleStreetView_Buildings/images/110504/front_HbW-7OSiXCbXo4hk5weIJg.jpg,0.66,z022#356,,,,medium
+2153,confirmed_commercial_no_change,generic,tile_r04_c05,Union Street,25_GoogleStreetView_Buildings/images/2153/front_xklKW6y1uz7X_kGDnZv41A.jpg,0.83,z022#357,,,,medium
+166929,residential_twin,storefront,tile_r07_c09,East 9th Street,25_GoogleStreetView_Buildings/images/166929/front_TGKS8lHWquPcgO_IMU4QIg.jpg,0.59,z022#358,flat,1,3,high
+19652,residential_rowhouse,commercial,tile_r04_c06,Jeffrey Street,25_GoogleStreetView_Buildings/images/19652/front_1uo3azK48WG7CN1nq3uIcw.jpg,0.73,z022#359,side_gable,0,2,medium
+92901,unresolved_no_change,storefront,tile_r07_c09,East 9th Street,25_GoogleStreetView_Buildings/images/92901/front_qbGwsj3SphBtqY_jORVJSw.jpg,0.51,z022#360,,,,medium
+117939,confirmed_commercial_no_change,storefront,tile_r07_c09,Morton Avenue,25_GoogleStreetView_Buildings/images/117939/front_x8XdNgSRnFN5Mggj3hC-Jg.jpg,0.61,z022#361,,,,medium
+102200,unresolved_no_change,storefront,tile_r04_c05,West 3rd Street,25_GoogleStreetView_Buildings/images/102200/front_TCRaZg1wWCsvnCFFkcT14g.jpg,0.68,z022#362,,,,medium
+125056,unresolved_no_change,storefront,tile_r07_c09,East Congress Street,25_GoogleStreetView_Buildings/images/125056/front_rOSMSoy0Y78APXJsE9q5SQ.jpg,0.39,z022#363,,,,medium
+174901,residential_twin,storefront,tile_r04_c05,West 3rd Street,25_GoogleStreetView_Buildings/images/174901/front_TCRaZg1wWCsvnCFFkcT14g.jpg,0.61,z022#364,flat,1,2,high
+4213,residential_rowhouse,storefront,tile_r05_c05,Engle Street,25_GoogleStreetView_Buildings/images/4213/front_8Wxy-PIBcnFvARUEGI94kA.jpg,0.46,z022#365,flat,1,2,high
+2103,unresolved_no_change,storefront,tile_r07_c09,Morton Avenue,25_GoogleStreetView_Buildings/images/2103/front_it-zUUxQD8LH28vFNUgGuw.jpg,0.34,z022#366,,,,medium
+3665,residential_rowhouse,storefront,tile_r04_c05,Engle Street,25_GoogleStreetView_Buildings/images/3665/front_8Wxy-PIBcnFvARUEGI94kA.jpg,0.56,z022#367,flat,1,2,high
+200656,residential_twin,storefront,tile_r04_c05,Engle Street,25_GoogleStreetView_Buildings/images/200656/front_N9KetHZ-p-NekEzNpo7bLA.jpg,0.56,z023#368,flat,1,2,medium
+35947,residential_rowhouse,commercial,tile_r04_c05,Jeffrey Street,25_GoogleStreetView_Buildings/images/35947/front__pQHFHplig3WWOGfB_h4cA.jpg,1.0,z023#369,side_gable,0,3,high
+158529,residential_twin,storefront,tile_r04_c05,West 3rd Street,25_GoogleStreetView_Buildings/images/158529/front_PVnE077NK-AKA9U5cKFscA.jpg,0.44,z023#370,side_gable,1,3,medium
+149004,residential_rowhouse,commercial,tile_r07_c09,East 8th Street,25_GoogleStreetView_Buildings/images/149004/front_NaZE6kvRbU3XCN09ObIYYQ.jpg,0.73,z023#371,flat,1,2,high
+17470,residential_twin,storefront,tile_r04_c05,West 3rd Street,25_GoogleStreetView_Buildings/images/17470/front_baPkHCQnY3UrluEvwc4yRw.jpg,0.54,z023#372,side_gable,1,2,medium
+140527,unresolved_no_change,storefront,tile_r04_c05,Byram Street,25_GoogleStreetView_Buildings/images/140527/front_jarwILTIfJVitx6CGvfMbQ.jpg,0.83,z023#373,,,,medium
+134935,residential_twin,storefront,tile_r04_c05,Jeffrey Street,25_GoogleStreetView_Buildings/images/134935/front_HBERartU6xSNz0-b2lYTvg.jpg,0.59,z023#374,flat,0,2,medium
+30150,garage,storefront,tile_r04_c05,Union Street,25_GoogleStreetView_Buildings/images/30150/front_wLLwbTpg86DTv_48dVJBOg.jpg,0.95,z023#375,flat,,,high
+67224,unresolved_no_change,storefront,tile_r08_c08,East 15th Street,25_GoogleStreetView_Buildings/images/67224/front_Vwvoiejo2eujh8fdatiTKw.jpg,0.56,z023#376,,,,medium
+140590,residential_twin,storefront,tile_r04_c05,West 3rd Street,25_GoogleStreetView_Buildings/images/140590/front_ygEqHDjoiH2SuR-Om0H0mA.jpg,0.56,z023#377,flat,1,3,high
+112637,residential_twin,storefront,tile_r07_c09,East 8th Street,25_GoogleStreetView_Buildings/images/112637/front_ESmztXnSog2zOIu67YKeBA.jpg,0.59,z023#378,side_gable,0,3,medium
+51726,residential_house,storefront,tile_r04_c05,West 3rd Street,25_GoogleStreetView_Buildings/images/51726/front_ygEqHDjoiH2SuR-Om0H0mA.jpg,0.44,z023#379,side_gable,0,2,high
+137421,residential_rowhouse,storefront,tile_r04_c05,Engle Street,25_GoogleStreetView_Buildings/images/137421/front_V8-DI1qpDkCwRIVVYZr4JQ.jpg,0.85,z023#380,flat,0,2,medium
+80323,residential_house,storefront,tile_r07_c09,Mcilvain Street,25_GoogleStreetView_Buildings/images/80323/front_cTwHD7PS3U3mN975z0iYHg.jpg,0.39,z023#381,front_gable,0,2,medium
+122162,residential_apartment,generic,tile_r08_c07,Howard Street,25_GoogleStreetView_Buildings/images/122162/front_deMnmlh9x8xwXCWMSHS65g.jpg,0.71,z023#382,side_gable,0,2,high
+53834,unresolved_no_change,storefront,tile_r07_c09,East 9th Street,25_GoogleStreetView_Buildings/images/53834/front_pETogMfi2YbDd2UxbFJjYA.jpg,0.24,z023#383,,,,medium
+147357,unresolved_no_change,storefront,tile_r04_c05,West 2nd Street,25_GoogleStreetView_Buildings/images/147357/front_2T-eycwtd0ZkaFJyle8jVA.jpg,0.49,z024#384,,,,medium
+204848,residential_twin,storefront,tile_r04_c05,Engle Street,25_GoogleStreetView_Buildings/images/204848/front_oxkFgtTHtStgQhWSV0e5Qg.jpg,0.56,z024#385,flat,1,2,medium
+31812,residential_house,storefront,tile_r04_c05,West 3rd Street,25_GoogleStreetView_Buildings/images/31812/front_UAQthpWUYGi8j770ey-Tvg.jpg,0.49,z024#386,front_gable,1,2,medium
+168593,confirmed_commercial_no_change,storefront,tile_r05_c05,West 9th Street,25_GoogleStreetView_Buildings/images/168593/front_u1Y9pMBhOiivfnwb0K36xA.jpg,0.39,z024#387,,,,medium
+128466,residential_twin,storefront,tile_r04_c05,Engle Street,25_GoogleStreetView_Buildings/images/128466/front_Re1KKe-WwNxog_gzOagKdQ.jpg,0.66,z024#388,side_gable,0,2,high
+154417,residential_rowhouse,storefront,tile_r04_c05,Engle Street,25_GoogleStreetView_Buildings/images/154417/front_xXK4LtsXRxGvc9B6qZmLNA.jpg,0.95,z024#389,mansard,0,2,medium
+32236,residential_twin,storefront,tile_r04_c05,West 3rd Street,25_GoogleStreetView_Buildings/images/32236/front_y1gRu3zYhWNdbLfvrICu4A.jpg,0.59,z024#390,side_gable,1,2,high
+163859,residential_twin,storefront,tile_r04_c05,West 3rd Street,25_GoogleStreetView_Buildings/images/163859/front_xViOy1ZTCastQWejzxoNYA.jpg,0.56,z024#391,side_gable,1,2,high
+34756,residential_twin,storefront,tile_r07_c09,Mcilvain Street,25_GoogleStreetView_Buildings/images/34756/front_RPC-XleENKpBHfCtXEbCJQ.jpg,0.54,z024#392,side_gable,1,2,high
+67232,residential_twin,storefront,tile_r04_c05,Mary Street,25_GoogleStreetView_Buildings/images/67232/front_hS67rGmrrdyR8n7QHnwNeg.jpg,0.66,z024#393,flat,0,2,medium
+167171,confirmed_commercial_no_change,storefront,tile_r08_c07,East 20th Street,25_GoogleStreetView_Buildings/images/167171/front_ePQfleD50gsVkei782kAJw.jpg,0.71,z024#394,,,,medium
+107347,residential_twin,storefront,tile_r08_c07,Edgmont Avenue,25_GoogleStreetView_Buildings/images/107347/front_nj4yAXN006YXpHIcfYpIzQ.jpg,0.54,z024#395,front_gable,1,2,high
+98840,residential_twin,storefront,tile_r08_c07,Edgmont Avenue,25_GoogleStreetView_Buildings/images/98840/front_xQknkTf-UlHoxVe7NFkJiw.jpg,0.46,z024#396,front_gable,1,2,medium
+180133,residential_twin,storefront,tile_r08_c07,Edgmont Avenue,25_GoogleStreetView_Buildings/images/180133/front_VHCXIEdhwqYYhy_9mh9BCQ.jpg,0.56,z024#397,front_gable,1,2,medium
+164703,unresolved_no_change,storefront,tile_r07_c09,East Congress Street,25_GoogleStreetView_Buildings/images/116351/front_3GaUOrVCUz87FMGrYSbDMg.jpg,0.78,z024#398,,,,medium
+145363,unresolved_no_change,storefront,tile_r07_c09,Mcilvain Street,25_GoogleStreetView_Buildings/images/145363/front_jc-Tf9OvabQ65xEjVlmNxg.jpg,0.32,z024#399,,,,medium
+113216,residential_house,storefront,tile_r04_c05,West 3rd Street,25_GoogleStreetView_Buildings/images/113216/front_UAQthpWUYGi8j770ey-Tvg.jpg,0.37,z025#400,side_gable,0,2,medium
+65376,residential_rowhouse,commercial,tile_r07_c09,Mcilvain Street,25_GoogleStreetView_Buildings/images/65376/front_8hYcvpGWjECZVUfwXgPqtQ.jpg,1.0,z025#401,flat,1,3,high
+107316,residential_rowhouse,storefront,tile_r07_c09,East 7th Street,25_GoogleStreetView_Buildings/images/107316/front_tNLdODAe2__GGu74bGc9jA.jpg,0.68,z025#402,flat,0,2,medium
+177955,residential_house,storefront,tile_r04_c05,West 3rd Street,25_GoogleStreetView_Buildings/images/177955/front_d_sv_utXv1nME6XPH7dPzw.jpg,0.37,z025#403,flat,0,2,medium
+126511,residential_twin,storefront,tile_r08_c07,Edgmont Avenue,25_GoogleStreetView_Buildings/images/126511/front_bU0h3M8VkyEHMJWXOBSCow.jpg,0.56,z025#404,front_gable,1,2,medium
+62821,residential_twin,storefront,tile_r08_c07,Edgmont Avenue,25_GoogleStreetView_Buildings/images/62821/front_1PVGWgnPYps7LceTNOAVsg.jpg,0.54,z025#405,front_gable,1,2,medium
+122402,confirmed_commercial_no_change,storefront,tile_r04_c05,Engle Street,25_GoogleStreetView_Buildings/images/122402/front_UuKTXTwiRGJqE1khd1L28w.jpg,0.49,z025#406,,,,medium
+206635,confirmed_commercial_no_change,storefront,tile_r04_c05,West 3rd Street,25_GoogleStreetView_Buildings/images/206635/front_xViOy1ZTCastQWejzxoNYA.jpg,0.71,z025#407,,,,medium
+158334,unresolved_no_change,storefront,tile_r08_c07,East 21st Street,25_GoogleStreetView_Buildings/images/158334/front_rPSXjdJz3xO35sI5mHbtTA.jpg,0.51,z025#408,,,,medium
+64352,residential_twin,storefront,tile_r04_c05,West 3rd Street,25_GoogleStreetView_Buildings/images/64352/front_pDkJKRn8mtrHK4I1gNQWFw.jpg,0.54,z025#409,mansard,1,3,medium
+49284,residential_house,storefront,tile_r07_c09,Green Street,25_GoogleStreetView_Buildings/images/49284/front_XL-grnrxWOsA4WsagYCk8w.jpg,0.44,z025#410,flat,0,2,high
+197324,confirmed_commercial_no_change,commercial,tile_r07_c09,Morton Avenue,25_GoogleStreetView_Buildings/images/197324/front_AS_Ra54ggVRLpH8XkEHraw.jpg,0.66,z025#411,,,,medium
+20252,garage,storefront,tile_r04_c05,Mary Street,25_GoogleStreetView_Buildings/images/20252/front_cWP4tPLjxcZFPOOxlyACRg.jpg,0.66,z025#412,front_gable,,,medium
+190762,residential_twin,storefront,tile_r08_c07,Edgmont Avenue,25_GoogleStreetView_Buildings/images/190762/front_Or2Ngt7h1jS7c8K3_LNdPg.jpg,0.49,z025#413,flat,1,2,high
+16390,residential_twin,storefront,tile_r08_c07,Edgmont Avenue,25_GoogleStreetView_Buildings/images/16390/front_dA47cDByNXUx3DpxAR-eGg.jpg,0.51,z025#414,flat,1,2,high
+104441,residential_twin,storefront,tile_r08_c07,Edgmont Avenue,25_GoogleStreetView_Buildings/images/104441/front_0QtRYFZtCMZKq2ShYENMCQ.jpg,0.61,z025#415,flat,1,2,medium
+6808,residential_twin,storefront,tile_r08_c07,Edgmont Avenue,25_GoogleStreetView_Buildings/images/6808/front_0QtRYFZtCMZKq2ShYENMCQ.jpg,0.54,z026#416,flat,1,2,high
+80874,residential_twin,storefront,tile_r08_c07,East 21st Street,25_GoogleStreetView_Buildings/images/80874/front_qZ_b6kOV9r1YzAhN8KLISA.jpg,0.59,z026#417,flat,1,2,high
+34328,residential_rowhouse,storefront,tile_r04_c05,West 3rd Street,25_GoogleStreetView_Buildings/images/34328/front_k9RW0dZlapDLUYru2xslpQ.jpg,0.49,z026#418,side_gable,0,3,medium
+181295,confirmed_commercial_no_change,commercial,tile_r08_c09,Rose Street,25_GoogleStreetView_Buildings/images/181295/front_c6x8s2zuGu-N3pvzcHpbHA.jpg,1.0,z026#419,,,,medium
+53052,residential_twin,storefront,tile_r08_c07,East 21st Street,25_GoogleStreetView_Buildings/images/53052/front_qZ_b6kOV9r1YzAhN8KLISA.jpg,0.54,z026#420,flat,1,2,high
+148662,unresolved_no_change,commercial,tile_r08_c09,Rose Street,25_GoogleStreetView_Buildings/images/148662/front_RHnr8DXggZyI_v_pZHRsiw.jpg,0.71,z026#421,,,,medium
+99819,confirmed_commercial_no_change,storefront,tile_r05_c05,West 9th Street,25_GoogleStreetView_Buildings/images/99819/front_4JGMpRFv3TyaDk54t77AQw.jpg,0.49,z026#422,,,,medium
+82497,residential_house,storefront,tile_r04_c05,West 3rd Street,25_GoogleStreetView_Buildings/images/82497/front_pDkJKRn8mtrHK4I1gNQWFw.jpg,0.66,z026#423,side_gable,0,1,high
+39934,residential_rowhouse,storefront,tile_r07_c09,East 7th Street,25_GoogleStreetView_Buildings/images/39934/front_tNLdODAe2__GGu74bGc9jA.jpg,0.66,z026#424,flat,0,2,high
+63273,confirmed_commercial_no_change,storefront,tile_r04_c05,Mary Street,25_GoogleStreetView_Buildings/images/63273/front_BFDV2ke7o6vX1jEDtM819A.jpg,0.68,z026#425,,,,medium
+162640,confirmed_commercial_no_change,commercial,tile_r07_c09,East 9th Street,25_GoogleStreetView_Buildings/images/162640/front_yWI07QjQu4NVXUuE6AvWvg.jpg,0.76,z026#426,,,,medium
+9239,garage,storefront,tile_r08_c07,East 21st Street,25_GoogleStreetView_Buildings/images/9239/front_ZFOaM_gQDGbooLFgHwMJJw.jpg,0.54,z026#427,flat,,,medium
+78662,residential_rowhouse,storefront,tile_r07_c09,Magnolia Street,25_GoogleStreetView_Buildings/images/78662/front_6NZydXfl4HbF-GyCER6eaw.jpg,0.56,z026#428,flat,1,2,medium
+135592,unresolved_no_change,storefront,tile_r07_c09,Caldwell Street,25_GoogleStreetView_Buildings/images/135592/front_QHLgIRd5wCfNSV0WAvgdyg.jpg,0.61,z026#429,,,,medium
+83512,residential_house,storefront,tile_r07_c09,Morton Avenue,25_GoogleStreetView_Buildings/images/55714/front_AS_Ra54ggVRLpH8XkEHraw.jpg,0.76,z026#430,flat,1,3,medium
+48515,residential_house,storefront,tile_r05_c05,Palmer Street,25_GoogleStreetView_Buildings/images/48515/front_n3SueznfgHuc-0iqxowuXA.jpg,0.44,z026#431,side_gable,1,1,medium
+92904,unresolved_no_change,storefront,tile_r04_c05,Townsend Street,25_GoogleStreetView_Buildings/images/92904/front_kTncxa_0V4J9TqgXfWDtkQ.jpg,0.59,z027#432,,,,medium
+126135,residential_house,storefront,tile_r05_c05,Palmer Street,25_GoogleStreetView_Buildings/images/126135/front_7HeP6XvVtTwE-fnvG18PbQ.jpg,0.66,z027#433,side_gable,0,1,high
+54063,residential_house,storefront,tile_r05_c05,Palmer Street,25_GoogleStreetView_Buildings/images/54063/front_u1KZ-BvOPA6TPaM9kSSn2w.jpg,0.68,z027#434,side_gable,0,1,high
+183497,residential_twin,storefront,tile_r07_c09,Mcilvain Street,25_GoogleStreetView_Buildings/images/183497/front_9JArLT7trF4priuflsWBWQ.jpg,0.63,z027#435,flat,0,2,medium
+91277,unresolved_no_change,storefront,tile_r07_c09,East Congress Street,25_GoogleStreetView_Buildings/images/91277/front_vCec2deQwqB3RIDofOv8qw.jpg,0.71,z027#436,,,,medium
+152069,residential_house,storefront,tile_r05_c05,Palmer Street,25_GoogleStreetView_Buildings/images/152069/front_k77pwdqC7UHTWbFI1X32CA.jpg,0.66,z027#437,side_gable,0,1,high
+110172,residential_rowhouse,commercial,tile_r07_c09,Green Street,25_GoogleStreetView_Buildings/images/110172/front_q8CDwcIy5jK19B9tGI4YYA.jpg,0.8,z027#438,flat,1,2,high
+124777,unresolved_no_change,storefront,tile_r04_c05,Mary Street,25_GoogleStreetView_Buildings/images/124777/front_D_6YC590YGXBw7m-no8wNQ.jpg,0.51,z027#439,,,,medium
+121437,residential_house,storefront,tile_r07_c09,Morton Avenue,25_GoogleStreetView_Buildings/images/121437/front_r7h5XOHJQ7yLoTO_cqgtoA.jpg,0.56,z027#440,mansard,0,3,medium
+68379,residential_rowhouse,commercial,tile_r07_c09,Morton Avenue,25_GoogleStreetView_Buildings/images/68379/front_5b95ZY_iOsOUozJDoDMuzg.jpg,1.0,z027#441,flat,1,2,high
+192678,residential_rowhouse,storefront,tile_r08_c09,Chestnut Street,25_GoogleStreetView_Buildings/images/17843/front_G2dmiF2w-RJ5pUyT6YTunA.jpg,1.0,z027#442,flat,1,2,high
+104459,garage,storefront,tile_r05_c05,Palmer Street,25_GoogleStreetView_Buildings/images/104459/front_u1KZ-BvOPA6TPaM9kSSn2w.jpg,0.59,z027#443,flat,,,medium
+44496,unresolved_no_change,storefront,tile_r05_c05,Palmer Street,25_GoogleStreetView_Buildings/images/44496/front_De6Io8jgA9eB1WD5pAZI0A.jpg,0.73,z027#444,,,,medium
+147565,residential_house,storefront,tile_r07_c09,East 8th Street,25_GoogleStreetView_Buildings/images/147565/front__vZ338P9bfPMF7ces02CGA.jpg,0.37,z027#445,side_gable,1,2,medium
+122457,residential_rowhouse,storefront,tile_r04_c05,West 3rd Street,25_GoogleStreetView_Buildings/images/122457/front_hrWd1QkxdzlKSfH6dLvBEw.jpg,0.68,z027#446,flat,1,2,high
+4053,residential_twin,storefront,tile_r05_c05,Palmer Street,25_GoogleStreetView_Buildings/images/4053/front_9jAoozzAVpp-bkQnBNvL7A.jpg,0.68,z027#447,flat,0,2,medium
+19621,residential_house,storefront,tile_r07_c09,Green Street,25_GoogleStreetView_Buildings/images/19621/front_jarcq459d1qGuaLis3rHnw.jpg,0.51,z028#448,mansard,0,3,high
+163381,residential_rowhouse,commercial,tile_r08_c09,Chestnut Street,25_GoogleStreetView_Buildings/images/163381/front_CLzVqSox8U3b7Tp6tf30Jw.jpg,0.68,z028#449,flat,1,2,high
+26447,residential_twin,storefront,tile_r07_c09,East 9th Street,25_GoogleStreetView_Buildings/images/142032/front_elna8CI9TYut8bi8xn4zSQ.jpg,0.85,z028#450,flat,0,2,medium
+110633,garage,storefront,tile_r04_c05,Union Street,25_GoogleStreetView_Buildings/images/110633/front_LCFgMIPWYMu5rq-DXqr3Gw.jpg,0.63,z028#451,flat,,,medium
+93453,residential_house,storefront,tile_r05_c05,Palmer Street,25_GoogleStreetView_Buildings/images/93453/front_n3SueznfgHuc-0iqxowuXA.jpg,0.51,z028#452,hip,1,1,medium
+198630,residential_house,storefront,tile_r05_c05,Palmer Street,25_GoogleStreetView_Buildings/images/198630/front_7HeP6XvVtTwE-fnvG18PbQ.jpg,0.73,z028#453,side_gable,1,2,high
+134290,residential_rowhouse,commercial,tile_r04_c05,West 3rd Street,25_GoogleStreetView_Buildings/images/134290/front_Qt6uTAIyqqAFjGRGnqCliQ.jpg,0.95,z028#454,flat,0,2,high
+144796,residential_rowhouse,commercial,tile_r04_c05,West 3rd Street,25_GoogleStreetView_Buildings/images/144796/front_ND0QMLWsElHfKKIkd8tyvQ.jpg,0.71,z028#455,flat,1,2,high
+84318,confirmed_commercial_no_change,warehouse,tile_r07_c09,Morton Avenue,25_GoogleStreetView_Buildings/images/84318/front_IPhtnLYGPqeEhP8yOzAxxw.jpg,1.0,z028#456,,,,medium
+64040,unresolved_no_change,storefront,tile_r07_c09,East 9th Street,25_GoogleStreetView_Buildings/images/64040/front_YoqN3S3pHoeBMmyD8p2UTA.jpg,0.29,z028#457,,,,medium
+6704,residential_twin,storefront,tile_r07_c09,East 9th Street,25_GoogleStreetView_Buildings/images/6704/front_VvOrsA86qzVPQEZA3pXDtA.jpg,0.46,z028#458,front_gable,1,2,high
+152113,confirmed_commercial_no_change,commercial,tile_r07_c09,Green Street,25_GoogleStreetView_Buildings/images/152113/front_jarcq459d1qGuaLis3rHnw.jpg,0.66,z028#459,,,,medium
+37623,residential_rowhouse,commercial,tile_r08_c09,Morton Avenue,25_GoogleStreetView_Buildings/images/37623/front_BIbdJeANdh6VYUjIajNxSg.jpg,0.9,z028#460,side_gable,0,2,high
+142977,unresolved_no_change,storefront,tile_r04_c05,Mary Street,25_GoogleStreetView_Buildings/images/142977/front_mgrHM_LJ7yLDlXfPmB6CGA.jpg,0.73,z028#461,,,,medium
+151236,garage,storefront,tile_r04_c05,Union Street,25_GoogleStreetView_Buildings/images/151236/front_PnulSi9sJEj8Mmi65huElQ.jpg,0.83,z028#462,flat,,,medium
+104287,residential_house,storefront,tile_r04_c05,Palmer Street,25_GoogleStreetView_Buildings/images/104287/front_Mnwaifzd5KiGqF37owcJGg.jpg,0.83,z028#463,flat,0,3,medium

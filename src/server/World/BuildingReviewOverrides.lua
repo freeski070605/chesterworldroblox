@@ -2,6 +2,12 @@
 -- unknown. Local source images are private references, not distributed assets.
 local G = "25_GoogleStreetView_Buildings/images/"
 return {
+ -- County building 133692 contains the legacy Krispy Krunchy shop on
+ -- section 2; station generator now builds the two real 916 Kerlin units
+ -- together, so do not spawn a second misplaced KKC shop from this tile.
+ ["133692"]={style="commercial",suppressShops=true,manualPriority=true,
+   confidence="identity_verified_location_user_review",
+   evidence="916 Kerlin: KKC and Eagle shared lot; GasStationBuilder owns both retail units"},
  -- User's 2026-11-22 live Google visual review. These are type-only
  -- corrections; roof, entrance and materials are NOT inferred from a
  -- camera viewpoint that has not yet been surveyed for parcel identity.

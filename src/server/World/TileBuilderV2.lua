@@ -1631,6 +1631,21 @@ local function uniqueIntersectionNames(node)
 end
 
 local function buildCrosswalkForArm(markingsFolder, node, arm)
+    -- The user-provided Lincoln Street photo shows this 9th/Lincoln
+    -- corner as ordinary unmarked pavement. The generated five-wide
+    -- zebra crossing in Studio makes the whole view visibly wrong.
+    -- Suppress stripes ONLY at the reviewed intersection, not citywide.
+    local near777 = (node.x-1940)^2+(node.z-1810)^2<240^2
+    if near777 then
+        local lincoln=false
+        local ninth=false
+        for name in pairs(node.names or {}) do
+            local lower=string.lower(name)
+            if string.find(lower,"lincoln",1,true) then lincoln=true end
+            if string.find(lower,"9th",1,true) then ninth=true end
+        end
+        if lincoln and ninth then return end
+    end
 	if arm.width < WorldConfig.CROSSWALK_MIN_ARM_WIDTH_STUDS then return end
 	local dir = arm.dir
 	if dir.Magnitude < 0.001 then return end

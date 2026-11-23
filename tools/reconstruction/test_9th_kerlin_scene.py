@@ -67,6 +67,19 @@ class NeighborhoodSceneTests(unittest.TestCase):
         self.assertIn('916PartyWall', self.gas)
         self.assertIn('CollectionService:AddTag(chicken,"Exit6Store")', self.gas)
 
+    def test_xbox_homes_stay_out_of_the_server_build(self):
+        # This previously caused live Xbox disconnects. The neighborhood's
+        # stores still render on the server, but homes must use Exit6Kit.
+        client = read("src/client/Exit6HouseDecor.client.luau")
+        self.assertIn('local residential = shapeData.style == "house"', self.tile)
+        self.assertIn('local core = extra or (not residential', self.tile)
+        self.assertIn('local decorHome = realHome and realCtx.lite', self.tile)
+        self.assertIn('model:SetAttribute("Exit6Kit"', self.tile)
+        self.assertIn('local MAX_DECOR = onConsole and 24 or 75', client)
+        self.assertIn('table.sort(nearby,function(a,b)return a.d<b.d end)',client)
+        bootstrap=read("src/server/Bootstrap.server.lua")
+        self.assertNotIn('reportStartupMemory', bootstrap)
+
     def test_new_york_fried_chicken_is_on_its_kerlin_footprint(self):
         # Different restaurant from New York Fried Chicken & Grill at
         # 3105 W 9th Street; don't move the shop to that other address.

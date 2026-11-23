@@ -990,12 +990,12 @@ local function trimmedEndpoints(road, extraClearance)
 	return pointAlong2D(a, b, trimStart), pointAlong2D(b, a, trimEnd)
 end
 
-local function shouldSplit(a, b, depth, surfaceOffset, gradeOffset)
+local function shouldSplit(a, b, depth, surfaceOffset, gradeOffset, sampleX, sampleZ)
 	if depth >= WorldConfig.ROAD_MAX_SUBDIVISION_DEPTH then return false end
 	if horizontalLength(a, b) > WorldConfig.ROAD_MAX_PIECE_LENGTH_STUDS then return true end
 	local midX = (a.X + b.X) / 2
 	local midZ = (a.Z + b.Z) / 2
-	local groundMid = terrainY(midX, midZ)
+	local groundMid = terrainY(midX + (sampleX or 0), midZ + (sampleZ or 0))
 	if groundMid == nil then return false end
 	local terrainMidY = groundMid + surfaceOffset + (gradeOffset or 0)
 	local linearMidY = (a.Y + b.Y) / 2
@@ -1012,7 +1012,16 @@ local function buildAdaptiveCenterStrip(parent, name, x1, z1, x2, z2, width, thi
 	if type(attributes) == "table" and attributes.CW_BridgeApproach then
 		allowSteepHighway = true
 	end
-	local a, b, grade = groundPair(x1, z1, x2, z2, surfaceOffset, gradeOffset)
+	-- Sidewalks follow the same terrain samples as their adjacent road. The
+	-- lateral terrain slope must not create a separate vertical road profile.
+	local sampleX = attributes and attributes.__sampleX or 0
+	local sampleZ = attributes and attributes.__sampleZ or 0
+	local a, b, grade = groundPair(x1 + sampleX, z1 + sampleZ,
+		x2 + sampleX, z2 + sampleZ, surfaceOffset, gradeOffset)
+	if a and b then
+		a -= Vector3.new(sampleX, 0, sampleZ)
+		b -= Vector3.new(sampleX, 0, sampleZ)
+	end
 	if not a or not b then
 		if parent.Name == "Roads" and math.abs(x2 - x1) + math.abs(z2 - z1) > 0.1 then
 			omissions.noTerrainPieces += 1
@@ -1031,7 +1040,9 @@ local function buildAdaptiveCenterStrip(parent, name, x1, z1, x2, z2, width, thi
 	if type(attributes) == "table" and attributes.CW_BridgeApproach then
 		local part = makeStripPart(parent, name, a, b, width, thickness, material, color)
 		if part then
-			for key, value in pairs(attributes) do part:SetAttribute(key, value) end
+			for key, value in pairs(attributes) do
+				if string.sub(key, 1, 2) ~= "__" then part:SetAttribute(key, value) end
+			end
 		end
 		return
 	end
@@ -1059,7 +1070,7 @@ local function buildAdaptiveCenterStrip(parent, name, x1, z1, x2, z2, width, thi
 		end
 		return
 	end
-	if shouldSplit(a, b, depth, surfaceOffset, gradeOffset) then
+	if shouldSplit(a, b, depth, surfaceOffset, gradeOffset, sampleX, sampleZ) then
 		local midX = (x1 + x2) / 2
 		local midZ = (z1 + z2) / 2
 		buildAdaptiveCenterStrip(parent, name, x1, z1, midX, midZ, width, thickness, material, color, surfaceOffset, gradeOffset, depth + 1, attributes)
@@ -1068,7 +1079,9 @@ local function buildAdaptiveCenterStrip(parent, name, x1, z1, x2, z2, width, thi
 	end
 	local part = makeStripPart(parent, name, a, b, width, thickness, material, color)
     if part and attributes then
-        for key, value in pairs(attributes) do part:SetAttribute(key, value) end
+        for key, value in pairs(attributes) do
+            if string.sub(key, 1, 2) ~= "__" then part:SetAttribute(key, value) end
+        end
         if allowSteepHighway and gradeOffset == 0 then
             local run = horizontalLength(a, b)
             local grade = run > 0 and math.abs(b.Y - a.Y) / run or 0
@@ -1120,7 +1133,8 @@ local function buildSidewalkPair(sidewalksFolder, streetName, a2D, b2D, roadWidt
 			WorldConfig.SIDEWALK_MATERIAL,
 			WorldConfig.SIDEWALK_COLOR,
 			sidewalkSurfaceOffset, 0, 0,
-			{ ChesterStreet = streetName, Side = sign < 0 and "Left" or "Right", CW_TileBuilderSidewalk = true }
+			{ ChesterStreet = streetName, Side = sign < 0 and "Left" or "Right",
+				CW_TileBuilderSidewalk = true, __sampleX = -offset.X, __sampleZ = -offset.Z }
 		)
 	end
 end

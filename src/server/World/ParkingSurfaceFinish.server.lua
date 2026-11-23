@@ -60,6 +60,7 @@ for lotIndex, lot in ipairs(treatments) do
     local target = ({
         Gravel = Enum.Material.Pebble,
         Asphalt = Enum.Material.Asphalt,
+        Concrete = Enum.Material.Concrete,
         Grass = Enum.Material.Grass,
         Ground = Enum.Material.Ground,
     })[lot.material]
@@ -67,8 +68,8 @@ for lotIndex, lot in ipairs(treatments) do
     local zStart = math.floor(minZ / CHUNK) * CHUNK
     for x0 = xStart, maxX, CHUNK do
         for z0 = zStart, maxZ, CHUNK do
-            -- A conservative four-stud inset keeps the material within the
-            -- mapped footprint and leaves curb/road edges to their builders.
+            -- One-stud corner checks keep each voxel inside its mapped
+            -- footprint without leaving a four-stud gray border at lot edges.
             local mask = {}
             local any = false
             for ix = 1, CHUNK / VOXEL do
@@ -77,10 +78,10 @@ for lotIndex, lot in ipairs(treatments) do
                     local x = x0 + (ix - 0.5) * VOXEL
                     local z = z0 + (iz - 0.5) * VOXEL
                     local covered = inside(x, z, ring)
-                        and inside(x - 2, z - 2, ring)
-                        and inside(x - 2, z + 2, ring)
-                        and inside(x + 2, z - 2, ring)
-                        and inside(x + 2, z + 2, ring)
+                        and inside(x - 1, z - 1, ring)
+                        and inside(x - 1, z + 1, ring)
+                        and inside(x + 1, z - 1, ring)
+                        and inside(x + 1, z + 1, ring)
                     mask[ix][iz] = covered
                     any = any or covered
                 end

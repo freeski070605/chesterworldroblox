@@ -2394,6 +2394,70 @@ do
     print(("[ChesterWorld BridgeApproachJoins] repairedCollisionLips=%d rejectedGradeOrStep=%d")
         :format(repaired,rejected))
 end
+-- Reconcile small collision steps at source segment boundaries. County road
+-- groups change at short Kerlin pieces beneath I-95, so group IDs alone are
+-- insufficient; the shared endpoint and normalized street name identify the
+-- continuation. Only lift the lower endpoint when both existing pieces can
+-- carry the resulting grade. This also catches comparable citywide seams.
+do
+    local joints = {}
+    for _, road in ipairs(allRoads) do
+        if road.Parent and road:GetAttribute("CW_Rail") ~= true
+            and road:GetAttribute("CW_HighwayProfiled") ~= true
+            and road:GetAttribute("CW_Tunnel") ~= true
+            and not highwayRoad(road)
+            and (tonumber(road:GetAttribute("CW_GradeLevel")) or 0) == 0 then
+            local name = normalizedRoadName(attr(road, "ChesterStreet"))
+            if name ~= "" and name ~= "road" then
+                local a, b = endpoints(road)
+                for index, point in ipairs({a, b}) do
+                    local key = name .. ":" .. math.floor(point.X * 2 + 0.5)
+                        .. ":" .. math.floor(point.Z * 2 + 0.5)
+                    joints[key] = joints[key] or {}
+                    table.insert(joints[key], {part=road, index=index})
+                end
+            end
+        end
+    end
+    local joined = 0
+    for _, pair in pairs(joints) do
+        if #pair == 2 and pair[1].part ~= pair[2].part then
+            local records, target, low = {}, -math.huge, math.huge
+            for _, item in ipairs(pair) do
+                local a, b = endpoints(item.part)
+                local near = item.index == 1 and a or b
+                local far = item.index == 1 and b or a
+                table.insert(records, {item=item, a=a, b=b, near=near, far=far})
+                target = math.max(target, near.Y)
+                low = math.min(low, near.Y)
+            end
+            if hdist(records[1].near, records[2].near) <= 0.75
+                and target - low > 0.08 and target - low <= 1.5 then
+                local safe = true
+                for _, record in ipairs(records) do
+                    local run = hdist(record.near, record.far)
+                    if run < 1 or math.abs(target-record.far.Y)/run > MAX_GRADE then
+                        safe = false
+                        break
+                    end
+                end
+                if safe then
+                    for _, record in ipairs(records) do
+                        local p = Vector3.new(record.near.X, target, record.near.Z)
+                        if record.item.index == 1 then
+                            setEndpoints(record.item.part, p, record.b)
+                        else
+                            setEndpoints(record.item.part, record.a, p)
+                        end
+                        record.item.part:SetAttribute("CW_RoadSeamJoined", true)
+                    end
+                    joined += 1
+                end
+            end
+        end
+    end
+    print(("[ChesterWorld RoadSeamJoins] joined=%d"):format(joined))
+end
 -- HighwayInfrastructure snapshots these Parts and builds physical decks from
 -- their final CFrames. Signal only after the late Upland V-dip and bounded
 -- bridge-approach corrections above, never before them.

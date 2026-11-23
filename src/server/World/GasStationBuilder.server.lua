@@ -478,7 +478,7 @@ local function buildStore(model, st, fascia, accent, textColor, frame, width, de
                 stripe.CanCollide=false
             end
             local divider = mk("916PartyWall",Vector3.new(0.6,math.min(h,13),math.min(depth,20)),
-                0,math.min(h,13)/2,math.max(0,D2-10),
+                0,math.min(h,13)/2,math.min(depth,20)/2,
                 wall,Enum.Material.Brick)
             -- Divider separates the interactive front shops but never blocks
             -- the preexisting station pumps or access lanes.

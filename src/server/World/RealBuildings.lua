@@ -194,29 +194,73 @@ function RealBuildings.Store(model, r, ctx, shop)
             -- Photo-specific 777 Food Market corner: long Lincoln glass and
             -- yellow-over-blue fascia, entrance only at the W 9th corner.
             -- Do not create a duplicate shop or sign on the adjacent wall.
-            if shop.photoFacade == "nyfc" then
-                -- Dedicated branded shop on county building 111566:
-                -- no new free-floating building and no generic unlabeled glass.
-                local bandHeight=math.clamp(h*0.23,2.5,4)
-                local sign=part(model,"NYFCRedFascia",
-                    Vector3.new(math.max(5,span-1.2),bandHeight,0.3),
-                    at(0,y0+h-bandHeight/2,-0.9),
-                    Enum.Material.SmoothPlastic,Color3.fromRGB(199,28,31))
-                sign.CanCollide=false
+            if shop.photoFacade == "nyfc" and doorOnThisWall then
+                -- 1039 Kerlin (county 111566), 2024-09 Kerlin views: a red
+                -- sloped awning lettered N.Y.F.C. NEW YORK FRIED CHICKEN in
+                -- white runs from the W 11th corner across the door and the
+                -- menu window; a white NYFC blade sign projects at the
+                -- upper floor near the corner; a sided oriel bay sits over
+                -- the window half of the face. +X = viewer's left = 11th St.
+                local red=Color3.fromRGB(199,28,31)
+                local awningW=math.max(6,span*0.82)
+                local awningX=span/2-awningW/2-0.6
+                local awningY=y0+h-bandH-0.4
+                local awning=part(model,"NYFCRedAwning",Vector3.new(awningW,0.25,3.2),
+                    at(awningX,awningY,-1.6)*CFrame.Angles(math.rad(-22),0,0),
+                    Enum.Material.Fabric,red)
+                awning.CanCollide=false
+                local valance=part(model,"NYFCAwningValance",Vector3.new(awningW,1.9,0.2),
+                    at(awningX,awningY-1.5,-3.1),Enum.Material.Fabric,red)
+                valance.CanCollide=false
                 local gui=Instance.new("SurfaceGui")
                 gui.Name="NYFCFrontSign"
-                gui.Face=Enum.NormalId.Front
+                gui.Face=Enum.NormalId.Front   -- face frame looks outward (-Z)
                 gui.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud
                 gui.PixelsPerStud=16
-                gui.Parent=sign
+                gui.Parent=valance
                 local text=Instance.new("TextLabel")
                 text.Size=UDim2.fromScale(1,1)
                 text.BackgroundTransparency=1
                 text.TextScaled=true
-                text.Text="NEW YORK FRIED CHICKEN"
-                text.TextColor3=Color3.fromRGB(253,219,54)
+                text.Text="N.Y.F.C.  NEW YORK FRIED CHICKEN"
+                text.TextColor3=Color3.fromRGB(255,255,255)
                 text.Font=Enum.Font.GothamBlack
                 text.Parent=gui
+                if r.wallTop-groundTop>6 then
+                    local bladeX=math.clamp(span*0.12,1,span/2-2)
+                    local blade=part(model,"NYFCBladeSign",Vector3.new(0.35,4.2,3.0),
+                        at(bladeX,groundTop+3.6,-2.0),Enum.Material.SmoothPlastic,
+                        Color3.fromRGB(246,244,238))
+                    blade.CanCollide=false
+                    for _,face in ipairs({Enum.NormalId.Left,Enum.NormalId.Right}) do
+                        local bg=Instance.new("SurfaceGui")
+                        bg.Name="NYFCBlade"
+                        bg.Face=face
+                        bg.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud
+                        bg.PixelsPerStud=20
+                        bg.Parent=blade
+                        local t=Instance.new("TextLabel")
+                        t.Size=UDim2.fromScale(1,1)
+                        t.BackgroundTransparency=1
+                        t.TextScaled=true
+                        t.Text="NYFC"
+                        t.TextColor3=red
+                        t.Font=Enum.Font.GothamBlack
+                        t.Parent=bg
+                    end
+                    local orielW=math.min(12,span*0.38)
+                    local orielX=-(span/2-orielW/2-1.6)
+                    local orielH=math.min(r.wallTop-groundTop-1.2,9)
+                    local oriel=part(model,"NYFCOrielBay",Vector3.new(orielW,orielH,2.2),
+                        at(orielX,groundTop+0.6+orielH/2,-1.1),Enum.Material.WoodPlanks,
+                        Color3.fromRGB(196,178,140))
+                    oriel.CanCollide=false
+                    local win=part(model,"NYFCOrielWindow",Vector3.new(orielW*0.45,orielH*0.45,0.2),
+                        at(orielX,groundTop+0.6+orielH*0.55,-2.25),Enum.Material.Glass,
+                        Color3.fromRGB(96,112,122))
+                    win.CanCollide=false
+                end
+                model:SetAttribute("NYFCPhotoFacade","1039 Kerlin; awning+blade+oriel; door offset toward W 11th")
             end
             if shop.photoFacade == "777" then
                 local faceY = y0 + h - math.max(h - 10, 2.4) + 0.35

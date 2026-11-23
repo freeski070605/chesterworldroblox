@@ -2,14 +2,21 @@
 -- unknown. Local source images are private references, not distributed assets.
 local G = "25_GoogleStreetView_Buildings/images/"
 return {
- -- West 9th/Kerlin food storefront is a real dedicated county building,
- -- not an interchangeable generated glass commercial facade.
+ -- New York Fried Chicken, 1039 Kerlin Street at the W 11th corner (OSM
+ -- node 5696730964 lies inside this county footprint). Three 2024-09 Google
+ -- views from Kerlin (pano AbWEBBkaiNZk0fFCQaUutw, heading 87) and one from
+ -- W 11th (heading 182): two-storey painted cream brick, ornamental cornice,
+ -- red N.Y.F.C. awning and customer door on the KERLIN face just south of
+ -- the 11th corner (viewer-left of centre), menu-poster window right of the
+ -- door, sided oriel bay above that window, projecting NYFC blade sign at the
+ -- upper floor. The long W 11th wall is a plain side wall (boarded window,
+ -- side flat door) and is not a second storefront.
  ["111566"]={style="storefront",manualPriority=true,forceShop=true,
-   wall=0xd1c6b5,material="Brick",shopCanopy=false,
-   shops={[0]={front=242,entrance=242,canopy=false,photoFacade="nyfc",
-      signBg=0xc8181e,signFg=0xffdc28}},
-   confidence="tile_business_identity_only",
-   evidence="County tile r06_c07: New York Fried Chicken, building 111566; storefront frontage from source; geometry not photo-certified"},
+   wall=0xd8c7a0,material="Brick",shopCanopy=false,
+   shops={[0]={front=242,entrance=242,entranceOffset=0.55,canopy=false,photoFacade="nyfc",
+      signBg=0xc8181e,signFg=0xffffff}},
+   confidence="photo_verified",
+   evidence="KerlinPrototype/03_ReconstructionReferences_Google/BY_BUILDING/111566/KERLIN_111566_DIRECT_NEAR.jpg; LEFT_3Q_NEAR; RIGHT_3Q_NEAR; "..G.."111566/front_dSJH5y0HFfJi-zcM_2gDIw.jpg"},
  -- County building 133692 contains the legacy Krispy Krunchy shop on
  -- section 2; station generator now builds the two real 916 Kerlin units
  -- together, so do not spawn a second misplaced KKC shop from this tile.

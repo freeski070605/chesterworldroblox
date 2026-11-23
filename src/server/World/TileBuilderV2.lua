@@ -2688,7 +2688,9 @@ local function buildFootprintBuilding(parent, building, shapeData)
 		end
 		buildStoreSign(model, shapeData, best, yaw)
 	end
-	if built > 0 and shapeData.ss and tostring(building.id) ~= "147448" then
+	-- 777 and NYFC carry their photographed fascia/awning (RealBuildings
+	-- photoFacade); a generic board on top of it would be a second sign.
+	if built > 0 and shapeData.ss and tostring(building.id) ~= "147448" and tostring(building.id) ~= "111566" then
 		local names = {}
 		for _, shop in ipairs(shapeData.ss) do
 			for _, r in ipairs(builtRects) do
@@ -2895,6 +2897,15 @@ local function buildBuilding(parent, building, shapes)
             if not copy.ss then copy.sb, copy.name, copy.sc = nil, nil, nil end
         end
         if correction.front then copy.fb = correction.front end
+        -- Photographed storey count (pose_reviews.csv spec floors=N). The
+        -- county LiDAR height (h) stays; only the storey split changes, so a
+        -- one-storey corner deli no longer gets an invented upper floor.
+        if correction.spec then
+            local parsed = HouseKitSpec.ParseSpec(correction.spec)
+            if parsed and type(parsed.floors) == "number" and parsed.floors >= 1 then
+                copy.floors = parsed.floors
+            end
+        end
         if correction.name == false then copy.name = nil end
         if correction.sb == false then copy.sb = nil end
         if correction.suppressShops then

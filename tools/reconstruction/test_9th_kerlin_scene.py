@@ -86,7 +86,14 @@ class NeighborhoodSceneTests(unittest.TestCase):
         self.assertIn('["111566"]', self.tile7)
         self.assertIn('forceShop=true', self.review)
         self.assertIn('tostring(building.id) == "111566"', self.tile)
-        self.assertIn('NYFCRedFascia', self.store)
+        # 2024-09 Kerlin photos: red awning lettered in white, door toward the
+        # W 11th corner (+X = viewer's left), blade sign, oriel over window.
+        self.assertIn('NYFCRedAwning', self.store)
+        self.assertIn('NYFCBladeSign', self.store)
+        self.assertIn('NYFCOrielBay', self.store)
+        self.assertIn('if shop.photoFacade == "nyfc" and doorOnThisWall then', self.store)
+        self.assertRegex(self.review, r'\["111566"\][^}]*entranceOffset=0\.55')
+        self.assertIn('KERLIN_111566_DIRECT_NEAR.jpg', self.review)
         self.assertIn('NYFCShopCount', self.tile)
         self.assertIn('NYFC_MISSING', self.inspector)
 

@@ -2562,7 +2562,7 @@ local function buildFootprintBuilding(parent, building, shapeData)
 			end
 			if realHome then
 				-- the house kit built this section's roof (HouseKit.lua)
-			elseif style.roof == "cornice" then
+			elseif style.roof == "cornice" and not gable then
 				newPart(model, "Cornice", Vector3.new(along + 0.8, 0.9, across + 0.8),
 					CFrame.new(x, wallTop + 0.45, z) * yaw, Enum.Material.Concrete, roofColor or style.top)
 			elseif gable then

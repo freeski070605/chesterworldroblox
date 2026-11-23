@@ -2376,7 +2376,8 @@ local function buildFootprintBuilding(parent, building, shapeData)
 		if review.bay then model:SetAttribute("ReconstructionBay", true) end
 		model:SetAttribute("ReconstructionReviewed", true)
 	end
-	local gable = (style.roof == "gable" or (review and review.roof == "gable")) and #shapeData.r <= 3
+	local gable = (style.roof == "gable" or (review and review.roof == "gable"))
+        and (#shapeData.r <= 3 or tostring(building.id) == "147448")
 	local roofColor = style.roofs and pick(style.roofs, seed, 2)
 	-- measured roof colour from the 2025 aerial (tools/build_building_tiles.py),
 	-- slightly darkened: the orthophoto is brighter than in-game lighting
@@ -2421,9 +2422,11 @@ local function buildFootprintBuilding(parent, building, shapeData)
                     -- along-wall offset. Existing six-field entries unchanged.
                     entrance = shopReview and shopReview.entrance or sh[7],
                     entranceOffset = shopReview and shopReview.entranceOffset or sh[8],
-                    canopy = shopReview and shopReview.canopy }
+                    canopy = shopReview and shopReview.canopy,
+                    photoFacade = shopReview and shopReview.photoFacade }
 				if review and review.shopCanopy == false then shops[sh[2]].canopy = false end
-				if shopReview and shopReview.corner == false then shops[sh[2]].corner = nil end
+				if shopReview and shopReview.corner == false then shops[sh[2]].corner = nil
+                elseif shopReview and type(shopReview.corner) == "number" then shops[sh[2]].corner = shopReview.corner end
 			end
 			if shapeData.sb and shapeData.name then
 				-- the verified store: the section reaching furthest toward its street front
@@ -2750,8 +2753,15 @@ local function reviewFor(id)
     local merged = {}
     if old then for k, v in pairs(old) do merged[k] = v end end
     for k, v in pairs(recon) do merged[k] = v end
-    merged.evidence = recon.photo
-    merged.reconstructed = recon.status == "reconstructed"
+    -- Newer direct site reviews outrank stale generated recon rows.
+    if old and old.manualPriority then
+        for k, v in pairs(old) do merged[k] = v end
+        merged.reconstructed = false
+        merged.evidence = old.evidence
+    else
+        merged.evidence = recon.photo
+        merged.reconstructed = recon.status == "reconstructed"
+    end
     return merged, recon
 end
 
@@ -2783,6 +2793,15 @@ local function buildBuilding(parent, building, shapes)
         if correction.front then copy.fb = correction.front end
         if correction.name == false then copy.name = nil end
         if correction.sb == false then copy.sb = nil end
+        if correction.forceShop and tostring(building.id) == "147448" then
+            -- Older survey name was suppressed but no store replaced it.
+            -- Preserve existing first place id so the shop still works.
+            local existing = copy.ss and copy.ss[1]
+            local placeId = existing and existing[6] or "777-food-market"
+            copy.ss = { { "777 Food Market", 0, 64, 0x193f91, 0xffdd42, placeId, 154, -0.57 } }
+            copy.fb, copy.fb2 = 64, 154
+            copy.gs = nil
+        end
         if correction.shops and copy.ss then
             local sections = {}
             for i,sourceShop in ipairs(copy.ss) do

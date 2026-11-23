@@ -4,7 +4,7 @@
 
 - 21,810 building/storefront rows represent 21,728 stable ChesterBuildingId/OBJECTID records across 86 nonempty BuildingTiles files. The game world has 102 tiles; 16 have no BuildingTiles file in this checkout.
 - 364 storefront sections on 282 buildings across 47 building tiles; 1,374 storefront/commercial building-level records across 60 tiles.
-- 175 storefront sections link to a local street image; 189 have no matched image. 172 were screened only as overview contact-sheet images, and 3 were examined full size. Overview screening cannot verify small signs, exact doors, colors or tenant identity.
+- 175 storefront sections link to a local street image; 189 have no matched image. 169 were screened only as overview contact-sheet images, and 6 were examined full size. Overview screening cannot verify small signs, exact doors, colors or tenant identity.
 - The 2025 aerial index and county GIS footprints are local references. Footprint centers, source orientations and projected game coordinates were joined by OBJECTID. A footprint match or nearest road is not facade proof. Three cropped aerial examples were visually checked; the rest of the city aerial coverage remains uninspected.
 - 92 storefront sections have a tile centroid more than 5 m from the county footprint center; 102 have no matched county footprint. These are review flags, not certified placement errors.
 - `confidence=probable` means an overview image and footprint position support a structure at the ID, **not** a verified frontage or facade. `unresolved` means an image exists but its view or geometry cannot support even that limited conclusion. `conflicting` records an observed source mismatch. All empty verified fields remain unknown.
@@ -28,7 +28,7 @@
 | tile_r03_c05.lua | 2 | 0 | 0 | 2 | 2 |
 | tile_r04_c03.lua | 7 | 0 | 0 | 7 | 0 |
 | tile_r04_c04.lua | 19 | 19 | 0 | 0 | 4 |
-| tile_r04_c05.lua | 16 | 15 | 0 | 1 | 7 |
+| tile_r04_c05.lua | 16 | 15 | 1 | 1 | 7 |
 | tile_r05_c03.lua | 2 | 1 | 0 | 1 | 0 |
 | tile_r05_c04.lua | 10 | 10 | 0 | 0 | 3 |
 | tile_r05_c05.lua | 3 | 2 | 0 | 1 | 1 |
@@ -38,8 +38,8 @@
 | tile_r06_c03.lua | 2 | 0 | 0 | 2 | 1 |
 | tile_r06_c04.lua | 2 | 0 | 0 | 2 | 0 |
 | tile_r06_c05.lua | 1 | 0 | 0 | 1 | 0 |
-| tile_r06_c06.lua | 6 | 6 | 0 | 0 | 2 |
-| tile_r06_c07.lua | 23 | 22 | 3 | 1 | 3 |
+| tile_r06_c06.lua | 6 | 6 | 1 | 0 | 2 |
+| tile_r06_c07.lua | 23 | 22 | 4 | 1 | 3 |
 | tile_r06_c08.lua | 27 | 26 | 0 | 1 | 21 |
 | tile_r07_c02.lua | 1 | 0 | 0 | 1 | 0 |
 | tile_r07_c05.lua | 1 | 0 | 0 | 1 | 0 |

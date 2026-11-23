@@ -14,8 +14,9 @@ ROOT = Path(__file__).resolve().parents[2]
 MOD = "src/server/World/PropertyReconstruction.lua"
 OUT = ROOT / "build" / "studio_patch"
 LIMIT = int(sys.argv[1]) if len(sys.argv) > 1 else 24000
+BASE = sys.argv[2] if len(sys.argv) > 2 else None   # diff from this rev (default: working tree vs HEAD)
 
-diff = subprocess.run(["git", "diff", "-U0", "--", MOD], cwd=ROOT, capture_output=True, text=True,
+diff = subprocess.run(["git", "diff", "-U0"] + ([BASE, "HEAD"] if BASE else []) + ["--", MOD], cwd=ROOT, capture_output=True, text=True,
                       encoding="utf-8").stdout
 added = [l[1:].rstrip("\r") for l in diff.splitlines() if l.startswith("+\t[")]
 OUT.mkdir(parents=True, exist_ok=True)

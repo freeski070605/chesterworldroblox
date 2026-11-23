@@ -67,6 +67,78 @@ vehicle ownership, roads, and buildings' stable IDs intact. Test the same
 scene in Studio and on Xbox after an approved geographic batch; source-level
 checks alone are not visual verification.
 
-NY Fried Chicken `111566` still needs a Studio/photo alignment check; a
-named store in its tile is not proof its entrance occupies the right wall.
 777 Food Market `147448` has been visually confirmed by the user as fixed.
+
+## 2026-11-23: why visual coverage looked so low, and the batch workflow
+
+`tools/harness/coverage_bottleneck.py` reproduces the diagnosis.
+
+- **Counts were hard-coded.** `full_size` came only from hand-written dicts
+  in the two audit scripts (3 storefront + 5 residential IDs). The 602
+  ray-verified full-size reviews in `tools/reconstruction/pose_reviews.csv`
+  (601 already applied in `PropertyReconstruction.lua`) were never counted.
+- **Images existed but were marked not_inspected.** 5,460 Google building
+  photos plus 582 Mapillary photos, with no broken paths. 4,423 county
+  footprints have a ray-centred photo of their own front wall.
+- **One manifest row per ID, own photo only.** A building seen only in a
+  neighbour's photo was `imagery_missing`. The ray caster finds 194 such
+  rows; most photos show 2-3 buildings (2,558 show two, 1,188 three).
+  Mapillary keeps 185 extra photos that a dict keyed on OBJECTID dropped.
+- **Mixed totals.** The "storefront" confidence counts were all 21,810
+  rows (every house plus 82 extra shop-section rows), not the 364 sections.
+- **Not in the audits at all:** 887 KerlinPrototype Google captures
+  (`E:\ChesterWorld\ChesterWorldMapData\KerlinPrototype\03_ReconstructionReferences_Google`,
+  8 views x 111 buildings), 1,387 Kerlin Mapillary frames, 745 KartaView
+  (highways only).
+- **86 vs 87 tiles.** The extra queue group is `unmatched`: 29 county
+  OBJECTIDs with no BuildingTiles entry. 13 are Barry Bridge structure
+  slivers (0-14 m2, height 0), 9 lie outside Chester City, and the rest are
+  sub-15 m2 fragments, except 70596 (1,297 m2, 12.3 m, near the Barry
+  Bridge approach), 105029 (405 m2, 38.6 m: bridge pier/tower) and 117265.
+  This is footprint filtering, not a missing map tile; 70596 is the one
+  genuine candidate for a missing building.
+
+### Batch review (`tools/reconstruction/batch_review.py`)
+
+1. `sheets --tiles r06_c07 --name b01` writes 2x2 sheets at native 640 px
+   of every building whose own front is ray-centred (share >= 0.25).
+2. Look at every sheet. Write one verdict line per cell (style, arch,
+   units, roof, porch, floors, bay, garage bays, wall hex[:material],
+   confidence, notes), or `SKIP` when the photo does not support a verdict
+   (tree, blur, rear or side wall, low share, vacant lot, shop identity).
+3. `apply` appends to `pose_reviews.csv` with the photo, heading and share,
+   and logs every cell, SKIPs included, to `docs/batch_review_log.csv`.
+4. `property_evidence.py --reviewed` regenerates the runtime module.
+
+Batches applied on 2026-11-23 (535 photos inspected, 351 structures set,
+184 skipped, 219 type corrections vs the tile):
+
+| Batch | Area | Inspected | Applied |
+|---|---|---:|---:|
+| b01 r06_c07 | 9th/Kerlin tile, both sides of all streets | 269 | 202 |
+| b02 r06_c06 | Lincoln/Concord side, Carlas Lane estate | 128 | 71 |
+| b03 r05_c07 | W 2nd-5th, Lloyd, Pennell, riverside | 84 | 39 |
+| b04 r07_c06+c07 | Butler/Kerlin/Parker 1000-1400, Villa Dr, W 11th-14th | 54 | 39 |
+
+The most common correction was a 3-storey "rowhouse" that the photo shows
+is a 2-storey porch twin (112 cases). `spec floors=N` now sets the storey
+split for every style (TileBuilderV2), not only HouseKit homes.
+
+NY Fried Chicken `111566` (1039 Kerlin, OSM node 5696730964 inside the
+footprint) was rebuilt from four 2024-09 views. The door, awning, blade
+sign and oriel are on the Kerlin face, and the W 11th wall is a side wall.
+
+### Still unverified / open
+
+- Vacant lots seen in photos that the tiles still build on: 122482,
+  169550, 122555, 203072, 34448. These need an aerial check before removal.
+- Store identities skipped for a store pass: Stop One Deli 203108, Koch's
+  Food Market 65797, the 189198 Check Cashing corner, the corner shops
+  29515 and 146770, and the 3105 W 9th "NYFC & Grill" (not modelled).
+- 3278 (W 2nd factory) is 3 storeys; the tile says 2.
+- 916 Kerlin: photo 58063 (heading 356) shows Krispy Krunchy on the left
+  and Eagle on the right, which matches GasStationBuilder (locked by
+  `test_batch_reviews`).
+- Batches b02-b04 were checked at source level and through the same
+  runtime path Play-tested with b01. They have not each been rendered in
+  Studio. The Xbox session test is still owed.

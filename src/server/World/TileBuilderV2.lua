@@ -2486,7 +2486,10 @@ local function buildFootprintBuilding(parent, building, shapeData)
 				local g = terrainY(p.X, p.Z)
 				if g and g < lowest then lowest = g end
 			end
-			local rise = gable and math.clamp(math.min(along, across) * 0.32, 3, 14) or 0
+			-- 777 is three connected county rectangles, but the photo only
+            -- supports a principal roof gable, not three duplicate peaks.
+            local gableHere = gable and (tostring(building.id) ~= "147448" or rectIndex == 1)
+            local rise = gableHere and math.clamp(math.min(along, across) * 0.32, 3, 14) or 0
 			local wallTop = centreGround + WorldConfig.BUILDING_BASE_Y_STUDS + heightStuds - rise * 0.6
 			local base = lowest - 1.5
 			local floors = shapeData.floors or math.max(1, math.floor(shapeData.h / 3.2 + 0.5))
@@ -2562,10 +2565,10 @@ local function buildFootprintBuilding(parent, building, shapeData)
 			end
 			if realHome then
 				-- the house kit built this section's roof (HouseKit.lua)
-			elseif style.roof == "cornice" and not gable then
+			elseif style.roof == "cornice" and not gableHere then
 				newPart(model, "Cornice", Vector3.new(along + 0.8, 0.9, across + 0.8),
 					CFrame.new(x, wallTop + 0.45, z) * yaw, Enum.Material.Concrete, roofColor or style.top)
-			elseif gable then
+			elseif gableHere then
 				buildGable(model, "Roof", CFrame.new(x, wallTop, z) * yaw, along + 1.2, across + 1.2, rise,
 					roofColor or Color3.fromRGB(70, 66, 62))
 			elseif measured then

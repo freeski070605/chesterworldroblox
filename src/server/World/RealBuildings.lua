@@ -108,6 +108,11 @@ end
 function RealBuildings.Store(model, r, ctx, shop)
 	local groundTop = math.min(r.streetLevel + math.max(r.storey, 13), r.wallTop)
 	local groundH = groundTop - r.streetLevel
+    local is777 = shop.photoFacade == "777"
+    local blue777 = Color3.fromRGB(34,72,190)
+    local blueTrim777 = Color3.fromRGB(20,58,149)
+    local wallMaterial = is777 and Enum.Material.Brick or ctx.material
+    local baseWallColor = is777 and blue777 or ctx.wall
 	-- floors above the shop keep their windows
 	if r.wallTop - groundTop > 1 then
 		local upper = part(model, "Walls", Vector3.new(r.along, r.wallTop - groundTop, r.across),
@@ -171,12 +176,12 @@ function RealBuildings.Store(model, r, ctx, shop)
             end
 			-- bulkhead, piers, shop glass, sign band wall, walk-through door
 			local h = groundH - 0.4
-			part(model, "Bulkhead", Vector3.new(span, 1.6, 0.8), at(0, y0 + 0.8, 0.4), ctx.material, ctx.wall)
+			part(model, "Bulkhead", Vector3.new(span, 1.6, 0.8), at(0, y0 + 0.8, 0.4), wallMaterial, baseWallColor)
 			for _, s in ipairs({ -1, 1 }) do
-				part(model, "Pier", Vector3.new(1.2, h, 0.9), at(s * (span / 2 - 0.6), y0 + h / 2, 0.4), ctx.material, ctx.wall)
+				part(model, "Pier", Vector3.new(1.2, h, 0.9), at(s * (span / 2 - 0.6), y0 + h / 2, 0.4), wallMaterial, baseWallColor)
 			end
 			local bandH = math.max(h - 10, 2.4)
-			part(model, "SignBandWall", Vector3.new(span, bandH, 0.8), at(0, y0 + h - bandH / 2, 0.4), ctx.material, ctx.wall)
+			part(model, "SignBandWall", Vector3.new(span, bandH, 0.8), at(0, y0 + h - bandH / 2, 0.4), wallMaterial, baseWallColor)
             -- Photo-specific 777 Food Market corner: long Lincoln glass and
             -- yellow-over-blue fascia, entrance only at the W 9th corner.
             -- Do not create a duplicate shop or sign on the adjacent wall.
@@ -235,6 +240,18 @@ function RealBuildings.Store(model, r, ctx, shop)
                     Vector3.new(4.0,0.4,0.6),at(0,groundTop+1.1,-0.78),
                     Enum.Material.Concrete,Color3.fromRGB(225,216,199))
                 sill.CanCollide=false
+            end
+            if is777 then
+                -- Painted blue shop piers, recessed window skirts and framing;
+                -- the actual storefront is inset, not an all-glass gray box.
+                local sillBand = part(model,"777BlueWindowSkirt",
+                    Vector3.new(span,2.15,0.3),
+                    at(0,y0+0.9,-0.07),Enum.Material.Brick,blue777)
+                sillBand.CanCollide=false
+                local trimBand = part(model,"777StorefrontBlueTrim",
+                    Vector3.new(span,0.4,0.38),
+                    at(0,y0+2.15,-0.16),Enum.Material.Metal,blueTrim777)
+                trimBand.CanCollide=false
             end
             -- Readable ground-floor shopfront framing: make the canopy,
             -- sign-band edge and glass transom physically distinct instead
@@ -302,7 +319,7 @@ function RealBuildings.Store(model, r, ctx, shop)
 			ctx.stats.storefronts += 1
 		else
 			local w = part(model, "ShopWall", Vector3.new(span, groundH, 0.8), at(0, r.streetLevel + groundH / 2, 0.4),
-				ctx.material, ctx.wall)
+                wallMaterial, baseWallColor)
             -- The photo shows an opaque rear/side wall with no rows of
             -- generic shop windows. Preserve it as a solid masonry plane.
             if shop.photoFacade ~= "777" then

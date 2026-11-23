@@ -2588,6 +2588,25 @@ local function buildFootprintBuilding(parent, building, shapeData)
 				newPart(model, "Roof", Vector3.new(along, 0.4, across),
 					CFrame.new(x, wallTop + 0.2, z) * yaw, Enum.Material.Concrete, measured)
 			end
+            if is777 and rectIndex == 1 then
+                -- The real building has an upper roof/dormer projecting over
+                -- the cream masonry. This is deliberately geometry, not a
+                -- decal over the generic store box.
+                local mainFrame = CFrame.new(x, wallTop, z) * yaw
+                local dormer = mainFrame*CFrame.new(-along*0.19,3.4,-across*0.15)
+                local cream = Color3.fromRGB(234,229,215)
+                newPart(model,"777RoofDormerBody",Vector3.new(6.0,7.1,5.8),
+                    dormer,Enum.Material.Brick,cream)
+                local dormerGlass=newPart(model,"777RoofDormerWindow",
+                    Vector3.new(3.1,4.8,0.25),
+                    dormer*CFrame.new(0,0,-3.04),
+                    Enum.Material.Glass,Color3.fromRGB(116,139,148))
+                dormerGlass.Transparency=0.25
+                buildGable(model,"777DormerRoof",
+                    dormer*CFrame.new(0,3.55,0),6.7,6.5,2.4,
+                    Color3.fromRGB(135,125,107))
+                model:SetAttribute("777PhotoReconstruction",true)
+            end
 			built += 1
 			local area = along * across
 			local info = { index = rectIndex - 1, x = x, z = z, along = along, across = across, area = area,
@@ -2751,6 +2770,21 @@ local function buildFootprintBuilding(parent, building, shapeData)
             -- field 12: pose-verified structure (roof/parapet/door/units/floors)
             .. "|" .. tostring(review and review.spec or "") .. ";" .. table.concat(kitRects, ";"))
 	end
+    if built > 0 and tostring(building.id) == "147448" then
+        local count=0
+        for _,part in ipairs(model:GetDescendants()) do
+            if part:IsA("BasePart") and string.sub(part.Name,1,3)=="777" then
+                count+=1
+            end
+        end
+        model:SetAttribute("777PhotoPartCount",count)
+        model:SetAttribute("777SourceTileId",tostring(building.id))
+        warn(("[EXIT6 777] id=147448 photoParts=%d rectangles=%d center=%s")
+            :format(count,#shapeData.r,tostring(model:GetPivot().Position)))
+        if count == 0 then
+            warn("[EXIT6 777] ERROR: pictured blue market geometry was not produced")
+        end
+    end
 	if built > 0 then
 		model.Parent = parent
 		return true

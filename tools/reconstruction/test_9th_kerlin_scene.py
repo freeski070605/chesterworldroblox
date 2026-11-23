@@ -65,6 +65,20 @@ class NeighborhoodSceneTests(unittest.TestCase):
         self.assertIn('916PartyWall', self.gas)
         self.assertIn('CollectionService:AddTag(chicken,"Exit6Store")', self.gas)
 
+    def test_new_york_fried_chicken_is_on_its_kerlin_footprint(self):
+        # Different restaurant from New York Fried Chicken & Grill at
+        # 3105 W 9th Street; don't move the shop to that other address.
+        self.assertIn('["111566"]', self.tile7)
+        self.assertIn('forceShop=true', self.review)
+        self.assertIn('tostring(building.id) == "111566"', self.tile)
+        self.assertIn('NYFCRedFascia', self.store)
+        self.assertIn('NYFCShopCount', self.tile)
+        self.assertIn('NYFC_MISSING', self.inspector)
+
+    def test_corner_shop_exposure_checks_entire_face(self):
+        self.assertIn('for _,fraction in ipairs({-0.38,-0.19,0,0.19,0.38})', self.store)
+        self.assertIn('if exposedFront(n) then', self.store)
+
     def test_uninvented_crosswalk_and_inspector(self):
         self.assertIn('local near777 =', self.tile)
         self.assertIn('if lincoln and ninth then return end', self.tile)

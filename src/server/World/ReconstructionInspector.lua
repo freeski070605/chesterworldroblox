@@ -13,6 +13,7 @@
 --   grey   fallback         county footprint + procedural kit
 local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
+local NeighborhoodScope = require(script.Parent:WaitForChild("NeighborhoodScope"))
 
 local Inspector = {}
 local FOLDER = "CW_ReconstructionInspector_TEMP"
@@ -46,9 +47,23 @@ function Inspector.Run(options)
 		centre = player.Character.PrimaryPart.Position
 	end
 	local counts, changed = {}, {}
+    local seenNeighborhood = {}
+    local relevant = 0
 	for _, model in ipairs(Workspace:GetDescendants()) do
 		local status = model:IsA("Model") and model:GetAttribute("ReconstructionStatus")
-		if status then
+		if status and (not options.neighborhood or NeighborhoodScope[tostring(model:GetAttribute("ChesterBuildingId"))]) then
+            local buildingId=tostring(model:GetAttribute("ChesterBuildingId"))
+            if NeighborhoodScope[buildingId] then
+                seenNeighborhood[buildingId]=true
+                relevant+=1
+                if buildingId=="147448" then
+                    log("777_PARTS",("id=%s photoParts=%s photoReconstruction=%s style=%s loc=%s")
+                        :format(buildingId,tostring(model:GetAttribute("777PhotoPartCount")),
+                            tostring(model:GetAttribute("777PhotoReconstruction")),
+                            tostring(model:GetAttribute("BuildingStyle")),
+                            tostring(model:GetPivot().Position)))
+                end
+            end
 			local evidence = model:GetAttribute("ReconstructionEvidenceStatus")
 			local key = status
 			if status == "fallback" and (evidence == "conflict" or evidence == "needs_imagery") then key = "conflict" end
@@ -88,6 +103,18 @@ function Inspector.Run(options)
 			end
 		end
 	end
+    if options.neighborhood then
+        local missing={}
+        local total=0
+        for id in pairs(NeighborhoodScope) do
+            total+=1
+            if not seenNeighborhood[id] then table.insert(missing,id) end
+        end
+        table.sort(missing,function(a,b)return tonumber(a)<tonumber(b)end)
+        log("9TH_KERLIN",("loaded=%d expected=%d seen=%d missing=%d")
+            :format(relevant,total,total-#missing,#missing))
+        if #missing>0 then log("MISSING_IDS",table.concat(missing,", ")) end
+    end
 	for key, n in pairs(counts) do log("COUNT", ("%s=%d"):format(key, n)) end
 	table.sort(changed, function(a, b) return (tonumber(a) or 0) < (tonumber(b) or 0) end)
 	log("RECONSTRUCTED", table.concat(changed, " "))

@@ -2,6 +2,14 @@
 -- unknown. Local source images are private references, not distributed assets.
 local G = "25_GoogleStreetView_Buildings/images/"
 return {
+ -- West 9th/Kerlin food storefront is a real dedicated county building,
+ -- not an interchangeable generated glass commercial facade.
+ ["111566"]={style="storefront",manualPriority=true,forceShop=true,
+   wall=0xd1c6b5,material="Brick",shopCanopy=false,
+   shops={[0]={front=242,entrance=242,canopy=false,photoFacade="nyfc",
+      signBg=0xc8181e,signFg=0xffdc28}},
+   confidence="tile_business_identity_only",
+   evidence="County tile r06_c07: New York Fried Chicken, building 111566; storefront frontage from source; geometry not photo-certified"},
  -- County building 133692 contains the legacy Krispy Krunchy shop on
  -- section 2; station generator now builds the two real 916 Kerlin units
  -- together, so do not spawn a second misplaced KKC shop from this tile.

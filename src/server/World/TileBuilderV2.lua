@@ -2808,11 +2808,23 @@ local function buildFootprintBuilding(parent, building, shapeData)
         end
         model:SetAttribute("777PhotoPartCount",count)
         model:SetAttribute("777SourceTileId",tostring(building.id))
+        model:SetAttribute("ReviewedCornerStore","777 Food Market")
         warn(("[EXIT6 777] id=147448 photoParts=%d rectangles=%d center=%s")
             :format(count,#shapeData.r,tostring(model:GetPivot().Position)))
         if count == 0 then
             warn("[EXIT6 777] ERROR: pictured blue market geometry was not produced")
         end
+    end
+    if built > 0 and tostring(building.id) == "111566" then
+        local shopCount=0
+        for _,inst in ipairs(model:GetDescendants()) do
+            if inst:IsA("Model") and inst:GetAttribute("ShopName") == "New York Fried Chicken" then
+                shopCount+=1
+            end
+        end
+        model:SetAttribute("NYFCShopCount",shopCount)
+        warn(("[EXIT6 NYFC] building=111566 stores=%d pivot=%s")
+            :format(shopCount,tostring(model:GetPivot().Position)))
     end
 	if built > 0 then
 		model.Parent = parent
@@ -2878,6 +2890,17 @@ local function buildBuilding(parent, building, shapes)
             -- Keep the county structure, remove only duplicated businesses.
             copy.ss, copy.sb, copy.name, copy.gs = nil, nil, nil, nil
             copy.style = "generic"  -- no phantom storefront texture underneath relocated retailer
+        end
+        if correction.forceShop and tostring(building.id) == "111566" then
+            -- Source tile already places NYFC on its own county footprint.
+            -- Make its genuine primary front an interactive store rather
+            -- than a generic window-textured commercial building.
+            local existing = copy.ss and copy.ss[1]
+            local placeId = existing and existing[6] or "ny-fried-chicken"
+            copy.ss = { { "New York Fried Chicken", 0, 242, 0xc8181e, 0xffdc28, placeId, 242 } }
+            copy.sb, copy.gs = nil, nil
+            copy.name = nil
+            copy.fb = 242
         end
         if correction.forceShop and tostring(building.id) == "147448" then
             -- Older survey name was suppressed but no store replaced it.

@@ -2397,7 +2397,11 @@ local function buildFootprintBuilding(parent, building, shapeData)
 	if region and not landmark and shapeData.r[1] then
 		local fx, fz = sourceToStuds(shapeData.r[1][1], shapeData.r[1][2])
 		local extra = WorldConfig.REAL_BUILDINGS_EXTRA and WorldConfig.REAL_BUILDINGS_EXTRA[tostring(building.id)]
-		local core = extra or (fx >= region.minX and fx <= region.maxX and fz >= region.minZ and fz <= region.maxZ)
+		-- The small photo-reviewed 9th/Kerlin pilot must render its real
+        -- server-side shop/home geometry, not the citywide lite placeholders.
+        -- Keep this bounded to the explicit neighborhood scope for Xbox.
+        local core = extra or NeighborhoodScope[tostring(building.id)]
+            or (fx >= region.minX and fx <= region.maxX and fz >= region.minZ and fz <= region.maxZ)
 		-- city-wide (WorldConfig.REAL_BUILDINGS_ALL): every home and store; full
 		-- detail in the core, the lite house kit everywhere else
 		if core or WorldConfig.REAL_BUILDINGS_ALL then

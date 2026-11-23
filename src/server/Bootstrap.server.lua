@@ -160,15 +160,6 @@ end
 
 workspace:SetAttribute("CW_TilesTotal", tileBuildCount)
 workspace:SetAttribute("CW_TilesBuilt", 0)
-reportStartupMemory("before-tiles",0)
-task.spawn(function()
-    while workspace:GetAttribute("CW_BootstrapComplete") ~= true do
-        task.wait(12)
-        reportStartupMemory("build-watchdog",workspace:GetAttribute("CW_TilesBuilt") or 0)
-    end
-    task.wait(3)
-    reportStartupMemory("after-bootstrap",tileBuildCount)
-end)
 for index = 1, tileBuildCount do
     local module = modules[index]
 	if module:IsA("ModuleScript") then

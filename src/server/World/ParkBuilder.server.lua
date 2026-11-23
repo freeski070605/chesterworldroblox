@@ -353,6 +353,24 @@ local function clearSign(x, z, pts)
 		Vector3.new(17, 10, 8), occupied) == 0
 end
 
+-- The imported walking loop can run outside its park polygon. Check the full
+-- footprint, not just the centre point, before adding collision geometry.
+local function clearParkFootprint(frame, width, depth, outline, clearance)
+	local halfX, halfZ = width / 2 + clearance, depth / 2 + clearance
+	for _, localPoint in ipairs({
+		Vector3.new(-halfX, 0, -halfZ), Vector3.new(-halfX, 0, halfZ),
+		Vector3.new(halfX, 0, -halfZ), Vector3.new(halfX, 0, halfZ),
+		Vector3.new(0, 0, -halfZ), Vector3.new(0, 0, halfZ),
+		Vector3.new(-halfX, 0, 0), Vector3.new(halfX, 0, 0),
+		Vector3.new(0, 0, 0),
+	}) do
+		local p = frame * localPoint
+		if not insideOutline(p.X, p.Z, outline) then return false end
+	end
+	return #Workspace:GetPartBoundsInBox(frame * CFrame.new(0, 2, 0),
+		Vector3.new(width + 2 * clearance, 6, depth + 2 * clearance), occupied) == 0
+end
+
 local function sign(parent, x, z, text)
 	local y = groundY(x, z)
 	if not y then return end
@@ -444,34 +462,41 @@ for _, park in ipairs(Parks.parks) do
 				local x0, z0 = ax + (bx - ax) * t0, az + (bz - az) * t0
 				local x1, z1 = ax + (bx - ax) * t1, az + (bz - az) * t1
 				local y0, y1 = groundY(x0, z0), groundY(x1, z1)
+				local pathFrame
 				if y0 and y1 then
 					local a, b = Vector3.new(x0, y0 + 0.15, z0), Vector3.new(x1, y1 + 0.15, z1)
-					counted(part(model, "Path", Vector3.new(6, 0.3, (b - a).Magnitude + 0.6),
-						CFrame.lookAt((a + b) / 2, b), Enum.Material.Concrete, CONCRETE))
-					pathParts += 1
-					budget -= 1
+					pathFrame = CFrame.lookAt((a + b) / 2, b)
+					if clearParkFootprint(pathFrame, 6, (b - a).Magnitude + 0.6, pts, 1) then
+						counted(part(model, "Path", Vector3.new(6, 0.3, (b - a).Magnitude + 0.6),
+							pathFrame, Enum.Material.Concrete, CONCRETE))
+						pathParts += 1
+						budget -= 1
+					else
+						pathFrame = nil
+					end
 				end
 				travelled += length / steps
-				if travelled >= nextBench and benches < 2000 then
+				if pathFrame and travelled >= nextBench and benches < 2000 then
 					local dir = Vector3.new(x1 - x0, 0, z1 - z0)
 					if dir.Magnitude > 0 and y1 then
 						local side = Vector3.new(-dir.Unit.Z, 0, dir.Unit.X) * 5
 						local p = Vector3.new(x1, y1, z1) + side
 						local by = groundY(p.X, p.Z)
-						if by then
-							bench(model, CFrame.lookAt(Vector3.new(p.X, by, p.Z), Vector3.new(x1, by, z1)) * CFrame.Angles(0, math.pi, 0))
+						local seatFrame = by and CFrame.lookAt(Vector3.new(p.X, by, p.Z), Vector3.new(x1, by, z1))
+						if seatFrame and clearParkFootprint(seatFrame, 5, 1.5, pts, 3) then
+							bench(model, seatFrame)
 							benches += 1
 						end
 					end
 					nextBench += 70
 				end
-				if travelled >= nextLamp and y1 then
+				if pathFrame and travelled >= nextLamp and y1 then
 					local dir = Vector3.new(x1 - x0, 0, z1 - z0)
 					if dir.Magnitude > 0 then
 						local side = Vector3.new(dir.Unit.Z, 0, -dir.Unit.X) * 5
 						local p = Vector3.new(x1, 0, z1) + side
 						local ly = groundY(p.X, p.Z)
-						if ly then
+						if ly and clearParkFootprint(CFrame.new(p.X, ly, p.Z), 1.4, 1.4, pts, 3) then
 							lamp(model, p.X, ly, p.Z)
 							lamps += 1
 						end

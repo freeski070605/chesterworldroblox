@@ -68,6 +68,76 @@ for _,tile in ipairs(World:GetChildren()) do
 end
 overlap.FilterDescendantsInstances=roadFolders
 
+-- Measure actual collidable bridge/approach joins, including the Kerlin and
+-- Upland corridors. The highway stroke audit covers its own pieces; this
+-- catches local-road ends after every late bridge and terrain stage.
+local seamParams=OverlapParams.new()
+seamParams.FilterType=Enum.RaycastFilterType.Include
+seamParams.FilterDescendantsInstances=roadFolders
+seamParams.MaxParts=0
+local bridgeSeams,bridgeSeamExamples=0,{}
+local seamSeen={}
+local function normalizedStreet(value)
+    local name=string.lower(tostring(value or ""))
+    name=name:gsub("[^%w%s]"," "):gsub("%s+"," ")
+    return name:gsub("%s+street$",""):gsub("%s+st$","")
+end
+local function partEnds(part)
+    local delta=part.CFrame.LookVector*(part.Size.Z/2)
+    return part.Position-delta,part.Position+delta
+end
+local function horizontalDistance(a,b)
+    return math.sqrt((a.X-b.X)^2+(a.Z-b.Z)^2)
+end
+for index,part in ipairs(roadParts) do
+    if part.CanCollide and (part:GetAttribute("CW_BridgeProfiled")==true
+        or part:GetAttribute("CW_RampProfiled")==true
+        or part:GetAttribute("CW_BridgeApproach")==true) then
+        local street=normalizedStreet(part:GetAttribute("ChesterStreet"))
+        if street~="" then
+            local a,b=partEnds(part)
+            for _,point in ipairs({a,b}) do
+                local candidates=Workspace:GetPartBoundsInBox(CFrame.new(point),
+                    Vector3.new(3,24,3),seamParams)
+                for _,other in ipairs(candidates) do
+                    if other~=part and other:IsA("BasePart") and other.CanCollide
+                        and other.Parent and other.Parent.Name=="Roads"
+                        and normalizedStreet(other:GetAttribute("ChesterStreet"))==street then
+                        local oa,ob=partEnds(other)
+                        local near=horizontalDistance(point,oa)<horizontalDistance(point,ob) and oa or ob
+                        if horizontalDistance(point,near)<1.5 then
+                            local pair=seamSeen[part]
+                            if not pair then pair={} seamSeen[part]=pair end
+                            if not pair[other] and not (seamSeen[other] and seamSeen[other][part]) then
+                                pair[other]=true
+                                local top1=(point+part.CFrame.UpVector*(part.Size.Y/2)).Y
+                                local top2=(near+other.CFrame.UpVector*(other.Size.Y/2)).Y
+                                local step=math.abs(top1-top2)
+                                if step>0.35 then
+                                    bridgeSeams+=1
+                                    if #bridgeSeamExamples<30 or street=="kerlin" or street=="upland" then
+                                        table.insert(bridgeSeamExamples,string.format(
+                                            "road=%s at=(%.1f,%.1f) top=%.2f/%.2f step=%.2f parts=%s/%s",
+                                            street,point.X,point.Z,top1,top2,step,
+                                            part:GetFullName(),other:GetFullName()))
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    if index%500==0 then task.wait() end
+end
+for _,entry in ipairs(bridgeSeamExamples) do
+    warn("[ChesterWorld RoadBridgeSeam] "..entry)
+end
+Workspace:SetAttribute("CW_RoadBridgeSeams",bridgeSeams)
+print(("[ChesterWorld RoadBridgeSeams] mismatchedCollisionJoins=%d examples=%d")
+    :format(bridgeSeams,#bridgeSeamExamples))
+
 -- Preserve the previous midpoint check for comparison, but ALSO test
 -- multiple longitudinal stations on the SAME named road. An overlapping
 -- cross street / elevated bridge is not proof of a drivable repair.

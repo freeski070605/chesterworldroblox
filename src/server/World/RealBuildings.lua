@@ -185,7 +185,7 @@ function RealBuildings.Store(model, r, ctx, shop)
             -- Photo-specific 777 Food Market corner: long Lincoln glass and
             -- yellow-over-blue fascia, entrance only at the W 9th corner.
             -- Do not create a duplicate shop or sign on the adjacent wall.
-            if shop.photoFacade == "777" and n == nFront then
+            if shop.photoFacade == "777" then
                 local faceY = y0 + h - math.max(h - 10, 2.4) + 0.35
                 local yellow=Color3.fromRGB(244,198,49)
                 local blue=Color3.fromRGB(28,57,128)

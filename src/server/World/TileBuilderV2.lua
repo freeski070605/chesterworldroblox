@@ -2611,7 +2611,7 @@ local function buildFootprintBuilding(parent, building, shapeData)
 		end
 		buildStoreSign(model, shapeData, best, yaw)
 	end
-	if built > 0 and shapeData.ss then
+	if built > 0 and shapeData.ss and tostring(building.id) ~= "147448" then
 		local names = {}
 		for _, shop in ipairs(shapeData.ss) do
 			for _, r in ipairs(builtRects) do

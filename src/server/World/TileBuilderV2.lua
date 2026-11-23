@@ -2793,6 +2793,12 @@ local function buildBuilding(parent, building, shapes)
         if correction.front then copy.fb = correction.front end
         if correction.name == false then copy.name = nil end
         if correction.sb == false then copy.sb = nil end
+        if correction.suppressShops then
+            -- Shop identities from older tiles may be relocated within the
+            -- same lot by the authoritative station/business placement.
+            -- Keep the county structure, remove only duplicated businesses.
+            copy.ss, copy.sb, copy.name, copy.gs = nil, nil, nil, nil
+        end
         if correction.forceShop and tostring(building.id) == "147448" then
             -- Older survey name was suppressed but no store replaced it.
             -- Preserve existing first place id so the shop still works.

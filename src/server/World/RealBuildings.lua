@@ -144,8 +144,17 @@ function RealBuildings.Store(model, r, ctx, shop)
     local normals = { Vector3.xAxis, -Vector3.xAxis, Vector3.zAxis, -Vector3.zAxis }
     local function exposedFront(n)
         local fcf,span = faceOf(r,n)
-        return span >= 7 and fronts[tostring(n)]
-            and not covered((fcf*CFrame.new(0,0,-2)).Position,ctx.rects,r)
+        if span < 7 or not fronts[tostring(n)] then return false end
+        -- A corner shop is often made of overlapping county rectangles:
+        -- the middle of its wall can be covered by its OWN rear extension,
+        -- even while the visible corner/window bay remains exposed.
+        -- Test the whole requested wall, not a single centre point.
+        local clear = 0
+        for _,fraction in ipairs({-0.38,-0.19,0,0.19,0.38}) do
+            local probe=(fcf*CFrame.new(fraction*span,0,-2.5)).Position
+            if not covered(probe,ctx.rects,r) then clear+=1 end
+        end
+        return clear>0
     end
     if not exposedFront(preferredEntrance) then
         if exposedFront(nFront) then
@@ -164,7 +173,7 @@ function RealBuildings.Store(model, r, ctx, shop)
 		local function at(x, y, z) return fcf * CFrame.new(x, 0, z) + Vector3.new(0, y, 0) end
 		local y0 = r.streetLevel + 0.4
 		local probe = (fcf * CFrame.new(0, 0, -2)).Position
-		if fronts[tostring(n)] and not covered(probe, ctx.rects, r) then
+		if exposedFront(n) then
             -- A surveyed corner storefront can put its door toward either
             -- street and shift it along that wall. Keep glazing/signage on
             -- both exposed faces, but create only ONE entrance per section.
@@ -185,6 +194,30 @@ function RealBuildings.Store(model, r, ctx, shop)
             -- Photo-specific 777 Food Market corner: long Lincoln glass and
             -- yellow-over-blue fascia, entrance only at the W 9th corner.
             -- Do not create a duplicate shop or sign on the adjacent wall.
+            if shop.photoFacade == "nyfc" then
+                -- Dedicated branded shop on county building 111566:
+                -- no new free-floating building and no generic unlabeled glass.
+                local bandHeight=math.clamp(h*0.23,2.5,4)
+                local sign=part(model,"NYFCRedFascia",
+                    Vector3.new(math.max(5,span-1.2),bandHeight,0.3),
+                    at(0,y0+h-bandHeight/2,-0.9),
+                    Enum.Material.SmoothPlastic,Color3.fromRGB(199,28,31))
+                sign.CanCollide=false
+                local gui=Instance.new("SurfaceGui")
+                gui.Name="NYFCFrontSign"
+                gui.Face=Enum.NormalId.Front
+                gui.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud
+                gui.PixelsPerStud=16
+                gui.Parent=sign
+                local text=Instance.new("TextLabel")
+                text.Size=UDim2.fromScale(1,1)
+                text.BackgroundTransparency=1
+                text.TextScaled=true
+                text.Text="NEW YORK FRIED CHICKEN"
+                text.TextColor3=Color3.fromRGB(253,219,54)
+                text.Font=Enum.Font.GothamBlack
+                text.Parent=gui
+            end
             if shop.photoFacade == "777" then
                 local faceY = y0 + h - math.max(h - 10, 2.4) + 0.35
                 local yellow=Color3.fromRGB(244,198,49)

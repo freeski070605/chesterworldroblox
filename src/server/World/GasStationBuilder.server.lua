@@ -60,7 +60,7 @@ end
 
 -- Driveway transitions: connect a level pump forecourt to an actual street surface.
 -- Roads are terrain-following; the station's single flat slab is not.
-local drivewayStats = { built = 0, skippedSteep = 0, noRoad = 0 }
+local drivewayStats = { built = 0, skippedSteep = 0, noRoad = 0, crossfall = 0 }
 local ROAD_SEARCH = OverlapParams.new()
 ROAD_SEARCH.MaxParts = 150
 local ROAD_RAY = RaycastParams.new()
@@ -92,34 +92,41 @@ local function driveway(model, frame, halfX, halfZ, side)
 		or (side == "right" and frame * Vector3.new(halfX, 0, 0))
 		or (frame * Vector3.new(-halfX, 0, 0))
 	local slabTop = frame.Position.Y + 0.5
+	local tangent = Vector3.new(forward.X, 0, forward.Z).Unit
+	local across = Vector3.new(-tangent.Z, 0, tangent.X)
+	local width = math.min((side == "front" or side == "back") and halfX * 1.2 or halfZ * 1.2, 30)
 	local best, closest
-	for d = 5, 48, 3 do
-		local y = roadTopAt(edge + forward * d)
-		if y then
-			local delta = y - slabTop
+	for d = 6, 48, 3 do
+		local left = roadTopAt(edge + tangent * d - across * width * 0.35)
+		local middle = roadTopAt(edge + tangent * d)
+		local right = roadTopAt(edge + tangent * d + across * width * 0.35)
+		if left and middle and right then
+			local delta = middle - slabTop
 			local grade = math.abs(delta) / d
-			local candidate = { y = y, run = d, delta = delta, grade = grade }
+			local crossfall = math.max(left, middle, right) - math.min(left, middle, right)
+			local candidate = { y = middle, run = d, delta = delta, grade = grade, crossfall = crossfall }
 			if not closest or d < closest.run then closest = candidate end
-			if grade <= 0.12 and (not best or d < best.run) then best = candidate end
+			-- One flat strip cannot safely meet a cambered street. Reject that
+			-- driveway instead of leaving a raised corner for a bike wheel.
+			if grade <= 0.10 and crossfall <= 0.45 and (not best or d < best.run) then best = candidate end
 		end
 	end
 	if not closest then drivewayStats.noRoad += 1 return end
 	if not best then
 		drivewayStats.skippedSteep += 1
-		warn(("[EXIT6 Gas Driveway] %s %s: nearest road step %.1f studs; no gentle approach found")
-			:format(model.Name, side, closest.delta))
+		if closest.crossfall > 0.45 then drivewayStats.crossfall += 1 end
+		warn(("[EXIT6 Gas Driveway] %s %s: road step %.1f studs, crossfall %.1f; no supported approach")
+			:format(model.Name, side, closest.delta, closest.crossfall))
 		return
 	end
 	if math.abs(best.delta) < 0.25 then return end
 	local run, delta = best.run, best.delta
-	local tangent = Vector3.new(forward.X, 0, forward.Z).Unit
 	local slopeForward = (tangent * run + Vector3.new(0, delta, 0)).Unit
 	local right = slopeForward:Cross(Vector3.yAxis).Unit
 	local up = right:Cross(slopeForward).Unit
 	local center = edge + tangent * (run / 2)
 		+ Vector3.new(0, (slabTop + best.y) / 2 - frame.Position.Y - 0.18, 0)
-	local width = math.min((side == "front" or side == "back") and halfX * 1.2 or halfZ * 1.2, 30)
-	local ramp = part(model, "DrivewayTransition", Vector3.new(width, 0.36, run + 0.7),
+	local ramp = part(model, "DrivewayTransition", Vector3.new(width, 0.36, run),
 		CFrame.fromMatrix(center, right, up, -slopeForward), Enum.Material.Concrete, CONCRETE)
 	ramp:SetAttribute("Exit6Driveway", true)
 	drivewayStats.built += 1

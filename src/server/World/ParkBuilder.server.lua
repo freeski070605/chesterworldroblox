@@ -315,6 +315,44 @@ roadParams.FilterType = Enum.RaycastFilterType.Include
 roadParams.FilterDescendantsInstances = roadFolders
 roadParams.MaxParts = 1
 
+-- A park outline is not a road edge. Crozer Park's first near-road vertex
+-- placed its sign in Kerlin Street. Check the entire sign envelope (including
+-- both posts) against actual pavement and sidewalks before choosing a spot.
+local occupied = OverlapParams.new()
+occupied.FilterType = Enum.RaycastFilterType.Include
+occupied.MaxParts = 1
+local occupiedFolders = {}
+for _, tile in ipairs(world and world:GetChildren() or {}) do
+	for _, name in ipairs({ "Roads", "Intersections", "Intersection", "Sidewalks" }) do
+		local folder = tile:FindFirstChild(name)
+		if folder then table.insert(occupiedFolders, folder) end
+	end
+end
+occupied.FilterDescendantsInstances = occupiedFolders
+
+local function insideOutline(x, z, pts)
+	local inside = false
+	local j = #pts - 1
+	for i = 1, #pts - 1, 2 do
+		local xi, zi, xj, zj = pts[i], pts[i + 1], pts[j], pts[j + 1]
+		if (zi > z) ~= (zj > z) and x < (xj - xi) * (z - zi) / (zj - zi) + xi then
+			inside = not inside
+		end
+		j = i
+	end
+	return inside
+end
+
+local function clearSign(x, z, pts)
+	if not insideOutline(x, z, pts) then return false end
+	local y = groundY(x, z)
+	if not y then return false end
+	-- Include verge clearance so posts and board do not overhang a lane,
+	-- sidewalk, or driveway mouth. Broadphase uses real placed Parts.
+	return #Workspace:GetPartBoundsInBox(CFrame.new(x, y + 3, z),
+		Vector3.new(17, 10, 8), occupied) == 0
+end
+
 local function sign(parent, x, z, text)
 	local y = groundY(x, z)
 	if not y then return end
@@ -368,7 +406,8 @@ for _, park in ipairs(Parks.parks) do
 	local cx, cz, n = 0, 0, #pts / 2
 	for i = 1, n do cx += pts[2 * i - 1]; cz += pts[2 * i] end
 	cx, cz = cx / n, cz / n
-	-- sign at the first outline vertex with a road beside it
+	-- Search park-side candidates at a mapped roadside vertex. The sign is
+	-- omitted if no collision-free entrance/verge exists in the source outline.
 	if park.name then
 		for i = 1, n do
 			local x, z = pts[2 * i - 1], pts[2 * i]
@@ -376,13 +415,15 @@ for _, park in ipairs(Parks.parks) do
 			if y and #Workspace:GetPartBoundsInRadius(Vector3.new(x, y, z), 30, roadParams) > 0 then
 				local inward = Vector3.new(cx - x, 0, cz - z)
 				inward = inward.Magnitude > 0 and inward.Unit or Vector3.zero
-				local sx, sz = x + inward.X * 8, z + inward.Z * 8
-				local sy = groundY(sx, sz)
-				if sy then
-					sign(model, sx, sz, park.name)
-					signs += 1
+				for _, offset in ipairs({ 10, 16, 24, 32 }) do
+					local sx, sz = x + inward.X * offset, z + inward.Z * offset
+					if clearSign(sx, sz, pts) then
+						sign(model, sx, sz, park.name)
+						signs += 1
+						break
+					end
 				end
-				break
+				if model:FindFirstChild("Sign") then break end
 			end
 		end
 	end

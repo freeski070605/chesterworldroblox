@@ -298,12 +298,31 @@ local function insideStore(frame, width, depth, p, margin)
 end
 local function buildStore(model, st, fascia, accent, textColor, frame, width, depth)
 	local s = st.store
+    local shared916 = st.id == "cw_ab912b6f80"
 	-- the county building in the footprint goes (only its parts inside the shop:
 	-- a strip of shops keeps its other units)
 	local county = s.model and buildingsById[s.model]
 	if county and county.Parent then
 		for _, p in ipairs(county:GetDescendants()) do
-			if p:IsA("BasePart") and insideStore(frame, width, depth, p.Position, 1) then p:Destroy() end
+            if p:IsA("BasePart") then
+                local intersects = insideStore(frame,width,depth,p.Position,1)
+                if shared916 and not intersects then
+                    -- A large county shell may cross the replacement shop with
+                    -- its CENTRE outside the new shell. Test its footprint
+                    -- corners too, or the old KKC wall hides the new doors.
+                    for _,sx in ipairs({-1,1}) do
+                        for _,sz in ipairs({-1,1}) do
+                            local corner=p.CFrame*Vector3.new(sx*p.Size.X/2,0,sz*p.Size.Z/2)
+                            if insideStore(frame,width,depth,corner,0) then
+                                intersects=true
+                                break
+                            end
+                        end
+                        if intersects then break end
+                    end
+                end
+                if intersects then p:Destroy() end
+            end
 		end
 		local left = false
 		for _, p in ipairs(county:GetDescendants()) do
@@ -426,7 +445,70 @@ local function buildStore(model, st, fascia, accent, textColor, frame, width, de
 			return part(shop, name, size, fcf * CFrame.new(x, y, z), material or Enum.Material.SmoothPlastic, color)
 		end
 		local spec = shopfronts[faceName]
-		if not spec and s.glassAll then
+        if shared916 and faceName == "front" then
+            -- Two physical shopfronts inside the EXISTING 916 Kerlin shell.
+            -- Looking from the street: Krispy Krunchy LEFT, Eagle RIGHT.
+            -- In the front-facing frame the viewer's left is +local X.
+            local unitW = len / 2
+            local faceBottom = 0.5
+            local faceTop = math.min(glassTop, 10)
+            local unitSigns = {
+                {x=unitW/2,name="KRISPY KRUNCHY CHICKEN",colour=Color3.fromRGB(215,44,38),
+                    trim=Color3.fromRGB(245,202,52)},
+                {x=-unitW/2,name="EAGLE SAVE MART",colour=Color3.fromRGB(34,57,131),
+                    trim=Color3.fromRGB(232,58,53)},
+            }
+            for _,unit in ipairs(unitSigns) do
+                local span = unitW - 0.65
+                local entryW = math.min(4.5,span*0.34)
+                local sideW = math.max(1,(span-entryW-2)/2)
+                for _,side in ipairs({-1,1}) do
+                    local window = mk("916ShopGlass",Vector3.new(sideW,math.max(4,faceTop-1.2),0.2),
+                        unit.x+side*(entryW/2+sideW/2+0.35),faceBottom+(faceTop-1.2)/2,0.38,
+                        Color3.fromRGB(85,113,129),Enum.Material.Glass)
+                    window.Transparency=0.34
+                    local pier=mk("916StorePier",Vector3.new(0.5,faceTop,0.8),
+                        unit.x+side*(span/2),faceTop/2,0.4,wall,Enum.Material.Brick)
+                    pier.CanCollide=false
+                end
+                local entrance = mk("916StoreDoor",Vector3.new(entryW-0.2,math.max(4,faceTop-1.2),0.2),
+                    unit.x,faceBottom+(faceTop-1.2)/2,0.3,
+                    Color3.fromRGB(92,127,146),Enum.Material.Glass)
+                entrance.Transparency=0.42
+                entrance.CanCollide=false
+                local sign = mk("916UnitFascia",Vector3.new(span,math.min(3.5,math.max(2.4,h-faceTop)),0.3),
+                    unit.x,faceTop+1.5,0.34,unit.colour)
+                local gui=Instance.new("SurfaceGui")
+                gui.Face=Enum.NormalId.Front
+                gui.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud
+                gui.PixelsPerStud=20
+                gui.Parent=sign
+                local t=Instance.new("TextLabel")
+                t.Size=UDim2.fromScale(1,1)
+                t.BackgroundTransparency=1
+                t.Text=unit.name
+                t.TextScaled=true
+                t.TextColor3=Color3.new(1,1,1)
+                t.Font=Enum.Font.GothamBlack
+                t.Parent=gui
+                local stripe=mk("916FasciaTrim",Vector3.new(span,0.35,0.42),
+                    unit.x,faceTop+3.0,0.32,unit.trim)
+                stripe.CanCollide=false
+            end
+            -- The existing Eagle building is two storeys. Complete the
+            -- upper street-facing exterior instead of leaving a void over
+            -- the newly separated food and convenience entrances.
+            if h > faceTop+3.5 then
+                mk("916SharedUpperWall",Vector3.new(len,h-(faceTop+3.5),0.85),
+                    0,(h+faceTop+3.5)/2,0.4,wall,Enum.Material.Brick)
+            end
+            local divider = mk("916PartyWall",Vector3.new(0.6,math.min(h,13),math.min(depth,20)),
+                0,math.min(h,13)/2,math.min(depth,20)/2,
+                wall,Enum.Material.Brick)
+            -- Divider separates the interactive front shops but never blocks
+            -- the preexisting station pumps or access lanes.
+            divider.CanCollide=true
+		elseif not spec and s.glassAll then
 			-- glass all round (the 22nd & Edgmont A-Plus): a glass wall, no door
 			local g = mk("Shopfront", Vector3.new(len - 2.4, glassTop - 1.2, 0.3), 0, 0.6 + (glassTop - 1.2) / 2, 0.4,
 				Color3.fromRGB(150, 190, 210), Enum.Material.Glass)
@@ -496,7 +578,10 @@ local function buildStore(model, st, fascia, accent, textColor, frame, width, de
 		end
 	end
 	-- EXIT 6 fits the interior at the shop floor, facing the door (-Z)
-	local anchor = part(model, "Exit6StoreAnchor", Vector3.new(2, 0.2, 2), frame * CFrame.new(0, 0.7, 0),
+    local interiorDepth = shared916 and math.min(depth,18) or depth
+    local interiorZ = shared916 and (-depth/2+interiorDepth/2) or 0
+	local anchor = part(model, "Exit6StoreAnchor", Vector3.new(2, 0.2, 2),
+        frame * CFrame.new(shared916 and -width/4 or 0, 0.7, interiorZ),
 		Enum.Material.SmoothPlastic, Color3.new(1, 1, 1))
 	anchor.Transparency = 1
 	anchor.CanCollide = false
@@ -509,9 +594,36 @@ local function buildStore(model, st, fascia, accent, textColor, frame, width, de
 	model:SetAttribute("BrandAccent", accent)
 	model:SetAttribute("BrandText", textColor)
 	model:SetAttribute("Exit6StoreShell", "building")
-	model:SetAttribute("Exit6StoreWidth", width)
-	model:SetAttribute("Exit6StoreDepth", depth)
+	model:SetAttribute("Exit6StoreWidth", shared916 and width/2 or width)
+	model:SetAttribute("Exit6StoreDepth", interiorDepth)
 	model:SetAttribute("Exit6StoreHeight", h)
+    if shared916 then
+        -- Second independent business on the same geographic lot. Eagle
+        -- retains the gas-station tag and fuel gameplay on the right.
+        local chicken=Instance.new("Model")
+        chicken.Name="Krispy Krunchy Chicken - 916 Kerlin"
+        chicken:SetAttribute("StationId",st.id..":chicken")
+        chicken:SetAttribute("ShopName","KRISPY KRUNCHY CHICKEN")
+        chicken:SetAttribute("BrandName","KRISPY KRUNCHY CHICKEN")
+        chicken:SetAttribute("Exit6StoreKind","food")
+        chicken:SetAttribute("Exit6StoreShell","building")
+        chicken:SetAttribute("Exit6StoreWidth",width/2-0.8)
+        chicken:SetAttribute("Exit6StoreDepth",interiorDepth)
+        chicken:SetAttribute("Exit6StoreHeight",math.min(h,12))
+        chicken:SetAttribute("Address","916 Kerlin Street")
+        chicken:SetAttribute("ChesterBuildingId","133692")
+        chicken:SetAttribute("BrandFascia",Color3.fromRGB(215,44,38))
+        chicken.Parent=model
+        local anchor2=part(chicken,"Exit6StoreAnchor",Vector3.new(2,0.2,2),
+            frame*CFrame.new(width/4,0.7,interiorZ),
+            Enum.Material.SmoothPlastic,Color3.new(1,1,1))
+        anchor2.Transparency=1
+        anchor2.CanCollide=false
+        anchor2.CanQuery=false
+        CollectionService:AddTag(chicken,"Exit6Store")
+        model:SetAttribute("SharedStoreUnits","Krispy Krunchy Chicken | Eagle Save Mart")
+        model:SetAttribute("ChesterBuildingId","133692")
+    end
 	CollectionService:AddTag(model, "Exit6GasStation")
 	stores += 1
 end

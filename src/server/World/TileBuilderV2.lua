@@ -2376,7 +2376,8 @@ local function buildFootprintBuilding(parent, building, shapeData)
 		if review.bay then model:SetAttribute("ReconstructionBay", true) end
 		model:SetAttribute("ReconstructionReviewed", true)
 	end
-	local gable = (style.roof == "gable" or (review and review.roof == "gable")) and #shapeData.r <= 3
+	local gable = (style.roof == "gable" or (review and review.roof == "gable"))
+        and (#shapeData.r <= 3 or tostring(building.id) == "147448")
 	local roofColor = style.roofs and pick(style.roofs, seed, 2)
 	-- measured roof colour from the 2025 aerial (tools/build_building_tiles.py),
 	-- slightly darkened: the orthophoto is brighter than in-game lighting
@@ -2421,9 +2422,11 @@ local function buildFootprintBuilding(parent, building, shapeData)
                     -- along-wall offset. Existing six-field entries unchanged.
                     entrance = shopReview and shopReview.entrance or sh[7],
                     entranceOffset = shopReview and shopReview.entranceOffset or sh[8],
-                    canopy = shopReview and shopReview.canopy }
+                    canopy = shopReview and shopReview.canopy,
+                    photoFacade = shopReview and shopReview.photoFacade }
 				if review and review.shopCanopy == false then shops[sh[2]].canopy = false end
-				if shopReview and shopReview.corner == false then shops[sh[2]].corner = nil end
+				if shopReview and shopReview.corner == false then shops[sh[2]].corner = nil
+                elseif shopReview and type(shopReview.corner) == "number" then shops[sh[2]].corner = shopReview.corner end
 			end
 			if shapeData.sb and shapeData.name then
 				-- the verified store: the section reaching furthest toward its street front
@@ -2483,7 +2486,10 @@ local function buildFootprintBuilding(parent, building, shapeData)
 				local g = terrainY(p.X, p.Z)
 				if g and g < lowest then lowest = g end
 			end
-			local rise = gable and math.clamp(math.min(along, across) * 0.32, 3, 14) or 0
+			-- 777 is three connected county rectangles, but the photo only
+            -- supports a principal roof gable, not three duplicate peaks.
+            local gableHere = gable and (tostring(building.id) ~= "147448" or rectIndex == 1)
+            local rise = gableHere and math.clamp(math.min(along, across) * 0.32, 3, 14) or 0
 			local wallTop = centreGround + WorldConfig.BUILDING_BASE_Y_STUDS + heightStuds - rise * 0.6
 			local base = lowest - 1.5
 			local floors = shapeData.floors or math.max(1, math.floor(shapeData.h / 3.2 + 0.5))
@@ -2559,10 +2565,10 @@ local function buildFootprintBuilding(parent, building, shapeData)
 			end
 			if realHome then
 				-- the house kit built this section's roof (HouseKit.lua)
-			elseif style.roof == "cornice" then
+			elseif style.roof == "cornice" and not gableHere then
 				newPart(model, "Cornice", Vector3.new(along + 0.8, 0.9, across + 0.8),
 					CFrame.new(x, wallTop + 0.45, z) * yaw, Enum.Material.Concrete, roofColor or style.top)
-			elseif gable then
+			elseif gableHere then
 				buildGable(model, "Roof", CFrame.new(x, wallTop, z) * yaw, along + 1.2, across + 1.2, rise,
 					roofColor or Color3.fromRGB(70, 66, 62))
 			elseif measured then
@@ -2608,7 +2614,7 @@ local function buildFootprintBuilding(parent, building, shapeData)
 		end
 		buildStoreSign(model, shapeData, best, yaw)
 	end
-	if built > 0 and shapeData.ss then
+	if built > 0 and shapeData.ss and tostring(building.id) ~= "147448" then
 		local names = {}
 		for _, shop in ipairs(shapeData.ss) do
 			for _, r in ipairs(builtRects) do
@@ -2750,8 +2756,15 @@ local function reviewFor(id)
     local merged = {}
     if old then for k, v in pairs(old) do merged[k] = v end end
     for k, v in pairs(recon) do merged[k] = v end
-    merged.evidence = recon.photo
-    merged.reconstructed = recon.status == "reconstructed"
+    -- Newer direct site reviews outrank stale generated recon rows.
+    if old and old.manualPriority then
+        for k, v in pairs(old) do merged[k] = v end
+        merged.reconstructed = false
+        merged.evidence = old.evidence
+    else
+        merged.evidence = recon.photo
+        merged.reconstructed = recon.status == "reconstructed"
+    end
     return merged, recon
 end
 
@@ -2783,6 +2796,22 @@ local function buildBuilding(parent, building, shapes)
         if correction.front then copy.fb = correction.front end
         if correction.name == false then copy.name = nil end
         if correction.sb == false then copy.sb = nil end
+        if correction.suppressShops then
+            -- Shop identities from older tiles may be relocated within the
+            -- same lot by the authoritative station/business placement.
+            -- Keep the county structure, remove only duplicated businesses.
+            copy.ss, copy.sb, copy.name, copy.gs = nil, nil, nil, nil
+            copy.style = "generic"  -- no phantom storefront texture underneath relocated retailer
+        end
+        if correction.forceShop and tostring(building.id) == "147448" then
+            -- Older survey name was suppressed but no store replaced it.
+            -- Preserve existing first place id so the shop still works.
+            local existing = copy.ss and copy.ss[1]
+            local placeId = existing and existing[6] or "777-food-market"
+            copy.ss = { { "777 Food Market", 0, 64, 0x193f91, 0xffdd42, placeId, 154, -0.57 } }
+            copy.fb, copy.fb2 = 64, 154
+            copy.gs = nil
+        end
         if correction.shops and copy.ss then
             local sections = {}
             for i,sourceShop in ipairs(copy.ss) do

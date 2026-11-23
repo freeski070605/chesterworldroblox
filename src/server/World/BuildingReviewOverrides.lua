@@ -2,27 +2,33 @@
 -- unknown. Local source images are private references, not distributed assets.
 local G = "25_GoogleStreetView_Buildings/images/"
 return {
+ -- County building 133692 contains the legacy Krispy Krunchy shop on
+ -- section 2; station generator now builds the two real 916 Kerlin units
+ -- together, so do not spawn a second misplaced KKC shop from this tile.
+ ["133692"]={style="commercial",suppressShops=true,manualPriority=true,
+   confidence="identity_verified_location_user_review",
+   evidence="916 Kerlin: KKC and Eagle shared lot; GasStationBuilder owns both retail units"},
  -- User's 2026-11-22 live Google visual review. These are type-only
  -- corrections; roof, entrance and materials are NOT inferred from a
  -- camera viewpoint that has not yet been surveyed for parcel identity.
  -- Old photo/GIS classifications remain traceable in PropertyReconstruction.
- ["33881"]={style="rowhouse",arch="flat_row",use="residential",
+ ["33881"]={style="rowhouse",arch="flat_row",use="residential",manualPriority=true,
    confidence="user_visual_type_provisional",evidence="chester_google_visual_classifications.csv; 2026-11-22"},
- ["161384"]={style="rowhouse",arch="flat_row",use="residential",
+ ["161384"]={style="rowhouse",arch="flat_row",use="residential",manualPriority=true,
    confidence="user_visual_type_provisional",evidence="chester_google_visual_classifications.csv; 2026-11-22"},
- ["84792"]={style="rowhouse",arch="flat_row",use="residential",
+ ["84792"]={style="rowhouse",arch="flat_row",use="residential",manualPriority=true,
    confidence="user_visual_type_provisional",evidence="chester_google_visual_classifications.csv; 2026-11-22"},
- ["128777"]={style="rowhouse",arch="flat_row",use="residential",
+ ["128777"]={style="rowhouse",arch="flat_row",use="residential",manualPriority=true,
    confidence="user_visual_type_provisional",evidence="user review: corner rowhome with left alley; no invented door bearing"},
- ["171786"]={style="rowhouse",arch="flat_row",use="residential",
+ ["171786"]={style="rowhouse",arch="flat_row",use="residential",manualPriority=true,
    confidence="user_visual_type_provisional",evidence="user review: Butler Street rowhome side; orientation unresolved"},
  ["13452"]={style="garage",confidence="verified_type",evidence="2026-11-21 citywide full-size review"},
- ["147448"]={style="storefront",wall=0xddd0bf,material="Brick",name=false,sb=false,
+ ["147448"]={style="storefront",wall=0xddd0bf,material="Brick",name=false,sb=false,forceShop=true,photoFacade="777",roof="gable",manualPriority=true,
    -- Camera on Lincoln, heading 282, ray-cast centred on this polygon's
    -- Lincoln wall: the yellow 777 fascia and poster-glazed shop windows run
    -- along Lincoln (tile fb2=64 keeps that face glazed), the customer door is
    -- at the W 9th corner. The opaque graffiti wall is the west/rear side.
-   shops={[0]={front=154,entrance=154,entranceOffset=-0.57,canopy=false,
+   shops={[0]={front=64,corner=154,entrance=154,entranceOffset=-0.57,canopy=false,photoFacade="777",
      signBg=0x183b88,signFg=0xf2ebcf}},confidence="high",
    evidence=G.."147448/front_7zG-idlY0xSp7aFu6woIUw.jpg; county 900 W 9th footprint"},
  ["93584"]={style="commercial",wall=0xe8e6e0,material="Brick",shopCanopy=false,
@@ -42,7 +48,7 @@ return {
  ["181213"]={style="rowhouse",arch="porch_row",porch=true,wall=0x975b47,material="Brick",confidence="high",evidence=G.."181213/front_UhMFjU5M27kiVmEprzbc2A.jpg"},
  ["139660"]={style="rowhouse",arch="flat_row",porch=false,wall=0x9c6656,material="Brick",confidence="medium",evidence=G.."139660/front_g_zE0RnERTDfxNICbh_2lQ.jpg"},
  ["79594"]={style="rowhouse",arch="flat_row",porch=false,wall=0x985745,material="Brick",confidence="medium",evidence=G.."79594/front_XORkHVSwecsSusdEKR8XzA.jpg"},
- ["82547"]={style="house",arch="victorian_house",porch=true,wall=0xe2dfd2,material="WoodPlanks",confidence="medium",evidence=G.."82547/front_iazm9NH0xAjKH8L5KMVRYw.jpg"},
+ ["82547"]={style="twin",arch="colonial_twin",use="residential",manualPriority=true,porch=true,wall=0xe2dfd2,material="WoodPlanks",confidence="medium",evidence=G.."82547/front_iazm9NH0xAjKH8L5KMVRYw.jpg"},
  ["183747"]={style="twin",arch="victorian_twin",porch=true,bay=true,wall=0x9b6451,material="Brick",confidence="medium",evidence=G.."183747/front_KjxkYHyAtkf2CzRh03sLNQ.jpg"},
  ["99994"]={style="house",arch="colonial_house",porch=true,wall=0xe2ded3,material="WoodPlanks",confidence="high",evidence=G.."99994/front_xJvP_q8ej6ibyUOFn-T6CA.jpg"},
  ["94400"]={style="house",arch="victorian_house",porch=true,bay=true,wall=0xe4ded2,material="WoodPlanks",confidence="medium",evidence=G.."94400/front_R4b0LA3VqFoJUGpX-ix-LA.jpg"},
@@ -50,10 +56,10 @@ return {
  -- Further west and east blocks: each reference was read with its camera
  -- position against the 2025 aerial and adjacent county footprints.
  ["23871"]={style="garage",wall=0xb0b1ac,material="Brick",confidence="medium",evidence=G.."23871/front_cwJpDv8XQJlJ7ociTsIj8g.jpg"},
- ["95043"]={style="apartment",arch="apartment",wall=0xa16353,material="Brick",confidence="medium",evidence=G.."95043/front_nsAIrCGi7ZWdqfx3hTJbbg.jpg"},
- ["153497"]={style="rowhouse",arch="porch_row",porch=true,wall=0x9f6751,material="Brick",confidence="medium",evidence=G.."153497/front_c3M8FAy9aR7oT4nyURfSlw.jpg"},
- ["150015"]={style="twin",arch="victorian_twin",porch=true,wall=0xc4bdad,material="Brick",confidence="medium",evidence=G.."150015/front_IwGtx2h8z8zR_7D87qyCdg.jpg"},
- ["164928"]={style="house",arch="colonial_house",porch=false,wall=0xe1e1dc,material="WoodPlanks",confidence="medium",evidence=G.."164928/front_IwGtx2h8z8zR_7D87qyCdg.jpg"},
+ ["95043"]={style="rowhouse",arch="flat_row",use="residential",manualPriority=true,wall=0xa16353,material="Brick",confidence="medium",evidence=G.."95043/front_nsAIrCGi7ZWdqfx3hTJbbg.jpg"},
+ ["153497"]={style="twin",arch="victorian_twin",use="residential",manualPriority=true,porch=true,wall=0x9f6751,material="Brick",confidence="medium",evidence=G.."153497/front_c3M8FAy9aR7oT4nyURfSlw.jpg"},
+ ["150015"]={style="house",arch="victorian_house",use="residential",manualPriority=true,porch=true,wall=0xc4bdad,material="Brick",confidence="medium",evidence=G.."150015/front_IwGtx2h8z8zR_7D87qyCdg.jpg"},
+ ["164928"]={style="storefront",use="commercial",manualPriority=true,porch=false,wall=0xe1e1dc,material="WoodPlanks",confidence="medium",evidence=G.."164928/front_IwGtx2h8z8zR_7D87qyCdg.jpg"},
  ["162137"]={style="twin",arch="victorian_twin",porch=true,wall=0x9d654f,material="Brick",confidence="medium",evidence=G.."162137/front_Z1XyL8J9SGQOMNlRfS70Kw.jpg"},
  ["7613"]={style="twin",arch="colonial_twin",porch=true,wall=0xb7a798,material="Brick",confidence="medium",evidence=G.."7613/front_PYL17Y4J4YdXPP7LiIIShg.jpg"},
  ["5723"]={style="rowhouse",arch="flat_row",porch=false,wall=0x9d594a,material="Brick",confidence="medium",evidence=G.."5723/front_ixjklcOr_36MBDiLqNODrQ.jpg"},

@@ -112,7 +112,7 @@ function RealBuildings.Store(model, r, ctx, shop)
 	if r.wallTop - groundTop > 1 then
 		local upper = part(model, "Walls", Vector3.new(r.along, r.wallTop - groundTop, r.across),
 			r.frame + Vector3.new(0, (r.wallTop + groundTop) / 2, 0), ctx.material, ctx.wall)
-		ctx.applyFacade(upper, ctx.style, r.storey)
+        if shop.photoFacade ~= "777" then ctx.applyFacade(upper, ctx.style, r.storey) end
 	end
 	if r.streetLevel - r.base > 0.3 then
 		part(model, "Foundation", Vector3.new(r.along, r.streetLevel - r.base, r.across),
@@ -177,6 +177,65 @@ function RealBuildings.Store(model, r, ctx, shop)
 			end
 			local bandH = math.max(h - 10, 2.4)
 			part(model, "SignBandWall", Vector3.new(span, bandH, 0.8), at(0, y0 + h - bandH / 2, 0.4), ctx.material, ctx.wall)
+            -- Photo-specific 777 Food Market corner: long Lincoln glass and
+            -- yellow-over-blue fascia, entrance only at the W 9th corner.
+            -- Do not create a duplicate shop or sign on the adjacent wall.
+            if shop.photoFacade == "777" and n == nFront then
+                local faceY = y0 + h - math.max(h - 10, 2.4) + 0.35
+                local yellow=Color3.fromRGB(244,198,49)
+                local blue=Color3.fromRGB(28,57,128)
+                local border=part(model,"777YellowCanopyEdge",
+                    Vector3.new(math.max(2,span-0.6),0.65,1.9),
+                    at(0,faceY+2.0,-0.95),Enum.Material.Metal,yellow)
+                border.CanCollide=false
+                local band=part(model,"777PhotoShopFascia",
+                    Vector3.new(math.max(2,span-1.8),2.4,0.2),
+                    at(0,faceY+0.8,-1.83),Enum.Material.SmoothPlastic,blue)
+                band.CanCollide=false
+                local board=Instance.new("SurfaceGui")
+                board.Name="777MarketSign"
+                board.Face=Enum.NormalId.Front
+                board.PixelsPerStud=18
+                board.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud
+                board.Parent=band
+                local label=Instance.new("TextLabel")
+                label.Size=UDim2.fromScale(1,1)
+                label.BackgroundTransparency=1
+                label.Text="777 FOOD MARKET"
+                label.TextScaled=true
+                label.Font=Enum.Font.GothamBlack
+                label.TextColor3=Color3.fromRGB(248,217,73)
+                label.Parent=board
+                -- Upper-floor windows seen above the long corner market.
+                -- Backed by brick/plaster rather than a second false storefront.
+                if r.wallTop-groundTop>8 then
+                    local count=span>38 and 3 or (span>22 and 2 or 1)
+                    for wi=1,count do
+                        local offset= (wi-(count+1)/2)*math.min(15,(span-6)/count)
+                        local win=part(model,"777UpperWindow",
+                            Vector3.new(3.3,6.1,0.22),
+                            at(offset,groundTop+3.9,-0.55),Enum.Material.Glass,
+                            Color3.fromRGB(82,101,110))
+                        win.Transparency=0.22
+                        local sill=part(model,"777WindowSill",
+                            Vector3.new(4.3,0.45,0.65),
+                            at(offset,groundTop+0.65,-0.8),Enum.Material.Concrete,
+                            Color3.fromRGB(230,224,203))
+                        sill.CanCollide=false
+                    end
+                end
+            end
+            if shop.photoFacade == "777" and n ~= nFront and r.wallTop-groundTop > 8 then
+                -- Distinct small upstairs window over the W 9th entry wall.
+                local window=part(model,"777CornerUpperWindow",
+                    Vector3.new(3.1,5.5,0.22),at(0,groundTop+4.0,-0.55),
+                    Enum.Material.Glass,Color3.fromRGB(76,99,113))
+                window.Transparency=0.2
+                local sill=part(model,"777CornerWindowSill",
+                    Vector3.new(4.0,0.4,0.6),at(0,groundTop+1.1,-0.78),
+                    Enum.Material.Concrete,Color3.fromRGB(225,216,199))
+                sill.CanCollide=false
+            end
             -- Readable ground-floor shopfront framing: make the canopy,
             -- sign-band edge and glass transom physically distinct instead
             -- of leaving all commercial ground floors as a flat texture.
@@ -244,7 +303,13 @@ function RealBuildings.Store(model, r, ctx, shop)
 		else
 			local w = part(model, "ShopWall", Vector3.new(span, groundH, 0.8), at(0, r.streetLevel + groundH / 2, 0.4),
 				ctx.material, ctx.wall)
-			ctx.applyFacade(w, ctx.style, r.storey)
+            -- The photo shows an opaque rear/side wall with no rows of
+            -- generic shop windows. Preserve it as a solid masonry plane.
+            if shop.photoFacade ~= "777" then
+                ctx.applyFacade(w, ctx.style, r.storey)
+            else
+                w:SetAttribute("777SolidSideWall",true)
+            end
 		end
 	end
 	-- anchor for the interior (gameplay: Exit6Storefronts), local -Z = the door

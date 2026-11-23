@@ -304,7 +304,25 @@ local function buildStore(model, st, fascia, accent, textColor, frame, width, de
 	local county = s.model and buildingsById[s.model]
 	if county and county.Parent then
 		for _, p in ipairs(county:GetDescendants()) do
-			if p:IsA("BasePart") and insideStore(frame, width, depth, p.Position, 1) then p:Destroy() end
+            if p:IsA("BasePart") then
+                local intersects = insideStore(frame,width,depth,p.Position,1)
+                if shared916 and not intersects then
+                    -- A large county shell may cross the replacement shop with
+                    -- its CENTRE outside the new shell. Test its footprint
+                    -- corners too, or the old KKC wall hides the new doors.
+                    for _,sx in ipairs({-1,1}) do
+                        for _,sz in ipairs({-1,1}) do
+                            local corner=p.CFrame*Vector3.new(sx*p.Size.X/2,0,sz*p.Size.Z/2)
+                            if insideStore(frame,width,depth,corner,0) then
+                                intersects=true
+                                break
+                            end
+                        end
+                        if intersects then break end
+                    end
+                end
+                if intersects then p:Destroy() end
+            end
 		end
 		local left = false
 		for _, p in ipairs(county:GetDescendants()) do
@@ -586,6 +604,7 @@ local function buildStore(model, st, fascia, accent, textColor, frame, width, de
         chicken:SetAttribute("Exit6StoreDepth",interiorDepth)
         chicken:SetAttribute("Exit6StoreHeight",math.min(h,12))
         chicken:SetAttribute("Address","916 Kerlin Street")
+        chicken:SetAttribute("ChesterBuildingId","133692")
         chicken:SetAttribute("BrandFascia",Color3.fromRGB(215,44,38))
         chicken.Parent=model
         local anchor2=part(chicken,"Exit6StoreAnchor",Vector3.new(2,0.2,2),
@@ -596,6 +615,7 @@ local function buildStore(model, st, fascia, accent, textColor, frame, width, de
         anchor2.CanQuery=false
         CollectionService:AddTag(chicken,"Exit6Store")
         model:SetAttribute("SharedStoreUnits","Krispy Krunchy Chicken | Eagle Save Mart")
+        model:SetAttribute("ChesterBuildingId","133692")
     end
 	CollectionService:AddTag(model, "Exit6GasStation")
 	stores += 1

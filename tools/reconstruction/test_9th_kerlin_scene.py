@@ -36,12 +36,14 @@ class NeighborhoodSceneTests(unittest.TestCase):
         self.assertIn('"777 Food Market"', self.tile6)
         self.assertIn('forceShop=true', self.review)
         self.assertIn('photoFacade="777"', self.review)
-        self.assertIn('copy.ss = { { "777 Food Market", 0, 64', self.tile)
+        self.assertIn('copy.ss = { { "777 Food Market", 2, 64', self.tile)
         self.assertIn('777PhotoShopFascia', self.store)
         self.assertIn('777CornerEntranceLanding', self.store)
         self.assertIn('777WindowSafetyRail', self.store)
         self.assertIn('777LowBlueExtension', self.tile)
         self.assertIn('777RoofDormerBody', self.tile)
+        self.assertIn('local blueExtension777 = is777 and rectIndex == 1', self.tile)
+        self.assertIn('rectIndex == #shapeData.r', self.tile)
         self.assertIn('777PhotoPartCount', self.tile)
 
     def test_reviewed_houses_use_photo_based_housekit(self):

@@ -2416,8 +2416,21 @@ local function buildFootprintBuilding(parent, building, shapeData)
 		-- The small photo-reviewed 9th/Kerlin pilot must render its real
         -- server-side shop/home geometry, not the citywide lite placeholders.
         -- Keep this bounded to the explicit neighborhood scope for Xbox.
-        local core = extra or NeighborhoodScope[tostring(building.id)]
-            or (fx >= region.minX and fx <= region.maxX and fz >= region.minZ and fz <= region.maxZ)
+        -- Xbox stability regression (previous 279, now 288): never run the
+        -- full HouseKit on the server for a whole neighborhood. Reviewed
+        -- homes retain all pose/photo metadata, but render lightweight on
+        -- clients near the player using Exit6Kit, as in the prior fix.
+        -- Server detail is reserved for functioning walk-in storefronts and
+        -- deliberately opted-in landmarks.
+        local residential = shapeData.style == "house" or shapeData.style == "twin"
+            or shapeData.style == "rowhouse" or shapeData.style == "apartment"
+        local inRegion = fx >= region.minX and fx <= region.maxX
+            and fz >= region.minZ and fz <= region.maxZ
+        local core = extra or (not residential
+            and (NeighborhoodScope[tostring(building.id)] or inRegion))
+        -- A reviewed property sometimes enters as a zoning storefront yet
+        -- becomes a residence after the manual correction. Always use the
+        -- resolved shapeData.style rather than county zoning here.
 		-- city-wide (WorldConfig.REAL_BUILDINGS_ALL): every home and store; full
 		-- detail in the core, the lite house kit everywhere else
 		if core or WorldConfig.REAL_BUILDINGS_ALL then

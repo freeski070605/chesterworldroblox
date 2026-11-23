@@ -2526,6 +2526,15 @@ local function buildFootprintBuilding(parent, building, shapeData)
 			end
 			local streetLevel = centreGround - 0.4
 			local groundTop = streetLevel + (groundKind == "storefront" and math.max(storey, 12) or storey)
+            -- The actual 777 building is a taller cream corner mass with a
+            -- lower blue-painted continuation up Lincoln. The last of its
+            -- three adjacent footprint rectangles is the northward extension.
+            -- Keep its roof lower; do not extrude every piece to 2 storeys.
+            local blueExtension777 = is777 and rectIndex == #shapeData.r
+            if blueExtension777 then
+                wallTop = groundTop + 4.1
+                model:SetAttribute("777LowBlueExtension",true)
+            end
 			local realShop = realCtx and realCtx.shops[rectIndex - 1]
 			if realShop and math.min(along, across) < 12 then
 				realShop = nil   -- a sliver section: too small to walk into (sign only)
@@ -2573,7 +2582,12 @@ local function buildFootprintBuilding(parent, building, shapeData)
                 end
 				local upper = newPart(model, "Walls", Vector3.new(along, wallTop - groundTop, across),
 					CFrame.new(x, (wallTop + groundTop) / 2, z) * yaw, material, wall)
-                if not is777 then applyFacade(upper,shapeData.style,storey) end
+                if blueExtension777 then
+                    upper.Color=Color3.fromRGB(34,72,190)
+                    upper.Material=Enum.Material.Brick
+                elseif not is777 then
+                    applyFacade(upper,shapeData.style,storey)
+                end
 				if streetLevel - base > 0.3 then
 					newPart(model, "Foundation", Vector3.new(along, streetLevel - base, across),
 						CFrame.new(x, (streetLevel + base) / 2, z) * yaw, Enum.Material.Concrete, Color3.fromRGB(128, 124, 118))

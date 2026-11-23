@@ -112,7 +112,7 @@ function RealBuildings.Store(model, r, ctx, shop)
 	if r.wallTop - groundTop > 1 then
 		local upper = part(model, "Walls", Vector3.new(r.along, r.wallTop - groundTop, r.across),
 			r.frame + Vector3.new(0, (r.wallTop + groundTop) / 2, 0), ctx.material, ctx.wall)
-		ctx.applyFacade(upper, ctx.style, r.storey)
+        if shop.photoFacade ~= "777" then ctx.applyFacade(upper, ctx.style, r.storey) end
 	end
 	if r.streetLevel - r.base > 0.3 then
 		part(model, "Foundation", Vector3.new(r.along, r.streetLevel - r.base, r.across),
@@ -225,6 +225,17 @@ function RealBuildings.Store(model, r, ctx, shop)
                     end
                 end
             end
+            if shop.photoFacade == "777" and n ~= nFront and r.wallTop-groundTop > 8 then
+                -- Distinct small upstairs window over the W 9th entry wall.
+                local window=part(model,"777CornerUpperWindow",
+                    Vector3.new(3.1,5.5,0.22),at(0,groundTop+4.0,-0.55),
+                    Enum.Material.Glass,Color3.fromRGB(76,99,113))
+                window.Transparency=0.2
+                local sill=part(model,"777CornerWindowSill",
+                    Vector3.new(4.0,0.4,0.6),at(0,groundTop+1.1,-0.78),
+                    Enum.Material.Concrete,Color3.fromRGB(225,216,199))
+                sill.CanCollide=false
+            end
             -- Readable ground-floor shopfront framing: make the canopy,
             -- sign-band edge and glass transom physically distinct instead
             -- of leaving all commercial ground floors as a flat texture.
@@ -292,7 +303,13 @@ function RealBuildings.Store(model, r, ctx, shop)
 		else
 			local w = part(model, "ShopWall", Vector3.new(span, groundH, 0.8), at(0, r.streetLevel + groundH / 2, 0.4),
 				ctx.material, ctx.wall)
-			ctx.applyFacade(w, ctx.style, r.storey)
+            -- The photo shows an opaque rear/side wall with no rows of
+            -- generic shop windows. Preserve it as a solid masonry plane.
+            if shop.photoFacade ~= "777" then
+                ctx.applyFacade(w, ctx.style, r.storey)
+            else
+                w:SetAttribute("777SolidSideWall",true)
+            end
 		end
 	end
 	-- anchor for the interior (gameplay: Exit6Storefronts), local -Z = the door

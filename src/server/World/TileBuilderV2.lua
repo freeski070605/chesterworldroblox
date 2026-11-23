@@ -2499,6 +2499,13 @@ local function buildFootprintBuilding(parent, building, shapeData)
 				-- main-street block built to the sidewalk (tools/add_porches.py)
 				groundKind = "storefront"
 			end
+            local is777 = tostring(building.id) == "147448"
+            -- The side extension of the real market is fully painted blue.
+            -- Previously each non-shop rectangle received generic gray shop
+            -- textures, even when the corner section had been reconstructed.
+            if is777 and not (realCtx and realCtx.shops[rectIndex-1]) then
+                groundKind = "storefront"
+            end
 			if landmark then
 				groundKind = nil   -- the arched front replaces the generic textures
 			end
@@ -2542,10 +2549,16 @@ local function buildFootprintBuilding(parent, building, shapeData)
 					ground.Material = Enum.Material.SmoothPlastic
 				end
 				ground:SetAttribute("GroundY", centreGround)
-				applyGroundStorey(ground, groundKind)
+                if is777 then
+                    ground.Color = Color3.fromRGB(35,76,197)
+                    ground.Material = Enum.Material.Brick
+                    ground:SetAttribute("777BlueExtension",true)
+                else
+                    applyGroundStorey(ground, groundKind)
+                end
 				local upper = newPart(model, "Walls", Vector3.new(along, wallTop - groundTop, across),
 					CFrame.new(x, (wallTop + groundTop) / 2, z) * yaw, material, wall)
-				applyFacade(upper, shapeData.style, storey)
+                if not is777 then applyFacade(upper,shapeData.style,storey) end
 				if streetLevel - base > 0.3 then
 					newPart(model, "Foundation", Vector3.new(along, streetLevel - base, across),
 						CFrame.new(x, (streetLevel + base) / 2, z) * yaw, Enum.Material.Concrete, Color3.fromRGB(128, 124, 118))

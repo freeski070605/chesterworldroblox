@@ -158,8 +158,40 @@ local function enableSpawn()
 	))
 end
 
+-- Diagnostic instrumentation for published Error 288 incidents. This does
+-- not alter the map, loading barrier, or player save system.
+local Stats = game:GetService("Stats")
+local lastMemory = nil
+local function reportStartupMemory(phase, tileNo)
+    local ok, mb = pcall(function()
+        if not Stats.MemoryTrackingEnabled then return nil end
+        return Stats:GetTotalMemoryUsageMb()
+    end)
+    if not ok or type(mb) ~= "number" or mb <= 0 then
+        return
+    end
+    local delta = lastMemory and (mb-lastMemory) or 0
+    lastMemory = mb
+    workspace:SetAttribute("CW_ServerMemoryMB",math.floor(mb+0.5))
+    workspace:SetAttribute("CW_ServerMemoryPhase",phase)
+    print(("[CW STARTUP MEMORY] %s tile=%d/%d total=%.0f MB delta=%.0f MB elapsed=%.1fs")
+        :format(phase,tileNo or 0,tileBuildCount,mb,delta,os.clock()))
+    if mb > 3000 then
+        warn(("[CW STARTUP MEMORY] HIGH %.0f MB at %s. Check Creator Hub crash/OutOfMemory snapshot.")
+            :format(mb,phase))
+    end
+end
 workspace:SetAttribute("CW_TilesTotal", tileBuildCount)
 workspace:SetAttribute("CW_TilesBuilt", 0)
+reportStartupMemory("before-tiles",0)
+task.spawn(function()
+    while workspace:GetAttribute("CW_BootstrapComplete") ~= true do
+        task.wait(12)
+        reportStartupMemory("build-watchdog",workspace:GetAttribute("CW_TilesBuilt") or 0)
+    end
+    task.wait(3)
+    reportStartupMemory("after-bootstrap",tileBuildCount)
+end)
 for index = 1, tileBuildCount do
     local module = modules[index]
 	if module:IsA("ModuleScript") then
@@ -180,6 +212,7 @@ for index = 1, tileBuildCount do
 		workspace:SetAttribute("CW_TilesBuilt", index)
 		if index % 5 == 0 or index == tileBuildCount then
 			print(("[ChesterWorld] Built %d/%d tiles."):format(index, tileBuildCount))
+            reportStartupMemory("tile-batch",index)
 		end
 
 		task.wait()
@@ -199,5 +232,6 @@ if not spawnReady then
 	enableSpawn()
 end
 
+reportStartupMemory("bootstrap-complete",tileBuildCount)
 workspace:SetAttribute("CW_BootstrapComplete", true)
 print("[ChesterWorld] Bootstrap complete.")

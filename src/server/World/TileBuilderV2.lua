@@ -2503,7 +2503,7 @@ local function buildFootprintBuilding(parent, building, shapeData)
 			end
 			-- 777 is three connected county rectangles, but the photo only
             -- supports a principal roof gable, not three duplicate peaks.
-            local gableHere = gable and (tostring(building.id) ~= "147448" or rectIndex == 1)
+            local gableHere = gable and (tostring(building.id) ~= "147448" or rectIndex == #shapeData.r)
             local rise = gableHere and math.clamp(math.min(along, across) * 0.32, 3, 14) or 0
 			local wallTop = centreGround + WorldConfig.BUILDING_BASE_Y_STUDS + heightStuds - rise * 0.6
 			local base = lowest - 1.5
@@ -2530,7 +2530,7 @@ local function buildFootprintBuilding(parent, building, shapeData)
             -- lower blue-painted continuation up Lincoln. The last of its
             -- three adjacent footprint rectangles is the northward extension.
             -- Keep its roof lower; do not extrude every piece to 2 storeys.
-            local blueExtension777 = is777 and rectIndex == #shapeData.r
+            local blueExtension777 = is777 and rectIndex == 1
             if blueExtension777 then
                 wallTop = groundTop + 4.1
                 model:SetAttribute("777LowBlueExtension",true)
@@ -2617,7 +2617,7 @@ local function buildFootprintBuilding(parent, building, shapeData)
 				newPart(model, "Roof", Vector3.new(along, 0.4, across),
 					CFrame.new(x, wallTop + 0.2, z) * yaw, Enum.Material.Concrete, measured)
 			end
-            if is777 and rectIndex == 1 then
+            if is777 and rectIndex == #shapeData.r then
                 -- The real building has an upper roof/dormer projecting over
                 -- the cream masonry. This is deliberately geometry, not a
                 -- decal over the generic store box.
@@ -2907,7 +2907,7 @@ local function buildBuilding(parent, building, shapes)
             -- Preserve existing first place id so the shop still works.
             local existing = copy.ss and copy.ss[1]
             local placeId = existing and existing[6] or "777-food-market"
-            copy.ss = { { "777 Food Market", 0, 64, 0x193f91, 0xffdd42, placeId, 154, -0.57 } }
+            copy.ss = { { "777 Food Market", 2, 64, 0x193f91, 0xffdd42, placeId, 154, -0.57 } }
             copy.fb, copy.fb2 = 64, 154
             copy.gs = nil
         end

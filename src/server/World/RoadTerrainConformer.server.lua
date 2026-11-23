@@ -2336,6 +2336,98 @@ if stats.terrainClearanceWarnings > 0 then
     warn(("[ChesterWorld Highway] %d PRE-REGISTRY terrain-height constraints remain unresolved; compare with FINAL bridgeTerrainIntrusions."):format(stats.terrainClearanceWarnings))
     printDeficits("BridgeTerrainSourceDeficit",stats.unresolvedTerrain)
 end
+-- The Kerlin lower road under the mapped I-95 structure is split into four
+-- very short county records with four grade-group IDs. Give those ORIGINAL
+-- asphalt Parts one continuous profile between the adjacent source vertices;
+-- a separate collision slab above them is never a valid underpass repair.
+do
+    local sx,sz=(7024.280-Config.WORLD_CENTER_X_M)*Config.STUDS_PER_METER,
+        -(7184.991-Config.WORLD_CENTER_Z_M)*Config.STUDS_PER_METER
+    local ex,ez=(7006.124-Config.WORLD_CENTER_X_M)*Config.STUDS_PER_METER,
+        -(7218.855-Config.WORLD_CENTER_Z_M)*Config.STUDS_PER_METER
+    local axis=Vector3.new(ex-sx,0,ez-sz)
+    local length2=axis:Dot(axis)
+    local groups={
+        ["county:2758:g0"]=true,["county:27163:g0"]=true,
+        ["county:20771:g0"]=true,["county:20770:g0"]=true,
+    }
+    local selected,startY,finishY={},nil,nil
+    local upper={}
+    local requiredClearance=12.878
+    for _,structure in ipairs(Registry.STRUCTURES or {}) do
+        if structure.id=="KERLIN_I95" then
+            requiredClearance=structure.inventoryUnderclearanceStuds or requiredClearance
+            break
+        end
+    end
+    local function station(p)
+        return ((p.X-sx)*axis.X+(p.Z-sz)*axis.Z)/length2
+    end
+    for _,road in ipairs(allRoads) do
+        if road.Parent and road:GetAttribute("CW_HighwayProfiled")==true
+            and hdist(road.Position,Vector3.new((sx+ex)/2,0,(sz+ez)/2))<180 then
+            table.insert(upper,road)
+        end
+        if road.Parent and groups[attr(road,"CW_GradeGroup")]
+            and normalizedRoadName(attr(road,"ChesterStreet"))=="kerlin"
+            and (tonumber(road:GetAttribute("CW_GradeLevel")) or 0)==0 then
+            local a,b=endpoints(road)
+            local mid=(a+b)/2
+            local t=station(mid)
+            local foot=Vector3.new(sx+axis.X*t,0,sz+axis.Z*t)
+            if t>=0 and t<=1 and hdist(mid,foot)<12 then
+                table.insert(selected,{road=road,a=a,b=b})
+                for _,p in ipairs({a,b}) do
+                    if hdist(p,Vector3.new(sx,0,sz))<1.5 then startY=p.Y end
+                    if hdist(p,Vector3.new(ex,0,ez))<1.5 then finishY=p.Y end
+                end
+            end
+        end
+    end
+    local before,after=0,0
+    local run=math.sqrt(length2)
+    local safe=#selected>=3 and startY~=nil and finishY~=nil
+        and math.abs(finishY-startY)/run<=MAX_GRADE
+    local clearanceRejected=0
+    if safe then
+        for _,rec in ipairs(selected) do
+            for _,p in ipairs({rec.a,rec.b}) do
+                local t=math.clamp(station(p),0,1)
+                local y=startY+(finishY-startY)*t
+                before=math.max(before,math.abs(y-p.Y))
+                if y-p.Y>1.5 or p.Y-y>4 then safe=false end
+                for _,deck in ipairs(upper) do
+                    local da,db=endpoints(deck)
+                    local vx,vz=db.X-da.X,db.Z-da.Z
+                    local span2=vx*vx+vz*vz
+                    if span2>0.1 then
+                        local u=math.clamp(((p.X-da.X)*vx+(p.Z-da.Z)*vz)/span2,0,1)
+                        local q=da:Lerp(db,u)
+                        if hdist(p,q)<=deck.Size.X/2+rec.road.Size.X/2
+                            and q.Y>y and q.Y-deck.Size.Y/2
+                                -(y+rec.road.Size.Y/2)<requiredClearance then
+                            safe=false
+                            clearanceRejected+=1
+                        end
+                    end
+                end
+            end
+        end
+    end
+    if safe then
+        for _,rec in ipairs(selected) do
+            local ta,tb=math.clamp(station(rec.a),0,1),math.clamp(station(rec.b),0,1)
+            local a=Vector3.new(rec.a.X,startY+(finishY-startY)*ta,rec.a.Z)
+            local b=Vector3.new(rec.b.X,startY+(finishY-startY)*tb,rec.b.Z)
+            setEndpoints(rec.road,a,b)
+            rec.road:SetAttribute("CW_KerlinSourceProfiled",true)
+            local aa,bb=endpoints(rec.road)
+            after=math.max(after,math.abs(aa.Y-a.Y),math.abs(bb.Y-b.Y))
+        end
+    end
+    print(("[ChesterWorld KerlinSourceProfile] sourceParts=%d applied=%s maxDeviationBefore=%.3f maxDeviationAfter=%.3f clearanceRejected=%d")
+        :format(#selected,tostring(safe),before,after,clearanceRejected))
+end
 -- Join a profiled local bridge to its own ramp when the remaining lip can be
 -- absorbed by that EXISTING ramp Part at a safe grade. Never move the deck,
 -- invent a bridge height, or insert a cover slab. Larger steps stay visible
@@ -2401,7 +2493,7 @@ end
 -- carry the resulting grade. This also catches comparable citywide seams.
 do
     local joints = {}
-    for _, road in ipairs(allRoads) do
+    for roadIndex, road in ipairs(allRoads) do
         if road.Parent and road:GetAttribute("CW_Rail") ~= true
             and road:GetAttribute("CW_HighwayProfiled") ~= true
             and road:GetAttribute("CW_Tunnel") ~= true
@@ -2418,8 +2510,9 @@ do
                 end
             end
         end
+        if roadIndex%1000==0 then task.wait() end
     end
-    local joined = 0
+    local joined, seamCount, beforeSum, afterSum, beforeMax, afterMax = 0, 0, 0, 0, 0, 0
     for _, pair in pairs(joints) do
         if #pair == 2 and pair[1].part ~= pair[2].part then
             local records, target, low = {}, -math.huge, math.huge
@@ -2431,8 +2524,12 @@ do
                 target = math.max(target, near.Y)
                 low = math.min(low, near.Y)
             end
-            if hdist(records[1].near, records[2].near) <= 0.75
-                and target - low > 0.08 and target - low <= 1.5 then
+            if hdist(records[1].near, records[2].near) <= 0.75 then
+                local before = target-low
+                seamCount += 1
+                beforeSum += before
+                beforeMax = math.max(beforeMax,before)
+            if target - low > 0.08 and target - low <= 1.5 then
                 local safe = true
                 for _, record in ipairs(records) do
                     local run = hdist(record.near, record.far)
@@ -2454,10 +2551,131 @@ do
                     joined += 1
                 end
             end
+                local aa,ab=endpoints(records[1].item.part)
+                local ba,bb=endpoints(records[2].item.part)
+                local ay=records[1].item.index==1 and aa.Y or ab.Y
+                local by=records[2].item.index==1 and ba.Y or bb.Y
+                local after=math.abs(ay-by)
+                afterSum += after
+                afterMax = math.max(afterMax,after)
+            end
         end
     end
-    print(("[ChesterWorld RoadSeamJoins] joined=%d"):format(joined))
+    print(("[ChesterWorld RoadSeamJoins] measured=%d joined=%d meanBefore=%.3f meanAfter=%.3f maxBefore=%.3f maxAfter=%.3f")
+        :format(seamCount,joined,beforeSum/math.max(seamCount,1),
+            afterSum/math.max(seamCount,1),beforeMax,afterMax))
+    Workspace:SetAttribute("CW_RoadSeamBeforeMax",beforeMax)
+    Workspace:SetAttribute("CW_RoadSeamAfterMax",afterMax)
 end
+-- Final road Parts are the elevation authority for adjacent concrete and
+-- paint. Both were originally sampled from terrain before bridges, follower
+-- ramps and local seam joins changed the actual driving surface.
+do
+    local CELL = 120
+    local byName = {}
+    local function key(name, x, z)
+        return name .. "|" .. math.floor(x/CELL) .. ":" .. math.floor(z/CELL)
+    end
+    for roadIndex, road in ipairs(allRoads) do
+        if road.Parent and road:GetAttribute("CW_Rail") ~= true
+            and road.Name ~= "Rail" and road.CanCollide then
+            local name = normalizedRoadName(attr(road,"ChesterStreet"))
+            if name ~= "" and name ~= "road" then
+                local a,b = endpoints(road)
+                for _,p in ipairs({a,b}) do
+                    local k=key(name,p.X,p.Z)
+                    byName[k]=byName[k] or {}
+                    table.insert(byName[k],road)
+                end
+            end
+        end
+        if roadIndex%1000==0 then task.wait() end
+    end
+    local function roadAt(point, name, level, group, maxDistance)
+        local gx,gz=math.floor(point.X/CELL),math.floor(point.Z/CELL)
+        local best,bestScore,bestY=nil,math.huge,nil
+        local seen={}
+        for ix=gx-1,gx+1 do
+            for iz=gz-1,gz+1 do
+                for _,road in ipairs(byName[name.."|"..ix..":"..iz] or {}) do
+                    if not seen[road] then
+                        seen[road]=true
+                        local roadLevel=tonumber(road:GetAttribute("CW_GradeLevel")) or 0
+                        if (level==nil or level==roadLevel)
+                            and road:GetAttribute("CW_Tunnel")~=true then
+                            local a,b=endpoints(road)
+                            local vx,vz=b.X-a.X,b.Z-a.Z
+                            local length2=vx*vx+vz*vz
+                            if length2>0.1 then
+                                local t=math.clamp(((point.X-a.X)*vx+(point.Z-a.Z)*vz)/length2,0,1)
+                                local nearest=a:Lerp(b,t)
+                                local distance=hdist(point,nearest)
+                                local penalty=group and group~=""
+                                    and attr(road,"CW_GradeGroup")~=group and 3 or 0
+                                local score=distance+penalty
+                                if distance<=maxDistance and score<bestScore then
+                                    best,bestScore=road,score
+                                    bestY=nearest.Y+road.CFrame.UpVector.Y*road.Size.Y/2
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        return bestY,best
+    end
+    local function align(parts, sidewalk)
+        local changed,count,beforeMax,afterMax,beforeSum=0,0,0,0,0
+        for partIndex,part in ipairs(parts) do
+            if part.Parent and part.CanCollide==sidewalk
+                and part:GetAttribute("CW_Rail")~=true
+                and part:GetAttribute("CW_HighwayProfiled")~=true then
+                local name=normalizedRoadName(attr(part,"ChesterStreet"))
+                if name~="" and name~="road" then
+                    local a,b=endpoints(part)
+                    local level=sidewalk and 0 or tonumber(part:GetAttribute("CW_GradeLevel")) or 0
+                    local group=sidewalk and nil or attr(part,"CW_GradeGroup")
+                    local maxDistance=sidewalk and 42 or 18
+                    local ya,ra=roadAt(a,name,level,group,maxDistance)
+                    local yb,rb=roadAt(b,name,level,group,maxDistance)
+                    if ya and yb and ra and rb then
+                        local offset=sidewalk
+                            and ((Config.SIDEWALK_HEIGHT_STUDS or 0.4)/2+0.15)
+                            or (part.Size.Y/2+0.025)
+                        local targetA=ya+offset-(sidewalk and (ra.Size.Y/2) or 0)
+                        local targetB=yb+offset-(sidewalk and (rb.Size.Y/2) or 0)
+                        local gap=math.max(math.abs(a.Y-targetA),math.abs(b.Y-targetB))
+                        beforeMax=math.max(beforeMax,gap)
+                        beforeSum+=gap
+                        count+=1
+                        if gap>0.05 and setEndpoints(part,
+                            Vector3.new(a.X,targetA,a.Z),Vector3.new(b.X,targetB,b.Z)) then
+                            part:SetAttribute("CW_ElevationOwner",sidewalk
+                                and "RoadTerrainConformer:FinalSidewalk"
+                                or "RoadTerrainConformer:FinalMarking")
+                            changed+=1
+                        end
+                        local aa,bb=endpoints(part)
+                        afterMax=math.max(afterMax,math.abs(aa.Y-targetA),math.abs(bb.Y-targetB))
+                    end
+                end
+            end
+            if partIndex%400==0 then task.wait() end
+        end
+        print(("[ChesterWorld FinalSurfaceAlignment] kind=%s matched=%d changed=%d meanBefore=%.3f maxBefore=%.3f maxAfter=%.3f")
+            :format(sidewalk and "sidewalk" or "marking",count,changed,
+                beforeSum/math.max(count,1),beforeMax,afterMax))
+        Workspace:SetAttribute(sidewalk and "CW_SidewalkAlignmentBeforeMax"
+            or "CW_MarkingAlignmentBeforeMax",beforeMax)
+        Workspace:SetAttribute(sidewalk and "CW_SidewalkAlignmentAfterMax"
+            or "CW_MarkingAlignmentAfterMax",afterMax)
+    end
+    align(collectParts("Sidewalks"),true)
+    align(allMarks,false)
+end
+local intersectionFinish = require(script.Parent:WaitForChild("TileBuilderV2"))
+intersectionFinish.FinishIntersectionElevations(allRoads)
 -- HighwayInfrastructure snapshots these Parts and builds physical decks from
 -- their final CFrames. Signal only after the late Upland V-dip and bounded
 -- bridge-approach corrections above, never before them.

@@ -1820,7 +1820,7 @@ end
 -- Solid convex polygon, built from ordinary Roblox WedgeParts.
 -- Two wedges fill each triangle (the standard 3D-triangle decomposition).
 -- This avoids EditableMesh API permissions, winding problems and MeshPart pivots.
-local function fillTriangleWithWedges(parent, a, b, c, thickness, labels)
+local function fillTriangleWithWedges(parent, a, b, c, thickness, labels, triangleIndex, reuse)
     local ab, ac, bc = b - a, c - a, c - b
     local abd, acd, bcd = ab:Dot(ab), ac:Dot(ac), bc:Dot(bc)
     if abd > acd and abd > bcd then
@@ -1838,9 +1838,11 @@ local function fillTriangleWithWedges(parent, a, b, c, thickness, labels)
     if height < 0.08 then return 0 end
     local count = 0
 
-    local function buildWedge(position, xAxis, yAxis, zAxis, depth)
+    local function buildWedge(position, xAxis, yAxis, zAxis, depth, side)
         if depth < 0.08 then return end
-        local wedge = Instance.new("WedgePart")
+        local wedgeKey = tostring(triangleIndex) .. ":" .. tostring(side)
+        local wedge = reuse and reuse[wedgeKey] or Instance.new("WedgePart")
+        if reuse then reuse[wedgeKey] = nil end
         wedge.Name = "IntersectionAsphalt"
         wedge.Anchored = true
         wedge.CanCollide = true
@@ -1858,33 +1860,46 @@ local function fillTriangleWithWedges(parent, a, b, c, thickness, labels)
         wedge:SetAttribute("CW_IntersectionPad", true)
         wedge:SetAttribute("CW_IntersectionSolid", true)
         wedge:SetAttribute("CW_IntersectionOwner", "TileBuilderV3")
+        wedge:SetAttribute("CW_TriangleKey", wedgeKey)
         wedge:SetAttribute("CW_GradeLevel", 0)
         if #labels > 0 then wedge:SetAttribute("Intersection", table.concat(labels, " & ")) end
         wedge.Parent = parent
         count += 1
     end
-    buildWedge((a + b) / 2, right, up, back, math.abs(ab:Dot(back)))
-    buildWedge((a + c) / 2, -right, up, -back, math.abs(ac:Dot(back)))
+    buildWedge((a + b) / 2, right, up, back, math.abs(ab:Dot(back)), 1)
+    buildWedge((a + c) / 2, -right, up, -back, math.abs(ac:Dot(back)), 2)
     return count
 end
 
-local function makeIntersectionMesh(parent, node, labels)
+local function makeIntersectionMesh(parent, node, labels, finishedTop, existing)
     local polygon = node.polygon
     if not polygon or #polygon < 3 then return nil end
     local radius = polygonMaxRadius(node)
-    local frame = intersectionFrame(node.x, node.z, radius)
-    if not frame then return nil end
+    local frame
+    if not finishedTop then
+        frame = intersectionFrame(node.x, node.z, radius)
+        if not frame then return nil end
+    end
     local thickness = WorldConfig.ROAD_THICKNESS_STUDS + 0.12
     local surfaceOffset = thickness / 2 + 0.10
 
     -- Build from the SAME node.polygon used by rayPolygonDistance and trimming.
     -- A center fan of a convex polygon has no holes and no oversized bbox.
     local function pointAt(x, z)
-        local topY = planeYAtFrame(frame, x, z, surfaceOffset)
+        local topY = finishedTop and finishedTop(x, z)
+            or planeYAtFrame(frame, x, z, surfaceOffset)
         return Vector3.new(x, topY - thickness / 2, z)
     end
     local center = pointAt(node.x, node.z)
-    local group = Instance.new("Model")
+    local group = existing or Instance.new("Model")
+    local reuse = {}
+    if existing then
+        for _, wedge in ipairs(existing:GetChildren()) do
+            if wedge:IsA("WedgePart") then
+                reuse[tostring(wedge:GetAttribute("CW_TriangleKey") or "")] = wedge
+            end
+        end
+    end
     group.Name = "Intersection"
     group:SetAttribute("CW_IntersectionPad", true)
     group:SetAttribute("CW_IntersectionSolid", true)
@@ -1897,19 +1912,186 @@ local function makeIntersectionMesh(parent, node, labels)
         local c = polygon[(i % #polygon) + 1]
         count += fillTriangleWithWedges(
             group, center, pointAt(b.X, b.Y), pointAt(c.X, c.Y),
-            thickness, labels
+            thickness, labels, i, reuse
         )
     end
+    for _, unused in pairs(reuse) do unused:Destroy() end
     -- If all triangles were degenerate, use the existing visible fallback.
-    if count < 3 then group:Destroy(); return nil end
+    if count < 3 then
+        if not existing then group:Destroy() end
+        return nil
+    end
     group.Parent = parent
     return group
 end
 
-local function makeIntersectionFallback(parent, node, labels)
+local makeIntersectionFallback
+-- Called once after RoadTerrainConformer has finished changing bridge and
+-- approach Parts. The initial terrain-plane junction is only a build-time
+-- placeholder: its collision wedges must be rebuilt from finished road ends.
+function TileBuilderV2.FinishIntersectionElevations(roads)
+	local CELL = 80
+	local index = {}
+	local function streetName(value)
+		local name = string.lower(tostring(value or ""))
+		name = name:gsub("[^%w%s]", " "):gsub("%s+", " ")
+		name = name:gsub("%s+street$", ""):gsub("%s+st$", "")
+		return name
+	end
+	for roadIndex, road in ipairs(roads) do
+		if road.Parent and road:IsA("BasePart") and road.CanCollide
+			and road:GetAttribute("CW_Rail") ~= true
+			and road:GetAttribute("CW_HighwayProfiled") ~= true
+			and road:GetAttribute("CW_Tunnel") ~= true
+			and (tonumber(road:GetAttribute("CW_GradeLevel")) or 0) == 0 then
+			local half = road.CFrame.LookVector * (road.Size.Z / 2)
+			for _, p in ipairs({ road.Position - half, road.Position + half }) do
+				local key = math.floor(p.X / CELL) .. ":" .. math.floor(p.Z / CELL)
+				index[key] = index[key] or {}
+				table.insert(index[key], { x = p.X, z = p.Z,
+					y = p.Y + road.CFrame.UpVector.Y * road.Size.Y / 2,
+					width = road.Size.X,
+					name = streetName(road:GetAttribute("ChesterStreet")) })
+			end
+		end
+		if roadIndex % 1000 == 0 then task.wait() end
+	end
+	local ray = RaycastParams.new()
+	ray.FilterType = Enum.RaycastFilterType.Include
+	local function measure(surface, anchors, node)
+		if not surface then return 0, 0, 0 end
+		ray.FilterDescendantsInstances = { surface }
+		local sum, worst, count = 0, 0, 0
+		for _, anchor in ipairs(anchors) do
+			local dx, dz = node.x - anchor.x, node.z - anchor.z
+			local length = math.sqrt(dx * dx + dz * dz)
+			local x = anchor.x + (length > 0 and dx / length * 1.5 or 0)
+			local z = anchor.z + (length > 0 and dz / length * 1.5 or 0)
+			local hit = workspace:Raycast(Vector3.new(x, 5000, z),
+				Vector3.new(0, -10000, 0), ray)
+			if hit then
+				local gap = math.abs(hit.Position.Y - anchor.y)
+				sum += gap
+				worst = math.max(worst, gap)
+				count += 1
+			end
+		end
+		return sum, worst, count
+	end
+	local beforeSum, afterSum, beforeMax, afterMax, measured, rebuilt, processed = 0, 0, 0, 0, 0, 0, 0
+	local failures, skipped = 0, 0
+	for _, group in ipairs(globalJunctionGroups) do
+		processed += 1
+		local node = group.renderNode
+		local surface = group.surface
+		if surface and surface.Parent then
+			local reach = polygonMaxRadius(node) + 9
+			local anchors = {}
+			local allowedNames = {}
+			for _, arm in ipairs(node.arms) do
+				allowedNames[streetName(arm.name)] = true
+			end
+			local minCellX, maxCellX = math.floor((node.x-reach)/CELL), math.floor((node.x+reach)/CELL)
+			local minCellZ, maxCellZ = math.floor((node.z-reach)/CELL), math.floor((node.z+reach)/CELL)
+			for ix = minCellX, maxCellX do
+				for iz = minCellZ, maxCellZ do
+					for _, p in ipairs(index[ix .. ":" .. iz] or {}) do
+						local dx, dz = p.x-node.x, p.z-node.z
+						if allowedNames[p.name] and dx*dx + dz*dz <= reach*reach then
+							table.insert(anchors, p)
+						end
+					end
+				end
+			end
+			-- Two nearby road ends per compass sector retain every approach
+			-- without making a dense downtown junction scan hundreds of Parts.
+			local sectors = {}
+			for _, p in ipairs(anchors) do
+				local angle = math.atan2(p.z-node.z, p.x-node.x)
+				local sector = math.floor((angle + math.pi) / (math.pi / 4))
+				sectors[sector] = sectors[sector] or {}
+				table.insert(sectors[sector], p)
+			end
+			anchors = {}
+			for _, bucket in pairs(sectors) do
+				table.sort(bucket, function(a,b)
+					local ax,az=a.x-node.x,a.z-node.z
+					local bx,bz=b.x-node.x,b.z-node.z
+					return ax*ax+az*az < bx*bx+bz*bz
+				end)
+				for i=1,math.min(2,#bucket) do table.insert(anchors,bucket[i]) end
+			end
+			if #anchors >= 2 then
+				local prior, priorMax, priorCount = measure(surface, anchors, node)
+				local function finishedTop(x, z)
+					local weighted, total = 0, 0
+					local nearest, nearestDistance = nil, math.huge
+					for _, p in ipairs(anchors) do
+						local dx, dz = x-p.x, z-p.z
+						local d2 = dx*dx + dz*dz
+						if d2 < 0.25 then return p.y end
+						if d2 < nearestDistance then nearest, nearestDistance = p, d2 end
+						local weight = 1 / (d2 + 9)
+						weighted += p.y * weight
+						total += weight
+					end
+					if nearest and nearestDistance < (nearest.width/2+1.5)^2 then
+						return nearest.y
+					end
+					return weighted / total
+				end
+				local parent = surface.Parent
+				local labels = uniqueIntersectionNames(node)
+				-- Refit the existing wedges in place. Fallbacks are replaced in
+				-- this scheduler slice; no duplicate collision geometry survives.
+				local replacement = makeIntersectionMesh(parent, node, labels,
+					finishedTop, surface:IsA("Model") and surface or nil)
+				if not replacement then
+					replacement = makeIntersectionFallback(parent, node, labels, finishedTop)
+				end
+				if replacement then
+					if replacement ~= surface then surface:Destroy() end
+					group.surface = replacement
+					local current, currentMax, currentCount = measure(replacement, anchors, node)
+					beforeSum += prior
+					afterSum += current
+					beforeMax = math.max(beforeMax, priorMax)
+					afterMax = math.max(afterMax, currentMax)
+					measured += math.min(priorCount, currentCount)
+					rebuilt += 1
+					if currentCount >= 2 and currentMax > 0.65 then
+						failures += 1
+						if failures <= 12 then
+							warn(("[ChesterWorld IntersectionContinuityFail] x=%.1f z=%.1f streets=%s before=%.2f after=%.2f")
+								:format(node.x,node.z,table.concat(labels," & "),priorMax,currentMax))
+						end
+					end
+				end
+			else
+				skipped += 1
+			end
+		end
+		if processed % 64 == 0 then task.wait() end
+	end
+	print(("[ChesterWorld IntersectionContinuity] rebuilt=%d skippedNoRoadEnds=%d measured=%d meanBefore=%.3f meanAfter=%.3f maxBefore=%.3f maxAfter=%.3f failuresOver0.65=%d")
+		:format(rebuilt, skipped, measured, beforeSum/math.max(measured,1),
+			afterSum/math.max(measured,1), beforeMax, afterMax, failures))
+	workspace:SetAttribute("CW_IntersectionContinuityMeasured",measured)
+	workspace:SetAttribute("CW_IntersectionContinuityBeforeMax",beforeMax)
+	workspace:SetAttribute("CW_IntersectionContinuityAfterMax",afterMax)
+	workspace:SetAttribute("CW_IntersectionContinuityFailures",failures)
+	workspace:SetAttribute("CW_IntersectionContinuitySkipped",skipped)
+	return { rebuilt = rebuilt, measured = measured, beforeMax = beforeMax, afterMax = afterMax }
+end
+
+makeIntersectionFallback = function(parent, node, labels, finishedTop)
 	local radius = math.max(node.maxWidth * 0.55, 6)
 	local frame = intersectionFrame(node.x, node.z, radius)
 	if not frame then return nil end
+	if finishedTop then
+		frame = CFrame.new(node.x, finishedTop(node.x, node.z)
+			- (WorldConfig.ROAD_THICKNESS_STUDS + 0.08) / 2, node.z) * frame.Rotation
+	end
 	local pad = Instance.new("Part")
 	pad.Name = "IntersectionFallback"
 	pad.Anchored = true
@@ -1938,7 +2120,8 @@ local function buildIntersections(parent, markingsFolder, signsFolder, tileId)
             local node = group.renderNode
             local labels = uniqueIntersectionNames(node)
             local pad = makeIntersectionMesh(parent, node, labels)
-            if not pad then makeIntersectionFallback(parent, node, labels) end
+            if not pad then pad = makeIntersectionFallback(parent, node, labels) end
+            group.surface = pad
             if node.isNamedIntersection
                 and node.maxWidth >= WorldConfig.CROSSWALK_TRIGGER_WIDTH_STUDS
             then

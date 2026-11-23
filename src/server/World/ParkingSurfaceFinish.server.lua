@@ -1,9 +1,13 @@
--- Surface-only finish for mapped OSM parking lots across the city.
+-- Surface-only finish for mapped OSM ground and parking lots across the city.
 -- Paint existing Terrain voxels; preserve occupancy, height and collision.
 -- This adds no Parts and never guesses that an empty residential parcel is paved.
 local Workspace = game:GetService("Workspace")
 local Terrain = Workspace.Terrain
-local lots = require(script.Parent:WaitForChild("ParkingSurfaceData"))
+local groundAreas = require(script.Parent:WaitForChild("MappedGroundSurfaceData"))
+local parkingLots = require(script.Parent:WaitForChild("ParkingSurfaceData"))
+local treatments = {}
+for _, area in ipairs(groundAreas) do table.insert(treatments, area) end
+for _, lot in ipairs(parkingLots) do table.insert(treatments, lot) end
 
 while Workspace:GetAttribute("CW_RoadTerrainCleared") ~= true
     or Workspace:GetAttribute("CW_WaterComplete") ~= true do
@@ -46,14 +50,19 @@ local writable = {
 local changed, chunks, skippedWater, skippedGrade = 0, 0, 0, 0
 local started = os.clock()
 
-for lotIndex, lot in ipairs(lots) do
+for lotIndex, lot in ipairs(treatments) do
     local ring = lot.outline
     local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
     for i = 1, #ring, 2 do
         minX, maxX = math.min(minX, ring[i]), math.max(maxX, ring[i])
         minZ, maxZ = math.min(minZ, ring[i + 1]), math.max(maxZ, ring[i + 1])
     end
-    local target = lot.material == "Gravel" and Enum.Material.Pebble or Enum.Material.Asphalt
+    local target = ({
+        Gravel = Enum.Material.Pebble,
+        Asphalt = Enum.Material.Asphalt,
+        Grass = Enum.Material.Grass,
+        Ground = Enum.Material.Ground,
+    })[lot.material]
     local xStart = math.floor(minX / CHUNK) * CHUNK
     local zStart = math.floor(minZ / CHUNK) * CHUNK
     for x0 = xStart, maxX, CHUNK do
@@ -130,7 +139,7 @@ for lotIndex, lot in ipairs(lots) do
     if lotIndex % 12 == 0 then task.wait() end
 end
 
-print(("[ChesterWorld ParkingSurface] lots=%d chunks=%d voxelsPainted=%d waterPreserved=%d steepChunksSkipped=%d seconds=%.1f")
-    :format(#lots, chunks, changed, skippedWater, skippedGrade, os.clock() - started))
+print(("[ChesterWorld MappedSurface] groundAreas=%d parkingLots=%d chunks=%d voxelsPainted=%d waterPreserved=%d steepChunksSkipped=%d seconds=%.1f")
+    :format(#groundAreas, #parkingLots, chunks, changed, skippedWater, skippedGrade, os.clock() - started))
 Workspace:SetAttribute("CW_ParkingSurfaceVoxels", changed)
 Workspace:SetAttribute("CW_ParkingSurfaceComplete", true)

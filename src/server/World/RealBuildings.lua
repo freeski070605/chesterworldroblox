@@ -242,6 +242,34 @@ function RealBuildings.Store(model, r, ctx, shop)
                 sill.CanCollide=false
             end
             if is777 then
+                -- Blue-painted security rail at the base of the street-view
+                -- shop windows. Leave the 9th corner doorway completely open.
+                local railY=y0+1.45
+                local fenceColor=Color3.fromRGB(47,87,176)
+                local gapW=doorOnThisWall and math.min(7,span*0.4) or 0
+                local segments=doorOnThisWall and {
+                    {-span/2+0.5,offset-gapW/2},
+                    {offset+gapW/2,span/2-0.5},
+                } or {{-span/2+0.5,span/2-0.5}}
+                for _,range in ipairs(segments) do
+                    if range[2]-range[1]>2 then
+                        local rail=part(model,"777WindowSafetyRail",
+                            Vector3.new(range[2]-range[1],0.2,0.2),
+                            at((range[1]+range[2])/2,railY+1.15,-1.6),
+                            Enum.Material.Metal,fenceColor)
+                        rail.CanCollide=false
+                        local count=math.max(1,math.floor((range[2]-range[1])/2.1))
+                        for i=0,count do
+                            local bar=part(model,"777SafetyBaluster",
+                                Vector3.new(0.16,2.2,0.16),
+                                at(range[1]+(range[2]-range[1])*i/count,railY,-1.6),
+                                Enum.Material.Metal,fenceColor)
+                            bar.CanCollide=false
+                        end
+                    end
+                end
+            end
+            if is777 then
                 -- Painted blue shop piers, recessed window skirts and framing;
                 -- the actual storefront is inset, not an all-glass gray box.
                 local sillBand = part(model,"777BlueWindowSkirt",
@@ -309,6 +337,18 @@ function RealBuildings.Store(model, r, ctx, shop)
                     at(offset,(glassTop+y0)/2,0.55),Enum.Material.Glass,GLASS)
                 glassDoor.Transparency=0.55
                 glassDoor.CanCollide=false
+                if is777 then
+                    local threshold=part(model,"777CornerEntranceLanding",
+                        Vector3.new(doorW+1.8,0.5,3.1),
+                        at(offset,y0+0.1,-1.8),Enum.Material.Concrete,
+                        Color3.fromRGB(111,137,189))
+                    threshold.CanCollide=true
+                    local step=part(model,"777CornerEntranceStep",
+                        Vector3.new(doorW+1.8,0.28,1.35),
+                        at(offset,y0-0.25,-3.5),Enum.Material.Concrete,
+                        Color3.fromRGB(158,162,169))
+                    step.CanCollide=true
+                end
                 entryDoor=glassDoor
                 entryFace=n
                 entryOffset=offset

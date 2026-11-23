@@ -19,6 +19,8 @@
 -- the pass, nearly all within 1 stud (was 14 %).
 local Workspace = game:GetService("Workspace")
 local Terrain = Workspace.Terrain
+local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+    :WaitForChild("WorldConfig"))
 
 while Workspace:GetAttribute("CW_HighwayFinishComplete") ~= true do task.wait(0.5) end
 if Workspace:GetAttribute("CW_RoadTerrainCleared") then return end
@@ -36,6 +38,10 @@ for _, tile in ipairs(world:GetChildren()) do
 			for _, part in ipairs(folder:GetDescendants()) do
 				if part:IsA("BasePart") and part.Transparency < 1 and part.Name ~= "Rail"
 					and part:GetAttribute("CW_Tunnel") ~= true then
+                    if folder.Name == "Sidewalks" then
+                        part.Material = Config.SIDEWALK_MATERIAL
+                        part.Color = Config.SIDEWALK_COLOR
+                    end
 					local size = part.Size
 					Terrain:FillBlock(part.CFrame * CFrame.new(0, size.Y / 2 - BELOW_TOP + CLEAR_HEIGHT / 2, 0),
 						Vector3.new(size.X, CLEAR_HEIGHT, size.Z), Enum.Material.Air)

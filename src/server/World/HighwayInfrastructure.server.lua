@@ -893,7 +893,7 @@ for _,tile in ipairs(world:GetChildren()) do
 end
 padParams.FilterDescendantsInstances=surfaceFolders
 local holes,coveredGaps,steps,worstStep=0,0,0,0
-local holeList={}
+local holeList,stepList={},{}
 for id,list in pairs(byStroke) do
     table.sort(list,function(p,q)
         return (p:GetAttribute("CW_Station0") or 0)<(q:GetAttribute("CW_Station0") or 0)
@@ -929,11 +929,22 @@ for id,list in pairs(byStroke) do
             if step>0.35 then
                 steps+=1
                 worstStep=math.max(worstStep,step)
+                local structureNames = tostring(prev:GetAttribute("CW_StructureId") or "")
+                    .. "/" .. tostring(cur:GetAttribute("CW_StructureId") or "")
+                if #stepList<30 or structureNames:find("KERLIN",1,true)
+                    or structureNames:find("UPLAND",1,true) then
+                    table.insert(stepList,string.format(
+                        "stroke=%s road=%s structure=%s/%s at=(%.1f,%.1f) step=%.2f parts=%s/%s",
+                        id,prev.Name,tostring(prev:GetAttribute("CW_StructureId")),
+                        tostring(cur:GetAttribute("CW_StructureId")),bp.X,bp.Z,step,
+                        prev:GetFullName(),cur:GetFullName()))
+                end
             end
         end
     end
 end
 Workspace:SetAttribute("CW_HighwayHoles",holes)
+Workspace:SetAttribute("CW_HighwaySteps",steps)
 Workspace:SetAttribute("CW_HighwaySpans",hw.spans)
 print(("[ChesterWorld HighwayStructures] profiledParts=%d spans=%d spanPieces=%d fillPieces=%d gradePieces=%d decks=%d fascia=%d barriers=%d abutments=%d piers=%d fills=%d overpassFences=%d holes=%d padCoveredGaps=%d steps=%d worstStep=%.2f")
     :format(#profiled,hw.spans,hw.spanPieces,hw.fillPieces,hw.gradePieces,hw.decks,
@@ -944,6 +955,9 @@ print(("[ChesterWorld HighwayStructures] railBeds=%d abutmentsOnRailSkipped=%d a
         hw.abutmentsMidSpan or 0))
 for _,line in ipairs(holeList) do
     warn("[ChesterWorld HighwayHole] "..line)
+end
+for _,line in ipairs(stepList) do
+    warn("[ChesterWorld HighwayStep] "..line)
 end
 
 -- Report the ACTUAL vertical clearance between every road pair with crossing

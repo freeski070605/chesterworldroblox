@@ -1981,7 +1981,6 @@ local conformed = #atGrade - stats.rampParts + stats.rampParts
     + stats.bridgeConformed
 Workspace:SetAttribute("CW_RoadConformTotal", #allRoads)
 Workspace:SetAttribute("CW_RoadConformedCount", conformed)
-Workspace:SetAttribute("CW_RoadConformComplete", true)
 
 print(("[ChesterWorld RoadTerrainConformer] highwayProfiledPartsLeftToHighwayProfile=%d"):format(highwayProfiledParts))
 -- V-dips between lifted pieces: where two RoadTerrainConformer-owned pieces
@@ -2003,7 +2002,7 @@ do
             end
         end
     end
-    local smoothed = 0
+    local smoothed, rejectedSteep = 0, 0
     for _, list in pairs(joints) do
         if #list == 2 then
             local e1, e2 = list[1], list[2]
@@ -2017,20 +2016,29 @@ do
                 local line = far1.Y + (far2.Y - far1.Y) * d1 / (d1 + d2)
                 local target = math.min(line, here + 2)
                 if target > here + 0.08 then
-                    for _, e in ipairs({ { e1, a1, b1 }, { e2, a2, b2 } }) do
-                        local entry, a, b = e[1], e[2], e[3]
-                        if entry.index == 1 then
-                            setEndpoints(entry.part, Vector3.new(a.X, target, a.Z), b)
-                        else
-                            setEndpoints(entry.part, a, Vector3.new(b.X, target, b.Z))
+                    -- Keep both drivable slopes within the street/bridge
+                    -- approach limit. A visual V-dip fix is not a safe ramp
+                    -- if either four-stud piece becomes a wheel-catching lip.
+                    if math.abs(far1.Y - target) / d1 <= MAX_GRADE
+                        and math.abs(far2.Y - target) / d2 <= MAX_GRADE then
+                        for _, e in ipairs({ { e1, a1, b1 }, { e2, a2, b2 } }) do
+                            local entry, a, b = e[1], e[2], e[3]
+                            if entry.index == 1 then
+                                setEndpoints(entry.part, Vector3.new(a.X, target, a.Z), b)
+                            else
+                                setEndpoints(entry.part, a, Vector3.new(b.X, target, b.Z))
+                            end
                         end
+                        smoothed += 1
+                    else
+                        rejectedSteep += 1
                     end
-                    smoothed += 1
                 end
             end
         end
     end
-    print(("[ChesterWorld RoadTerrainConformer] vDipsSmoothed=%d"):format(smoothed))
+    print(("[ChesterWorld RoadTerrainConformer] vDipsSmoothed=%d vDipsRejectedSteep=%d")
+        :format(smoothed, rejectedSteep))
 end
 print(("[ChesterWorld RoadTerrainConformer] waterCrossings=%d bankRaisedEnds=%d notchRims=%d continuationTerrainRecovered=%d industrialBankRecovered=%d"):format(
     stats.waterCrossings or 0, stats.bankRaised or 0, stats.notchRims or 0,
@@ -2328,3 +2336,7 @@ if stats.terrainClearanceWarnings > 0 then
     warn(("[ChesterWorld Highway] %d PRE-REGISTRY terrain-height constraints remain unresolved; compare with FINAL bridgeTerrainIntrusions."):format(stats.terrainClearanceWarnings))
     printDeficits("BridgeTerrainSourceDeficit",stats.unresolvedTerrain)
 end
+-- HighwayInfrastructure snapshots these Parts and builds physical decks from
+-- their final CFrames. Signal only after the late Upland V-dip and bounded
+-- bridge-approach corrections above, never before them.
+Workspace:SetAttribute("CW_RoadConformComplete", true)

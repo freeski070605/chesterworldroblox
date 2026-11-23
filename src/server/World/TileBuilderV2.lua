@@ -2801,6 +2801,7 @@ local function buildBuilding(parent, building, shapes)
             -- same lot by the authoritative station/business placement.
             -- Keep the county structure, remove only duplicated businesses.
             copy.ss, copy.sb, copy.name, copy.gs = nil, nil, nil, nil
+            copy.style = "generic"  -- no phantom storefront texture underneath relocated retailer
         end
         if correction.forceShop and tostring(building.id) == "147448" then
             -- Older survey name was suppressed but no store replaced it.

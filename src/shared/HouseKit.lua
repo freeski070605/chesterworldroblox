@@ -722,6 +722,41 @@ function HouseKit.Build(model, r, ctx, H)
 				Color3.fromRGB(150, 146, 140))
 		end
 
+        -- Visible Lincoln Street terrace, 9th to 10th: the Street View
+        -- scene shows shallow fenced setbacks in front of attached porches.
+        -- Only use this on the two pose-reviewed Lincoln terrace blocks.
+        -- Rail is lightweight, decorative and leaves the steps walkable.
+        if not lite and hasPorch and (ctx.buildingId == "37959" or ctx.buildingId == "153497") then
+            local fenceDepth = math.min(10,porchDepth+2.0)
+            local fenceY = r.streetLevel+1.7
+            local fenceColor = Color3.fromRGB(219,221,215)
+            local gap = 5.8
+            local left = u-w/2+0.3
+            local right = u+w/2-0.3
+            local leftGap = math.max(left,doorU-gap/2)
+            local rightGap = math.min(right,doorU+gap/2)
+            local function fenceSegment(x0,x1)
+                if x1-x0<1.5 then return end
+                local rail = solid("LincolnFrontFenceRail",
+                    Vector3.new(x1-x0,0.18,0.2),
+                    at(fcf,(x0+x1)/2,fenceY+1.1,-fenceDepth),
+                    Enum.Material.Metal,fenceColor)
+                rail.CanCollide=false
+                local count = math.floor((x1-x0)/2.1)
+                for j=0,count do
+                    local x=x0+(x1-x0)*j/math.max(count,1)
+                    local picket=solid("LincolnFencePicket",
+                        Vector3.new(0.17,2.25,0.17),
+                        at(fcf,x,fenceY,-fenceDepth),
+                        Enum.Material.Metal,fenceColor)
+                    picket.CanCollide=false
+                end
+            end
+            fenceSegment(left,leftGap)
+            fenceSegment(rightGap,right)
+            model:SetAttribute("LincolnSceneFences",true)
+        end
+
 		-- back: a door and a window per storey
 		local bcf, bspan = H.faceOf(r, -nFront)
 		local bu = -u   -- the back face runs the other way

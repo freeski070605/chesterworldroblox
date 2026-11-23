@@ -81,8 +81,13 @@ railParams.FilterDescendantsInstances = railBeds
 local function surfaceY(x, z)
 	local t = Workspace:Raycast(Vector3.new(x, 2000, z), Vector3.new(0, -4000, 0), terrainParams)
 	if not t then return nil end
-	local s = Workspace:Raycast(Vector3.new(x, t.Position.Y + 6, z), Vector3.new(0, -12, 0), surfaceParams)
-	local y = math.max(t.Position.Y, s and s.Position.Y or -math.huge)
+	-- Surface Parts have their final road-owned heights by this stage. A
+	-- raised sidewalk may be more than six studs above the old terrain; use
+	-- its actual top when it is the nearby ground-level walking surface.
+	local s = Workspace:Raycast(Vector3.new(x, t.Position.Y + 20, z),
+		Vector3.new(0, -40, 0), surfaceParams)
+	local y = s and math.abs(s.Position.Y - t.Position.Y) <= 12
+		and s.Position.Y or t.Position.Y
 	if #railBeds > 0 then
 		local r = Workspace:Raycast(Vector3.new(x, y + 6, z), Vector3.new(0, -12, 0), railParams)
 		if r then return nil end

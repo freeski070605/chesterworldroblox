@@ -197,8 +197,12 @@ for _, rec in ipairs(pieces) do
 		walk[side] = #Workspace:GetPartBoundsInBox(CFrame.new(probe), Vector3.new(2, 3, 2), walkOverlap) > 0
 	end
 	local extraL, extraR = walk[-1] and 5.1 or 0, walk[1] and 5.1 or 0
-	part("LocalBridgeDeck", Vector3.new(w + 1.6 + extraL + extraR, 1.6, len + 0.3),
+	local deck = part("LocalBridgeDeck", Vector3.new(w + 1.6 + extraL + extraR, 1.6, len + 0.3),
 		cf * CFrame.new((extraR - extraL) / 2, -size.Y / 2 - 0.8, 0), CONCRETE)
+	-- The road Part above is the driving collider. A second broad slab with
+	-- a wider exposed edge can catch wheels at bridge transitions.
+	deck.CanCollide = false
+	deck.CanTouch = false
 	decks += 1
 	if rec.height > 6 then
 		for _, f in ipairs({ -0.38, 0, 0.38 }) do

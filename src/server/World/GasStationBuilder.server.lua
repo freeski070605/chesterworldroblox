@@ -80,6 +80,78 @@ local function roadTopAt(point)
 	return hit and hit.Position.Y or nil
 end
 
+local function forecourtRoadY(frame, halfX, halfZ, terrainHeight)
+	local best, bestScore
+	for _, side in ipairs({
+		{ frame.LookVector, frame * Vector3.new(0,0,-halfZ) },
+		{ -frame.LookVector, frame * Vector3.new(0,0,halfZ) },
+		{ frame.RightVector, frame * Vector3.new(halfX,0,0) },
+		{ -frame.RightVector, frame * Vector3.new(-halfX,0,0) },
+	}) do
+		for d = 9, 60, 3 do
+			local top = roadTopAt(side[2] + side[1] * d)
+			if top and math.abs(top - (terrainHeight + 0.5)) <= 2 then
+				local score = d + math.abs(top - (terrainHeight + 0.5)) * 3
+				if not bestScore or score < bestScore then
+					best, bestScore = top, score
+				end
+				break
+			end
+		end
+	end
+	return best
+end
+
+local forecourtOverlap = OverlapParams.new()
+forecourtOverlap.MaxParts = 0
+local forecourtsOnTerrain = 0
+local curbCuts = 0
+local sidewalkFolders = {}
+for _, tile in ipairs(world:GetChildren()) do
+	local folder = tile:FindFirstChild("Sidewalks")
+	if folder then table.insert(sidewalkFolders, folder) end
+end
+local sidewalkOverlap = OverlapParams.new()
+sidewalkOverlap.FilterType = Enum.RaycastFilterType.Include
+sidewalkOverlap.FilterDescendantsInstances = sidewalkFolders
+sidewalkOverlap.MaxParts = 0
+local function cutSidewalkAt(ramp)
+	for _, walk in ipairs(Workspace:GetPartBoundsInBox(ramp.CFrame,
+		ramp.Size + Vector3.new(0, 4, 0), sidewalkOverlap)) do
+		if walk:IsA("BasePart") and walk.CanCollide
+			and walk:GetAttribute("CW_TileBuilderSidewalk") == true then
+			local xMin, xMax, zMin, zMax = math.huge, -math.huge, math.huge, -math.huge
+			for _, x in ipairs({ -0.5, 0.5 }) do
+				for _, z in ipairs({ -0.5, 0.5 }) do
+					local p = walk.CFrame:PointToObjectSpace(
+						ramp.CFrame * Vector3.new(x*ramp.Size.X, 0, z*ramp.Size.Z))
+					xMin, xMax = math.min(xMin,p.X), math.max(xMax,p.X)
+					zMin, zMax = math.min(zMin,p.Z), math.max(zMax,p.Z)
+				end
+			end
+			if xMin < walk.Size.X/2 and xMax > -walk.Size.X/2 then
+				local half = walk.Size.Z/2
+				local from = math.max(-half,zMin-0.5)
+				local to = math.min(half,zMax+0.5)
+				if to-from >= 1 then
+					for _, interval in ipairs({ {-half,from}, {to,half} }) do
+						local length=interval[2]-interval[1]
+						if length >= 1 then
+							local remaining=walk:Clone()
+							remaining.Size=Vector3.new(walk.Size.X,walk.Size.Y,length)
+							remaining.CFrame=walk.CFrame*CFrame.new(0,0,(interval[1]+interval[2])/2)
+							remaining.Parent=walk.Parent
+							count += 1
+						end
+					end
+					walk:Destroy()
+					curbCuts += 1
+				end
+			end
+		end
+	end
+end
+
 -- Search for a gentle approach instead of using the first road hit, which
 -- frequently produces a sharp five-stud ramp at sloped Chester lots.
 local function driveway(model, frame, halfX, halfZ, side)
@@ -138,11 +210,11 @@ local function driveway(model, frame, halfX, halfZ, side)
 			:format(model.Name, side, closest.delta, closest.crossfall, tostring(closest.terrainOk)))
 		return
 	end
-	if math.abs(best.delta) < 0.08 then return end
 	local run, delta = best.run, best.delta
 	-- Three joined collision strips ease the grade at both ends. Each centreline
 	-- endpoint is shared exactly, so wheels do not encounter slab-end lips.
 	local previous
+	local ramps = {}
 	for i = 0, 3 do
 		local t = i / 3
 		local eased = t * t * (3 - 2 * t)
@@ -154,9 +226,11 @@ local function driveway(model, frame, halfX, halfZ, side)
 				CFrame.lookAt((previous + point) / 2, point, Vector3.yAxis),
 				Enum.Material.Concrete, CONCRETE)
 			ramp:SetAttribute("Exit6Driveway", true)
+			table.insert(ramps,ramp)
 		end
 		previous = point
 	end
+	for _, ramp in ipairs(ramps) do cutSidewalkAt(ramp) end
 	drivewayStats.built += 1
 end
 
@@ -668,6 +742,7 @@ for _, st in ipairs(Stations) do
 	local fascia, accent, textColor = rgb(st.colors[1]), rgb(st.colors[2]), rgb(st.colors[3])
 	local model = Instance.new("Model")
 	model.Name = st.name
+	model.Parent = root
 	model:SetAttribute("StationId", st.id)
 	model:SetAttribute("Address", st.address)
 	model:SetAttribute("Source", "street-imagery verified storefront inventory 2026-11-05")
@@ -681,12 +756,47 @@ for _, st in ipairs(Stations) do
 				removed += 1
 			end
 			local L, W = math.max(b[3], 12 * H), math.max(b[4], 7 * H)
-			local frame = CFrame.new(b[1], y, b[2]) * CFrame.Angles(0, math.rad(b[5]), 0)
-			-- forecourt slab
-			part(model, "Forecourt", Vector3.new(L + 6 * H, 0.6, W + 8 * H), frame * CFrame.new(0, 0.2, 0),
-				Enum.Material.Concrete, CONCRETE)
-			-- Road-matched approaches on sides that actually meet a street.
+			local rotation = CFrame.Angles(0, math.rad(b[5]), 0)
+			local preliminary = CFrame.new(b[1], y, b[2]) * rotation
 			local halfX, halfZ = (L + 6 * H) / 2, (W + 8 * H) / 2
+			local streetTop = forecourtRoadY(preliminary, halfX, halfZ, y)
+			local frame = CFrame.new(b[1], streetTop and streetTop - 0.5 or y, b[2]) * rotation
+			-- forecourt slab
+			local forecourt = part(model, "Forecourt", Vector3.new(L + 6 * H, 0.6, W + 8 * H), frame * CFrame.new(0, 0.2, 0),
+				Enum.Material.Concrete, CONCRETE)
+			-- A second canopy or road may cross the broad visual forecourt.
+			-- Terrain remains the collision surface there; two stacked slabs
+			-- must never produce a raised invisible vehicle barrier.
+			for _, other in ipairs(Workspace:GetPartBoundsInBox(forecourt.CFrame,
+				forecourt.Size - Vector3.new(0.2, 0, 0.2), forecourtOverlap)) do
+				if other ~= forecourt and other:IsA("BasePart") and other.CanCollide
+					and ((other.Parent and other.Parent.Name == "Roads")
+						or other.Name == "Forecourt"
+						or other:GetAttribute("CW_TileBuilderSidewalk") == true) then
+					forecourt.CanCollide = false
+					forecourt.CanTouch = false
+					forecourtsOnTerrain += 1
+					break
+				end
+			end
+			if forecourt.CanCollide then
+				for _, offset in ipairs({
+					Vector3.new(0,0,0), Vector3.new(-halfX*0.75,0,-halfZ*0.75),
+					Vector3.new(-halfX*0.75,0,halfZ*0.75),
+					Vector3.new(halfX*0.75,0,-halfZ*0.75),
+					Vector3.new(halfX*0.75,0,halfZ*0.75),
+				}) do
+					local p = frame * offset
+					local ground = groundY(p.X,p.Z)
+					if ground and math.abs(ground - (frame.Position.Y + 0.5)) > 1 then
+						forecourt.CanCollide = false
+						forecourt.CanTouch = false
+						forecourtsOnTerrain += 1
+						break
+					end
+				end
+			end
+			-- Road-matched approaches on sides that actually meet a street.
 			for _, side in ipairs({ "front", "back", "right", "left" }) do
 				driveway(model, frame, halfX, halfZ, side)
 			end
@@ -768,7 +878,6 @@ for _, st in ipairs(Stations) do
 		end
 	end
 	if #model:GetChildren() > 0 then
-		model.Parent = root
 		built += 1
 		if shopFrame then buildStore(model, st, fascia, accent, textColor, shopFrame, shopWidth, shopDepth) end
 		-- county footprints in the lot that are really low sheds / booths
@@ -788,10 +897,15 @@ for _, st in ipairs(Stations) do
 					Enum.Material.Metal, Color3.fromRGB(120, 124, 128))
 			end
 		end
+	else
+		model:Destroy()
 	end
 end
 print(("[ChesterWorld GasStations] built=%d canopyBoxesReplaced=%d exit6Stores=%d parts=%d"):format(built, removed, stores, count))
 print(("[EXIT6 Gas Driveways] built=%d needsReview=%d crossfall=%d terrain=%d noAdjacentRoad=%d"):format(
 	drivewayStats.built, drivewayStats.skippedSteep, drivewayStats.crossfall,
 	drivewayStats.terrain, drivewayStats.noRoad))
+print(("[EXIT6 Gas Forecourts] terrainCollision=%d (overlap or uneven ground)")
+	:format(forecourtsOnTerrain))
+print(("[EXIT6 Gas CurbCuts] sidewalkSegmentsOpened=%d"):format(curbCuts))
 Workspace:SetAttribute("CW_GasStationsComplete", true)

@@ -67,11 +67,45 @@ def source_xy(lon, lat):
     return mx + 8397592, my - 4837229
 
 
+def full_size_reviews():
+    """Every building whose photo was inspected at full size and recorded.
+
+    tools/reconstruction/pose_reviews.csv holds the ray-verified structural
+    reviews (one per ID, photo path relative to the Google images folder);
+    the hand FINDINGS above are the older storefront observations. Before
+    2026-11-23 this audit only counted FINDINGS, so 600+ full-size reviews
+    were reported as not_inspected."""
+    out = {}
+    for r in read_csv(ROOT / 'tools/reconstruction/pose_reviews.csv'):
+        out[r['building_id']] = r
+    return out
+
+
+def cast_photo_index():
+    """Photos the ray-caster found centred on each building (any source,
+    including photos downloaded for a NEIGHBOUR). Without this, a building
+    with no photo 'downloaded for' its own ID was reported imagery_missing
+    even when a neighbour's photo shows it."""
+    path = ROOT / 'build/property_evidence/citywide.json'
+    if not path.is_file():
+        return {}
+    props = json.loads(path.read_text(encoding='utf-8'))['properties']
+    out = {}
+    for bid, rec in props.items():
+        best = max((i for i in rec['images'] if i['centre'] and i['fov_share'] >= 0.25),
+                   key=lambda i: (i['wall'] == 'front', i['fov_share']), default=None)
+        if best:
+            out[bid] = best
+    return out
+
+
 def main():
     # These are the 138 distinct photos manually screened in overview sheets
     # for this audit. Other manifest photos are linked but not visually read.
     screened = {r['image_local_path'] for r in read_csv(ROOT / 'build/city_frontage_review.csv')
                 if r.get('image_local_path') and Path(r['image_local_path']).is_file()}
+    reviewed = full_size_reviews()
+    cast = cast_photo_index()
     google_dir = DATA / '25_GoogleStreetView_Buildings'
     map_dir = DATA / '24_BuildingImagery_Mapillary'
     pano_dir = DATA / '10_StorefrontPanoramas'
@@ -119,8 +153,21 @@ def main():
                 p = pano_dir / (rec.get('path') or '')
                 if rec.get('path') and p.is_file():
                     pano_refs.append(str(p))
+            if not refs and bid in cast:
+                # a neighbour's photo is ray-centred on this building
+                c = cast[bid]
+                refs.append(('GoogleStreetView_neighbour' if c['source'] == 'google_streetview' else 'Mapillary_neighbour',
+                             str(DATA / c['path']), dict(capture_date=c.get('date', ''))))
             primary = refs[0] if refs else ('', '', {})
-            finding = FINDINGS.get(bid, {})
+            finding = dict(FINDINGS.get(bid, {}))
+            pose = reviewed.get(bid)
+            if pose and not finding:
+                finding = dict(visual_review='full_size', confidence='verified' if pose['confidence'] == 'high' else 'probable',
+                               visible_shape=f"{pose['style']} {pose['floors']}fl roof={pose['roof'] or '?'}",
+                               evidence='Full-size ray-verified photo review: ' + pose['photo'] + '; ' + pose['notes'][:160],
+                               recommended_fix='Applied via PropertyReconstruction.lua (pose_reviews.csv).')
+                if not primary[1]:
+                    primary = ('GoogleStreetView', str(DATA / '25_GoogleStreetView_Buildings/images' / pose['photo']), {})
             for name, section, bearing, place_id in entries:
                 visual = finding.get('visual_review', 'overview_screened' if primary[1] in screened else 'not_inspected')
                 confidence = finding.get('confidence', 'probable' if visual == 'overview_screened' and delta != '' and delta <= 10 else 'imagery_missing' if not primary[1] and not pano_refs else 'unresolved')
@@ -152,9 +199,15 @@ def main():
         writer.writeheader(); writer.writerows(rows)
     write_report(rows)
     print('rows', len(rows), 'buildings', len({r['building_id'] for r in rows}), 'tiles', len({r['tile'] for r in rows}))
-    print('section rows', sum(r['record_type'] == 'storefront_section' for r in rows))
-    print('confidence', dict(Counter(r['confidence'] for r in rows)))
-    print('visual', dict(Counter(r['visual_review'] for r in rows)))
+    # NB: rows = every building (houses included) + one per shop section, so
+    # whole-file confidence counts are NOT storefront counts. Report both.
+    sec = [r for r in rows if r['record_type'] == 'storefront_section']
+    print('section rows', len(sec))
+    print('storefront sections: confidence', dict(Counter(r['confidence'] for r in sec)),
+          'visual', dict(Counter(r['visual_review'] for r in sec)))
+    print('all rows: confidence', dict(Counter(r['confidence'] for r in rows)))
+    print('all rows: visual', dict(Counter(r['visual_review'] for r in rows)))
+    print('image sources', dict(Counter(r['image_source'] or 'none' for r in rows)))
 
 
 def write_report(rows):

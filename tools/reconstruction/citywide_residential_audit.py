@@ -71,7 +71,17 @@ def type_estimate(style, fp):
             'storefront': 'mixed-use possible', 'commercial': 'mixed-use possible'}.get(style, 'unknown')
 
 
+def load_pose():
+    path = ROOT / 'tools/reconstruction/pose_reviews.csv'
+    with path.open(encoding='utf-8', newline='') as f:
+        return {r['building_id']: r for r in csv.DictReader(f)}
+
+
+POSE = {}
+
+
 def main():
+    POSE.update(load_pose())
     with IN.open(encoding='utf-8-sig', newline='') as f:
         all_rows = list(csv.DictReader(f))
     features = json.loads((DATA / '13_RegionalMaster/regional_buildings_base.geojson').read_text(encoding='utf-8'))['features']
@@ -112,6 +122,17 @@ def main():
             flags.append('no matched street photo')
         if not aerial_path:
             flags.append('no local aerial tile')
+        pose = POSE.get(bid)
+        if pose and not obs:
+            # ray-verified full-size review (tools/reconstruction/pose_reviews.csv)
+            obs = dict(type=pose['style'], stories=pose['floors'], roof=pose['roof'],
+                       porch='porch' if pose['porch'] == '1' else 'no porch' if pose['porch'] == '0' else '',
+                       garage=f"{pose['garage_bays']} bay(s)" if pose['garage_bays'] else '',
+                       evidence='Full-size ray-verified photo ' + pose['photo'] + '; ' + pose['notes'][:160],
+                       confidence='verified' if pose['confidence'] == 'high' else 'probable',
+                       fix='Applied via PropertyReconstruction.lua (pose_reviews.csv).')
+            photo = photo or str(DATA / '25_GoogleStreetView_Buildings/images' / pose['photo'])
+            flags = [f for f in flags if f != 'no matched street photo']
         visual = 'full_size' if obs else 'overview_screened' if bid in OVERVIEW_SCREENED else 'not_inspected'
         result.append(dict(
             building_id=bid, master_id=r['master_id'], tile=r['tile'], residential_scope=scope,

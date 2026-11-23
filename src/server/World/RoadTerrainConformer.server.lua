@@ -2336,6 +2336,64 @@ if stats.terrainClearanceWarnings > 0 then
     warn(("[ChesterWorld Highway] %d PRE-REGISTRY terrain-height constraints remain unresolved; compare with FINAL bridgeTerrainIntrusions."):format(stats.terrainClearanceWarnings))
     printDeficits("BridgeTerrainSourceDeficit",stats.unresolvedTerrain)
 end
+-- Join a profiled local bridge to its own ramp when the remaining lip can be
+-- absorbed by that EXISTING ramp Part at a safe grade. Never move the deck,
+-- invent a bridge height, or insert a cover slab. Larger steps stay visible
+-- in RoadBridgeSeam audit for a measured multi-piece approach correction.
+do
+    local joints = {}
+    local function key(p)
+        return math.floor(p.X * 2 + 0.5) .. ":" .. math.floor(p.Z * 2 + 0.5)
+    end
+    for _, part in ipairs(allRoads) do
+        if part.Parent and (part:GetAttribute("CW_BridgeProfiled") == true
+            or part:GetAttribute("CW_RampProfiled") == true) then
+            local a, b = endpoints(part)
+            for index, p in ipairs({a, b}) do
+                local k = key(p)
+                joints[k] = joints[k] or {}
+                table.insert(joints[k], {part=part,index=index})
+            end
+        end
+    end
+    local repaired, rejected = 0, 0
+    for _, entries in pairs(joints) do
+        if #entries == 2 then
+            local first, second = entries[1], entries[2]
+            local bridge = first.part:GetAttribute("CW_BridgeProfiled") == true and first or
+                (second.part:GetAttribute("CW_BridgeProfiled") == true and second or nil)
+            local ramp = first.part:GetAttribute("CW_RampProfiled") == true and first or
+                (second.part:GetAttribute("CW_RampProfiled") == true and second or nil)
+            if bridge and ramp and normalizedRoadName(attr(bridge.part,"ChesterStreet"))
+                == normalizedRoadName(attr(ramp.part,"ChesterStreet")) then
+                local ba, bb = endpoints(bridge.part)
+                local ra, rb = endpoints(ramp.part)
+                local deckEnd = bridge.index == 1 and ba or bb
+                local rampEnd = ramp.index == 1 and ra or rb
+                local rampFar = ramp.index == 1 and rb or ra
+                local step = deckEnd.Y - rampEnd.Y
+                if hdist(deckEnd,rampEnd) < 1.5 and step > 0.35 then
+                    local run = hdist(rampEnd,rampFar)
+                    if step <= 1.5 and run > 1
+                        and math.abs(deckEnd.Y-rampFar.Y)/run <= MAX_GRADE then
+                        local newEnd = Vector3.new(rampEnd.X,deckEnd.Y,rampEnd.Z)
+                        if ramp.index == 1 then
+                            setEndpoints(ramp.part,newEnd,rb)
+                        else
+                            setEndpoints(ramp.part,ra,newEnd)
+                        end
+                        ramp.part:SetAttribute("CW_BridgeSeamJoined",true)
+                        repaired += 1
+                    else
+                        rejected += 1
+                    end
+                end
+            end
+        end
+    end
+    print(("[ChesterWorld BridgeApproachJoins] repairedCollisionLips=%d rejectedGradeOrStep=%d")
+        :format(repaired,rejected))
+end
 -- HighwayInfrastructure snapshots these Parts and builds physical decks from
 -- their final CFrames. Signal only after the late Upland V-dip and bounded
 -- bridge-approach corrections above, never before them.

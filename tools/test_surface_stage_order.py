@@ -10,5 +10,6 @@ signals = [i for i in range(len(conformer)) if conformer.startswith('Workspace:S
 assert len(signals) == 1, 'road conformer must signal completion once'
 assert signals[0] > conformer.index('vDipsSmoothed='), 'V-dip seam repairs must complete before the highway stage'
 assert signals[0] > conformer.index('BridgeFinalAudit]'), 'late bridge geometry must finish before the highway stage'
+assert signals[0] > conformer.index('BridgeApproachJoins]'), 'local bridge collision joins must finish before deck construction'
 assert highway.index('while Workspace:GetAttribute("CW_RoadConformComplete")') < highway.index('local profiled = {}')
 print('PASS: physical highway deck build waits for final conformed road geometry')

@@ -94,9 +94,11 @@ local function driveway(model, frame, halfX, halfZ, side)
 	local slabTop = frame.Position.Y + 0.5
 	local tangent = Vector3.new(forward.X, 0, forward.Z).Unit
 	local across = Vector3.new(-tangent.Z, 0, tangent.X)
-	local width = math.min((side == "front" or side == "back") and halfX * 1.2 or halfZ * 1.2, 30)
+	-- Keep the mouth inside the parcel and narrow enough to meet a cambered
+	-- road without creating a raised corner across a whole street block.
+	local width = math.min((side == "front" or side == "back") and halfX * 1.2 or halfZ * 1.2, 18)
 	local best, closest
-	for d = 6, 48, 3 do
+	for d = 9, 60, 3 do
 		local left = roadTopAt(edge + tangent * d - across * width * 0.35)
 		local middle = roadTopAt(edge + tangent * d)
 		local right = roadTopAt(edge + tangent * d + across * width * 0.35)
@@ -106,7 +108,8 @@ local function driveway(model, frame, halfX, halfZ, side)
 			local crossfall = math.max(left, middle, right) - math.min(left, middle, right)
 			local terrainOk = true
 			for _, fraction in ipairs({ 0.25, 0.5, 0.75 }) do
-				local predicted = slabTop + delta * fraction
+					local eased = fraction * fraction * (3 - 2 * fraction)
+					local predicted = slabTop + delta * eased
 				for _, lateral in ipairs({ -0.25, 0, 0.25 }) do
 					local sample = edge + tangent * (d * fraction) + across * (width * lateral)
 					local gy = groundY(sample.X, sample.Z)
@@ -135,18 +138,25 @@ local function driveway(model, frame, halfX, halfZ, side)
 			:format(model.Name, side, closest.delta, closest.crossfall, tostring(closest.terrainOk)))
 		return
 	end
-	if math.abs(best.delta) < 0.25 then return end
+	if math.abs(best.delta) < 0.08 then return end
 	local run, delta = best.run, best.delta
-	local slopeForward = (tangent * run + Vector3.new(0, delta, 0)).Unit
-	local right = slopeForward:Cross(Vector3.yAxis).Unit
-	local up = right:Cross(slopeForward).Unit
-	local center = edge + tangent * (run / 2)
-		+ Vector3.new(0, (slabTop + best.y) / 2 - frame.Position.Y - 0.18, 0)
-	-- Size.Z is distance along the tilted ramp, not horizontal run. Using
-	-- run here left a small collision gap at the road end on steep approaches.
-	local ramp = part(model, "DrivewayTransition", Vector3.new(width, 0.36, math.sqrt(run * run + delta * delta)),
-		CFrame.fromMatrix(center, right, up, -slopeForward), Enum.Material.Concrete, CONCRETE)
-	ramp:SetAttribute("Exit6Driveway", true)
+	-- Three joined collision strips ease the grade at both ends. Each centreline
+	-- endpoint is shared exactly, so wheels do not encounter slab-end lips.
+	local previous
+	for i = 0, 3 do
+		local t = i / 3
+		local eased = t * t * (3 - 2 * t)
+		local point = edge + tangent * (run * t)
+			+ Vector3.new(0, slabTop + delta * eased - frame.Position.Y - 0.18, 0)
+		if previous then
+			local ramp = part(model, "DrivewayTransition",
+				Vector3.new(width, 0.36, (point - previous).Magnitude),
+				CFrame.lookAt((previous + point) / 2, point, Vector3.yAxis),
+				Enum.Material.Concrete, CONCRETE)
+			ramp:SetAttribute("Exit6Driveway", true)
+		end
+		previous = point
+	end
 	drivewayStats.built += 1
 end
 

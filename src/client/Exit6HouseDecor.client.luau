@@ -17,8 +17,14 @@ local HouseKit = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("
 local world = Workspace:WaitForChild("ChesterWorld", 600)
 if not world then return end
 
-local NEAR, FAR = 300, 380
-local PER_STEP = 3
+local UserInputService = game:GetService("UserInputService")
+-- Console memory guard: cap nearby local meshes and build just one kit per
+-- scan instead of flooding Xbox with dozens of porches/windows as loading
+-- clears. PC keeps the original high-fidelity radius.
+local onConsole = UserInputService.GamepadEnabled and not UserInputService.KeyboardEnabled
+local NEAR, FAR = onConsole and 215 or 300, onConsole and 270 or 380
+local PER_STEP = onConsole and 1 or 3
+local MAX_DECOR = onConsole and 24 or 75
 local OLD_HOME_PARTS = { Walls = true, GroundStorey = true, Foundation = true, Cornice = true, Roof = true }
 local OLD_PORCH = { PorchFloor = true, PorchRoof = true, PorchPost = true }
 
@@ -132,16 +138,27 @@ while true do
 	local at = (root and root.Position) or (cam and cam.CFrame.Position)
 	if at then
 		local here = at * Vector3.new(1, 0, 1)
-		local budget = PER_STEP
-		for model, entry in pairs(known) do
-			local d = (entry.pos - here).Magnitude
-			local real = model:GetAttribute("KitServer")
-			if entry.decor and (d > FAR or real) then
-				undecorate(model, entry)
-			elseif not entry.decor and not real and d < NEAR and budget > 0 then
-				budget -= 1
-				decorate(model, entry)
-			end
-		end
+		local nearby={}
+        local active=0
+        -- Clear finished or remote homes before allocating any new detail.
+        for model,entry in pairs(known) do
+            local d=(entry.pos-here).Magnitude
+            local real=model:GetAttribute("KitServer")
+            if entry.decor and (d>FAR or real) then
+                undecorate(model,entry)
+            end
+            if entry.decor then active+=1 end
+            if not entry.decor and not real and d<NEAR then
+                table.insert(nearby,{model=model,entry=entry,d=d})
+            end
+        end
+        table.sort(nearby,function(a,b)return a.d<b.d end)
+        local budget=math.min(PER_STEP,math.max(0,MAX_DECOR-active))
+        for j=1,math.min(budget,#nearby) do
+            local item=nearby[j]
+            if item.model.Parent and not item.entry.decor then
+                decorate(item.model,item.entry)
+            end
+        end
 	end
 end

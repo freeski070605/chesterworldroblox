@@ -51,17 +51,27 @@ function Inspector.Run(options)
     local relevant = 0
 	for _, model in ipairs(Workspace:GetDescendants()) do
 		local status = model:IsA("Model") and model:GetAttribute("ReconstructionStatus")
-		if status and (not options.neighborhood or NeighborhoodScope[tostring(model:GetAttribute("ChesterBuildingId"))]) then
+		if status and (not options.neighborhood or NeighborhoodScope[tostring(model:GetAttribute("ChesterBuildingId"))]
+            or tostring(model:GetAttribute("ChesterBuildingId"))=="111566") then
             local buildingId=tostring(model:GetAttribute("ChesterBuildingId"))
             if NeighborhoodScope[buildingId] then
                 seenNeighborhood[buildingId]=true
                 relevant+=1
-                if buildingId=="147448" then
-                    log("777_PARTS",("id=%s photoParts=%s photoReconstruction=%s style=%s loc=%s")
-                        :format(buildingId,tostring(model:GetAttribute("777PhotoPartCount")),
-                            tostring(model:GetAttribute("777PhotoReconstruction")),
-                            tostring(model:GetAttribute("BuildingStyle")),
-                            tostring(model:GetPivot().Position)))
+                if buildingId=="147448" or buildingId=="111566" then
+                    local shops={}
+                    for _,child in ipairs(model:GetDescendants()) do
+                        if child:IsA("Model") and child:GetAttribute("ShopName") then
+                            local anchor=child:FindFirstChild("Exit6StoreAnchor")
+                            table.insert(shops,tostring(child:GetAttribute("ShopName"))
+                                .."@"..(anchor and tostring(anchor.Position) or "NO-ANCHOR"))
+                        end
+                    end
+                    log(buildingId=="147448" and "777_CORNER" or "NYFC_KERLIN",
+                        ("id=%s photoParts=%s shopCount=%s style=%s pivot=%s stores=%s")
+                            :format(buildingId,tostring(model:GetAttribute("777PhotoPartCount")),
+                                tostring(model:GetAttribute("NYFCShopCount")),
+                                tostring(model:GetAttribute("BuildingStyle")),
+                                tostring(model:GetPivot().Position),table.concat(shops,"; ")))
                 end
             end
 			local evidence = model:GetAttribute("ReconstructionEvidenceStatus")
@@ -104,6 +114,16 @@ function Inspector.Run(options)
 		end
 	end
     if options.neighborhood then
+        -- NYFC is just outside the historic 68-footprint scope, but is part
+        -- of the same user-requested 9th & Kerlin commercial corridor.
+        local nyfcPresent=false
+        for _,item in ipairs(Workspace:GetDescendants()) do
+            if item:IsA("Model") and tostring(item:GetAttribute("ChesterBuildingId"))=="111566" then
+                nyfcPresent=true
+                log("NYFC_LOC",tostring(item:GetPivot().Position))
+            end
+        end
+        if not nyfcPresent then log("NYFC_MISSING","county building 111566 not loaded") end
         local missing={}
         local total=0
         for id in pairs(NeighborhoodScope) do

@@ -27,3 +27,46 @@ In Studio, with this branch Rojo-synced, set Workspace boolean attribute `CW_Fro
 - Pilot geometry and matching lives on separate draft branch and is not merged into the playable game.
 - This branch has the read-only audit, but **has not executed in Roblox Studio** and no citywide replacements are approved.
 - Exact business-to-parcel assignments and verified storefront-facing images remain to be collected/checked before automatic repairs.
+
+## Citywide batch queue — no more one-store-at-a-time patching
+
+The current source already includes 86 nonempty BuildingTiles files for the
+102-tile game, plus local county footprints, street-view references and visual
+audits. The queue is **not** proof that all 21k+ buildings have been visually
+verified: it identifies missing or conflicting observations in batches by tile.
+
+From the checked-out repository on the Windows development machine:
+
+```powershell
+cd E:\code\chesterworld-roblox
+py -3 tools/storefronts/citywide_visual_audit.py
+py -3 tools/reconstruction/citywide_residential_audit.py
+py -3 tools/reconstruction/property_evidence.py --all
+py -3 tools/reconstruction/citywide_batch_queue.py --batch-size 50
+py -3 -m unittest discover -s tools/reconstruction -p test_citywide_batch_queue.py -v
+```
+
+Outputs (git-ignored, keep private imagery on E:):
+- `build/citywide_reconstruction_queue.csv`: sortable property-by-property,
+  including batch, stable county building ID, business identity and evidence flags
+- `build/citywide_reconstruction_queue.json`: tile batches and source/photo
+  references for automated downstream checks
+- `build/citywide_reconstruction_queue.md`: ranked tile-level work schedule
+
+Queue processing is geographic: for a single batch, verify **both sides of the
+block, street edges, sidewalks, corner stores, lots, roofs, porches, houses and
+shop entrances** from full-size sources before approving geometry. Correct the
+source association and regenerate the matching geometry. Never infer a tenant
+from nearest-road or centroid matching alone. Multiple storefront sections
+under one county ID remain linked for parcel review (e.g., 50221 or 133692).
+
+**Hard performance requirement:** `TileBuilderV2` must continue sending
+residential `Exit6Kit` metadata to the near-client house decorator. No
+citywide or neighborhood-wide server-side HouseKit mass spawning. Keep stores,
+vehicle ownership, roads, and buildings' stable IDs intact. Test the same
+scene in Studio and on Xbox after an approved geographic batch; source-level
+checks alone are not visual verification.
+
+NY Fried Chicken `111566` still needs a Studio/photo alignment check; a
+named store in its tile is not proof its entrance occupies the right wall.
+777 Food Market `147448` has been visually confirmed by the user as fixed.

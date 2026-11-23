@@ -60,7 +60,7 @@ end
 
 -- Driveway transitions: connect a level pump forecourt to an actual street surface.
 -- Roads are terrain-following; the station's single flat slab is not.
-local drivewayStats = { built = 0, skippedSteep = 0, noRoad = 0, crossfall = 0 }
+local drivewayStats = { built = 0, skippedSteep = 0, noRoad = 0, crossfall = 0, terrain = 0 }
 local ROAD_SEARCH = OverlapParams.new()
 ROAD_SEARCH.MaxParts = 150
 local ROAD_RAY = RaycastParams.new()
@@ -104,19 +104,35 @@ local function driveway(model, frame, halfX, halfZ, side)
 			local delta = middle - slabTop
 			local grade = math.abs(delta) / d
 			local crossfall = math.max(left, middle, right) - math.min(left, middle, right)
-			local candidate = { y = middle, run = d, delta = delta, grade = grade, crossfall = crossfall }
+			local terrainOk = true
+			for _, fraction in ipairs({ 0.25, 0.5, 0.75 }) do
+				local predicted = slabTop + delta * fraction
+				for _, lateral in ipairs({ -0.25, 0, 0.25 }) do
+					local sample = edge + tangent * (d * fraction) + across * (width * lateral)
+					local gy = groundY(sample.X, sample.Z)
+					if not gy or gy > predicted + 0.65 or gy < predicted - 3.5 then
+						terrainOk = false
+						break
+					end
+				end
+				if not terrainOk then break end
+			end
+			local candidate = { y = middle, run = d, delta = delta, grade = grade,
+				crossfall = crossfall, terrainOk = terrainOk }
 			if not closest or d < closest.run then closest = candidate end
 			-- One flat strip cannot safely meet a cambered street. Reject that
 			-- driveway instead of leaving a raised corner for a bike wheel.
-			if grade <= 0.10 and crossfall <= 0.45 and (not best or d < best.run) then best = candidate end
+			if grade <= 0.10 and crossfall <= 0.45 and terrainOk
+				and (not best or d < best.run) then best = candidate end
 		end
 	end
 	if not closest then drivewayStats.noRoad += 1 return end
 	if not best then
 		drivewayStats.skippedSteep += 1
 		if closest.crossfall > 0.45 then drivewayStats.crossfall += 1 end
-		warn(("[EXIT6 Gas Driveway] %s %s: road step %.1f studs, crossfall %.1f; no supported approach")
-			:format(model.Name, side, closest.delta, closest.crossfall))
+		if not closest.terrainOk then drivewayStats.terrain += 1 end
+		warn(("[EXIT6 Gas Driveway] %s %s: road step %.1f studs, crossfall %.1f, terrainSupported=%s; no supported approach")
+			:format(model.Name, side, closest.delta, closest.crossfall, tostring(closest.terrainOk)))
 		return
 	end
 	if math.abs(best.delta) < 0.25 then return end
@@ -126,7 +142,9 @@ local function driveway(model, frame, halfX, halfZ, side)
 	local up = right:Cross(slopeForward).Unit
 	local center = edge + tangent * (run / 2)
 		+ Vector3.new(0, (slabTop + best.y) / 2 - frame.Position.Y - 0.18, 0)
-	local ramp = part(model, "DrivewayTransition", Vector3.new(width, 0.36, run),
+	-- Size.Z is distance along the tilted ramp, not horizontal run. Using
+	-- run here left a small collision gap at the road end on steep approaches.
+	local ramp = part(model, "DrivewayTransition", Vector3.new(width, 0.36, math.sqrt(run * run + delta * delta)),
 		CFrame.fromMatrix(center, right, up, -slopeForward), Enum.Material.Concrete, CONCRETE)
 	ramp:SetAttribute("Exit6Driveway", true)
 	drivewayStats.built += 1
@@ -763,6 +781,7 @@ for _, st in ipairs(Stations) do
 	end
 end
 print(("[ChesterWorld GasStations] built=%d canopyBoxesReplaced=%d exit6Stores=%d parts=%d"):format(built, removed, stores, count))
-print(("[EXIT6 Gas Driveways] built=%d steepNeedsReview=%d noAdjacentRoad=%d"):format(
-	drivewayStats.built, drivewayStats.skippedSteep, drivewayStats.noRoad))
+print(("[EXIT6 Gas Driveways] built=%d needsReview=%d crossfall=%d terrain=%d noAdjacentRoad=%d"):format(
+	drivewayStats.built, drivewayStats.skippedSteep, drivewayStats.crossfall,
+	drivewayStats.terrain, drivewayStats.noRoad))
 Workspace:SetAttribute("CW_GasStationsComplete", true)

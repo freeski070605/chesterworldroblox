@@ -495,6 +495,13 @@ local function buildStore(model, st, fascia, accent, textColor, frame, width, de
                     unit.x,faceTop+3.0,0.32,unit.trim)
                 stripe.CanCollide=false
             end
+            -- The existing Eagle building is two storeys. Complete the
+            -- upper street-facing exterior instead of leaving a void over
+            -- the newly separated food and convenience entrances.
+            if h > faceTop+3.5 then
+                mk("916SharedUpperWall",Vector3.new(len,h-(faceTop+3.5),0.85),
+                    0,(h+faceTop+3.5)/2,0.4,wall,Enum.Material.Brick)
+            end
             local divider = mk("916PartyWall",Vector3.new(0.6,math.min(h,13),math.min(depth,20)),
                 0,math.min(h,13)/2,math.min(depth,20)/2,
                 wall,Enum.Material.Brick)

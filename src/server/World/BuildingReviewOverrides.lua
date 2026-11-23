@@ -2,6 +2,20 @@
 -- unknown. Local source images are private references, not distributed assets.
 local G = "25_GoogleStreetView_Buildings/images/"
 return {
+ -- User's 2026-11-22 live Google visual review. These are type-only
+ -- corrections; roof, entrance and materials are NOT inferred from a
+ -- camera viewpoint that has not yet been surveyed for parcel identity.
+ -- Old photo/GIS classifications remain traceable in PropertyReconstruction.
+ ["33881"]={style="rowhouse",arch="flat_row",use="residential",
+   confidence="user_visual_type_provisional",evidence="chester_google_visual_classifications.csv; 2026-11-22"},
+ ["161384"]={style="rowhouse",arch="flat_row",use="residential",
+   confidence="user_visual_type_provisional",evidence="chester_google_visual_classifications.csv; 2026-11-22"},
+ ["84792"]={style="rowhouse",arch="flat_row",use="residential",
+   confidence="user_visual_type_provisional",evidence="chester_google_visual_classifications.csv; 2026-11-22"},
+ ["128777"]={style="rowhouse",arch="flat_row",use="residential",
+   confidence="user_visual_type_provisional",evidence="user review: corner rowhome with left alley; no invented door bearing"},
+ ["171786"]={style="rowhouse",arch="flat_row",use="residential",
+   confidence="user_visual_type_provisional",evidence="user review: Butler Street rowhome side; orientation unresolved"},
  ["13452"]={style="garage",confidence="verified_type",evidence="2026-11-21 citywide full-size review"},
  ["147448"]={style="storefront",wall=0xddd0bf,material="Brick",name=false,sb=false,
    -- Camera on Lincoln, heading 282, ray-cast centred on this polygon's

@@ -4,12 +4,13 @@
     "note": "experience owner account; no group (DFB Solutions) id is configured, so assets are owned by the creator account that owns the place"
   },
   "model": {
-    "assetId": 79525151931765,
-    "name": "Exit6 Premium v1",
+    "assetId": 86462441878149,
+    "name": "Exit6 Premium v2",
     "file": "assets/wear/premium/exit6_premium.glb",
     "meshes": 36,
     "moderation": "Approved",
-    "uploaded": "2026-11-24"
+    "uploaded": "2026-11-24",
+    "why": "slim fit: v1/patch 1 pieces were too bulky (puffer +0.25 studs per side, 0.43-stud watch dial, sneakers 39% longer than the foot)"
   },
   "images": {
     "pave": {
@@ -56,7 +57,16 @@
     }
   },
   "images_moderation": "all 26 Approved",
-  "patches": [
+  "superseded": [
+    {
+      "assetId": 79525151931765,
+      "name": "Exit6 Premium v1",
+      "file": "assets/wear/premium/exit6_premium.glb",
+      "meshes": 36,
+      "moderation": "Approved",
+      "uploaded": "2026-11-24",
+      "superseded_by": 86462441878149
+    },
     {
       "assetId": 129965163941748,
       "name": "Exit6 Premium patch 1",
@@ -74,7 +84,8 @@
       ],
       "why": "lighter tessellation: Founder's Full Fit under the 70k-triangle look budget",
       "moderation": "Approved",
-      "uploaded": "2026-11-24"
+      "uploaded": "2026-11-24",
+      "superseded_by": 86462441878149
     }
   ]
 }

@@ -90,9 +90,9 @@ top("w_tee_black", "Black Tee", 15, TEE, { 26, 26, 28 })
 top("w_tee_red", "Red Tee", 15, TEE, { 160, 24, 32 })
 top("w_tank_white", "White Tank", 12, { P("tee_torso") }, { 238, 238, 234 })
 local HOODIE = { P("hoodie_torso"), SLEEVES[1], SLEEVES[2] }
-top("w_hoodie_black", "Black Hoodie", 45, HOODIE, { 24, 24, 27 }, nil, { depth = 0.035 })
-top("w_hoodie_grey", "Heather Grey Hoodie", 45, HOODIE, { 132, 132, 138 }, nil, { depth = 0.035 })
-top("w_hoodie_navy", "Navy Hoodie", 45, HOODIE, { 28, 40, 72 }, nil, { depth = 0.035 })
+top("w_hoodie_black", "Black Hoodie", 45, HOODIE, { 24, 24, 27 }, nil, { depth = 0.03 })
+top("w_hoodie_grey", "Heather Grey Hoodie", 45, HOODIE, { 132, 132, 138 }, nil, { depth = 0.03 })
+top("w_hoodie_navy", "Navy Hoodie", 45, HOODIE, { 28, 40, 72 }, nil, { depth = 0.03 })
 local TRACK = { P("track_torso"), P("track_trim_torso", "trim"), SLEEVES[1], SLEEVES[2],
 	P("track_trim_upper", "trim"), P("track_trim_lower", "trim") }
 top("w_track_navy", "Navy Track Jacket", 70, TRACK, { 26, 34, 66 }, { 236, 236, 236 })
@@ -100,9 +100,9 @@ top("w_track_black", "Black Track Jacket", 70, TRACK, { 22, 23, 27 }, { 236, 236
 top("w_track_red", "Red Track Jacket", 70, TRACK, { 150, 26, 34 }, { 236, 236, 236 })
 top("w_track_grey", "Grey Zip Jacket", 65, TRACK, { 140, 140, 146 }, { 230, 230, 230 })
 local PUFFER = { P("puffer_torso"), P("puffer_upper"), P("puffer_lower") }
-top("w_puffer_black", "Black Puffer", 120, PUFFER, { 30, 32, 36 }, nil, { depth = 0.11 })
-top("w_puffer_red", "Red Puffer", 120, PUFFER, { 150, 28, 34 }, nil, { depth = 0.11 })
-top("w_puffer_olive", "Olive Puffer", 120, PUFFER, { 74, 80, 52 }, nil, { depth = 0.11 })
+top("w_puffer_black", "Black Puffer", 120, PUFFER, { 30, 32, 36 }, nil, { depth = 0.08 })
+top("w_puffer_red", "Red Puffer", 120, PUFFER, { 150, 28, 34 }, nil, { depth = 0.08 })
+top("w_puffer_olive", "Olive Puffer", 120, PUFFER, { 74, 80, 52 }, nil, { depth = 0.08 })
 
 -- ---------------------------------------------------------------- bottoms
 local function bottom(id, name, price, pieces, main, trim)
@@ -209,7 +209,7 @@ premium("p_watch_iced", { name = "Iced Octagon Watch", slot = "watch",
 
 local PUFFER_P = { R("px_puffer_body", "shell"), R("px_puffer_upper", "shell"), R("px_puffer_lower", "shell"),
 	R("px_puffer_cuff", "knit"), R("px_puffer_knit", "knit"), R("px_puffer_zip", "silver"), R("px_puffer_hood", "fleece") }
-premium("p_puffer_black", { name = "Oversized Winter Puffer", slot = "top", pieces = PUFFER_P, depth = 0.19,
+premium("p_puffer_black", { name = "Oversized Winter Puffer", slot = "top", pieces = PUFFER_P, depth = 0.1,
 	colors = { shell = { 18, 18, 21 }, knit = BLK, silver = CHROME, fleece = CHAR } })
 
 local TRACK_TOP = { R("px_track_jacket", "fleece"), R("px_track_rib", "knit"), R("px_track_panels", "accent"),

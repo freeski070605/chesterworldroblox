@@ -148,7 +148,9 @@ local function weldPiece(char, folder, piece, item, offset, underTop)
 			if key == "Foot" then
 				-- tall stylised feet: keep shoes / boot shafts at the footprint's
 				-- scale and stand them on the sole instead of stretching them
-				local ky = math.min(k.Y, math.max(k.X, k.Z))
+				-- (average footprint scale: long narrow feet must not make
+				-- boot shafts / high-top collars tower up the shin)
+				local ky = math.min(k.Y, (k.X + k.Z) / 2)
 				shift += Vector3.new(0, -(body.Size.Y - canon.Y * ky) / 2, 0)
 				k = Vector3.new(k.X, ky, k.Z)
 			end

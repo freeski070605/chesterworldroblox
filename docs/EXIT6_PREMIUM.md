@@ -39,11 +39,27 @@ All assets are owned by the experience owner's account. No DFB Solutions group I
 
 | Asset | Contents |
 | --- | --- |
-| `79525151931765` "Exit6 Premium v1" (Model) | 36 `px_*` meshes with UVs and tangents |
-| `129965163941748` "Exit6 Premium patch 1" (Model) | 9 lighter meshes (puffer body, sleeves, cuff; cargo upper and lower; high-top base, overlay, sole) that replace the v1 copies |
+| `86462441878149` "Exit6 Premium v2" (Model) | **Current.** All 36 `px_*` meshes, slim fit, with UVs and tangents |
+| `79525151931765` "Exit6 Premium v1" + `129965163941748` "patch 1" | Superseded: the pieces were too bulky |
 | 26 Image assets | 8 PBR sets; IDs in `uploads.json` |
 
-All 28 uploads were moderation **Approved**.
+All uploads were moderation **Approved**.
+
+### Fit (v2)
+
+Pieces sit close to the body, about as close as the base wardrobe's tee and hoodie:
+
+| Piece | v1 | v2 | Body part |
+| --- | --- | --- | --- |
+| Puffer body (W × D) | 2.43 × 1.48 | 2.14 × 1.21 | torso 1.94 × 1.00 |
+| Puffer sleeve | 1.39 | 1.17 | arm 1.00 |
+| Cargo thigh / shin | 1.32 / 1.25 | 1.17 / 1.13 | leg 0.99 |
+| High-top length × height | 1.39 × 1.03 | 1.25 × 0.93 | foot 1.00 long |
+| Watch case | 0.43-stud dial | 0.25-stud case, bracelet hugs the wrist | forearm 1.00 |
+| Cuban links / pendant | — | 75% of v1 | |
+| Cap crown | 0.28 off the head | 0.13 off the head | |
+
+The puffer's `depth`, which pushes chains out over the jacket, is now 0.1, down from 0.19.
 
 The texture sets are nylon, fleece, knit, leather, rubber, pave, metal, and locs. Each has color, normal, and roughness maps; pave and metal also have metalness.
 
@@ -62,7 +78,7 @@ These live only in the place file. **The place must be saved or published for th
 2. `python tools/assets/build_premium_textures.py`: seamless 512 px maps in `assets/wear/premium/tex/`, plus a contact sheet at `build/premium_textures.png`.
 3. `python tools/assets/render_premium_sheet.py`: offline fit check at `build/premium_sheet.png` and `premium_detail.png`. The image is mirrored, so lettering reads backwards there.
 4. `python tools/assets/validate_premium.py`: catalog rules, mesh and texture coverage, and triangle budgets.
-5. Upload only changed meshes: `build_premium.py --patch=a,b` writes `exit6_premium_patch.glb`.
+5. Upload the full GLB as a new model, or only changed meshes: `build_premium.py --patch=a,b` writes `exit6_premium_patch.glb`.
 6. Insert the uploads and run `tools/studio/install_exit6_premium.luau` (Edit). Record the new IDs there and in `uploads.json`.
 
 Blender 4.5 is installed but not needed: the GLB comes straight from the generator, and the importer's 1:1 scale was verified (all 36 sizes match the manifest).
@@ -127,10 +143,10 @@ Blender 4.5 is installed but not needed: the GLB comes straight from the generat
 
 | Look | Triangles (both limbs counted) |
 | --- | --- |
-| Founder's Full Fit | 69,720 (budget 70,000; the v1 upload was 87k, so patch 1 lightened it) |
-| VIP Nightlife | 60,568 |
+| Founder's Full Fit | 69,580 (budget 70,000) |
+| VIP Nightlife | 60,660 |
 | Tracksuit (mostly base meshes) | 32,252 |
-| Heaviest single mesh | `px_hair_long_locs` 10,180 |
+| Heaviest single mesh | `px_hair_long_locs` 9,100 |
 
 - Templates use `RenderFidelity = Automatic`, so distant players draw Roblox's generated LODs.
 - Pieces under about 0.35 studs don't cast shadows.
@@ -151,7 +167,8 @@ The game is R15. R6 characters get no pieces.
 | Check | Result |
 | --- | --- |
 | Static: items, products, grants, bundle-only, placeholder IDs, texture coverage, budgets | **PASS** (`validate_premium.py`); base `validate_wear.py` still **PASS** |
-| Upload and import: 36 + 9 MeshParts, sizes = manifest (36/36 within 0.002), moderation Approved | **Studio-verified** |
+| Upload and import: v2, 36 MeshParts, sizes match the manifest (36/36 within 0.003), moderation Approved | **Studio-verified** |
+| v2 slim fit: Founder's fit worn through the real try-on remote (38 premium pieces); full-body and wrist captures | **Studio-verified** |
 | Founder's try-on through the real remote: 8 slots, 39 MeshParts, all welded / massless / non-colliding, 37 with tinted PBR | **Studio-verified**, with screenshots |
 | Lettering reads "EXIT 6" on the cap, pendant, and sneaker "6" | **Studio-verified** |
 | Refusals: equip unowned, wear unowned, cash-shop route for a premium id, buying an owned product | **Studio-verified** |

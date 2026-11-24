@@ -341,7 +341,7 @@ def chain_path(drop=0.36, front_z=-0.6, spread=1.0):
 def build_chains():
     # heavy diamond Cuban: wide, flat, interlocking links (the stones are the pave texture)
     m = new("px_cuban_chain", "UpperTorso", "pave", "diamond Cuban link chain, heavy")
-    pts, _ = resample(chain_path(0.30, -0.605, 1.04), 0.062)
+    pts, _ = resample(chain_path(0.32, -0.6, 1.0), 0.05)
     fr = frames(pts)
     for i, (p, (t, n, b)) in enumerate(zip(pts[:-1], fr)):
         up = norm(sub(p, (0.0, 0.25, 0.0)))
@@ -350,16 +350,16 @@ def build_chains():
         w0 = cross(axis, t)
         pr = Prim()
         rows = []
-        for a_i in range(10):
-            a = TAU * a_i / 10
-            ring = add(mul(t, math.cos(a) * 0.046), mul(w0, math.sin(a) * 0.031))
+        for a_i in range(8):
+            a = TAU * a_i / 8
+            ring = add(mul(t, math.cos(a) * 0.036), mul(w0, math.sin(a) * 0.024))
             o = norm(ring)
             centre = add(p, ring)
             row = []
             for b_i in range(5):
                 bb = TAU * b_i / 5
                 d = add(mul(o, math.cos(bb)), mul(axis, math.sin(bb) * 0.62))
-                row.append(pr.add(add(centre, mul(d, 0.0185)), norm(add(mul(o, math.cos(bb)), mul(axis, math.sin(bb))))))
+                row.append(pr.add(add(centre, mul(d, 0.0145)), norm(add(mul(o, math.cos(bb)), mul(axis, math.sin(bb))))))
             rows.append(row)
         rows.append(rows[0])
         pr.grid(rows, True)
@@ -387,7 +387,7 @@ def build_chains():
         bx = -((x0 + 0.72 + 0.86 + 0.02) - cx) * s
         torus(body, (bx * 0.0, top_y + 0.035 * s / 0.139, z_back - depth * 0.5), (1.0, 0.0, 0.0),
               0.03 * s / 0.139, 0.0095 * s / 0.139, nu=14, nv=6)
-    pendant("px_pendant", 0.139, 0.255, -0.625, 0.042, "pave", "EXIT 6 iced pendant")
+    pendant("px_pendant", 0.108, 0.29, -0.62, 0.034, "pave", "EXIT 6 iced pendant")
     pendant("px_pendant_s", 0.085, 0.345, -0.618, 0.03, "metal", "EXIT 6 polished silver pendant")
 
 
@@ -407,39 +407,39 @@ def build_puffer():
             return add(p, mul(n, (amp * bulge * side - 0.02) * placket))
         return d
     m = new("px_puffer_body", "UpperTorso", "nylon", "oversized quilted puffer body")
-    rbox(m, (0.0, -0.22, 0.0), (1.13, 1.1, 0.66), 0.3, n=(9, 34, 6), n_r=3, disp=baffle(0.33, 0.1, -1.32),
+    rbox(m, (0.0, -0.22, 0.0), (1.02, 1.1, 0.565), 0.24, n=(9, 34, 6), n_r=3, disp=baffle(0.33, 0.06, -1.32),
          xform=lambda p: (p[0] * (1 + 0.03 * smooth(-0.6, -1.3, p[1])), p[1], p[2]))
     # tall puffy stand collar (zipped)
-    torus(m, (0.0, 0.98, 0.0), (0.0, 1.0, 0.0), 0.47, 0.12, nu=30, nv=10, rx=0.52, rz=0.45, squash=1.55)
-    torus(m, (0.0, 1.13, 0.0), (0.0, 1.0, 0.0), 0.46, 0.08, nu=30, nv=8, rx=0.5, rz=0.43, squash=1.2)
+    torus(m, (0.0, 0.96, 0.0), (0.0, 1.0, 0.0), 0.44, 0.08, nu=30, nv=10, rx=0.48, rz=0.42, squash=1.55)
+    torus(m, (0.0, 1.08, 0.0), (0.0, 1.0, 0.0), 0.43, 0.055, nu=30, nv=8, rx=0.465, rz=0.405, squash=1.2)
 
     k = new("px_puffer_knit", "UpperTorso", "knit", "elastic hem band")
-    torus(k, (0.0, -1.3, 0.0), (0.0, 1.0, 0.0), 1.1, 0.055, nu=40, nv=6, rx=1.12, rz=0.64, squash=1.5)
+    torus(k, (0.0, -1.3, 0.0), (0.0, 1.0, 0.0), 1.0, 0.045, nu=40, nv=6, rx=1.02, rz=0.57, squash=1.5)
 
     z = new("px_puffer_zip", "UpperTorso", "metal", "two-way front zip + pull")
-    zz = -0.645
+    zz = -0.58
     zip_line = [(0.0, y, zz) for y in [-1.3 + 0.05 * i for i in range(46)] if y <= 0.88]
-    zip_line += [(0.0, 0.95, -0.575), (0.0, 1.08, -0.555), (0.0, 1.2, -0.52)]
+    zip_line += [(0.0, 0.93, -0.53), (0.0, 1.03, -0.51), (0.0, 1.13, -0.47)]
     tube(z, catmull(zip_line[::3] + zip_line[-3:], 3), 0.014, sides=4, caps=False)
-    rbox(z, (0.0, 1.12, -0.585), (0.028, 0.06, 0.012), 0.01, n=(2, 3, 1), n_r=2)
-    rbox(z, (0.0, -1.22, -0.66), (0.024, 0.045, 0.01), 0.01, n=(2, 3, 1), n_r=2)
+    rbox(z, (0.0, 1.06, -0.52), (0.024, 0.05, 0.01), 0.01, n=(2, 3, 1), n_r=2)
+    rbox(z, (0.0, -1.22, -0.595), (0.02, 0.04, 0.008), 0.008, n=(2, 3, 1), n_r=2)
 
     # charcoal hoodie hood out over the collar (the hoodie under the puffer)
     h = new("px_puffer_hood", "UpperTorso", "fleece", "hoodie hood over the collar")
-    hood = catmull([(-0.5, 1.02, -0.36), (-0.62, 1.12, 0.06), (-0.38, 1.2, 0.48), (0.0, 1.22, 0.6),
-                    (0.38, 1.2, 0.48), (0.62, 1.12, 0.06), (0.5, 1.02, -0.36)], per=7)
-    tube(h, hood, lambda i, f: 0.13 + 0.08 * math.sin(math.pi * f), sides=12, squash=0.72)
-    rbox(h, (0.0, 0.86, 0.78), (0.42, 0.34, 0.07), 0.06, n=(6, 6, 2), n_r=2,
+    hood = catmull([(-0.44, 0.98, -0.32), (-0.54, 1.06, 0.06), (-0.34, 1.12, 0.42), (0.0, 1.14, 0.52),
+                    (0.34, 1.12, 0.42), (0.54, 1.06, 0.06), (0.44, 0.98, -0.32)], per=7)
+    tube(h, hood, lambda i, f: 0.085 + 0.045 * math.sin(math.pi * f), sides=12, squash=0.72)
+    rbox(h, (0.0, 0.82, 0.64), (0.36, 0.3, 0.045), 0.04, n=(6, 6, 2), n_r=2,
          xform=lambda p: (p[0] * (1 - 0.25 * clamp((0.0 - p[1]) / 0.4, 0, 1)), p[1], p[2] + 0.03 * p[1]))
     for s in (-1, 1):
-        cord = [(s * 0.14, 1.0, -0.6), (s * 0.16, 0.75, -0.7), (s * 0.15, 0.48, -0.72)]
-        tube(h, catmull(cord, 4), 0.018, sides=5)
+        cord = [(s * 0.13, 0.96, -0.55), (s * 0.15, 0.72, -0.625), (s * 0.14, 0.48, -0.635)]
+        tube(h, catmull(cord, 4), 0.014, sides=5)
 
     # sleeves: oversized, quilted in rings
     m = new("px_puffer_upper", "UpperArm", "nylon", "puffer sleeve, upper")
-    rbox(m, (0.0, 0.02, 0.0), (0.64, 0.69, 0.64), 0.27, n=(4, 24, 4), n_r=2, disp=baffle(0.27, 0.075, -0.67))
+    rbox(m, (0.0, 0.02, 0.0), (0.56, 0.66, 0.56), 0.22, n=(4, 24, 4), n_r=2, disp=baffle(0.27, 0.045, -0.64))
     m = new("px_puffer_lower", "LowerArm", "nylon", "puffer sleeve, lower")
-    rbox(m, (0.0, 0.1, 0.0), (0.62, 0.5, 0.62), 0.26, n=(4, 16, 4), n_r=2, disp=baffle(0.25, 0.07, -0.4))
+    rbox(m, (0.0, 0.1, 0.0), (0.55, 0.5, 0.55), 0.21, n=(4, 16, 4), n_r=2, disp=baffle(0.25, 0.04, -0.4))
     c = new("px_puffer_cuff", "LowerArm", "knit", "elastic cuff")
     rbox(c, (0.0, -0.46, 0.0), (0.5, 0.075, 0.5), 0.12, n=(6, 2, 6), n_r=2, disp=rib(30, 0.008))
 
@@ -479,36 +479,37 @@ def build_tracksuit():
 # ----------------------------------------------------------------- cargo pants
 def build_cargo():
     m = new("px_cargo_upper", "UpperLeg", "fleece", "baggy cargo thigh with bellows pocket + flap")
-    rbox(m, (0.0, -0.02, 0.0), (0.58, 0.74, 0.57), 0.17, n=(4, 7, 4), n_r=2,
+    rbox(m, (0.0, -0.02, 0.0), (0.53, 0.72, 0.52), 0.15, n=(4, 7, 4), n_r=2,
          disp=lambda p, n: add(p, mul(n, 0.012 * math.sin(p[1] * 8 + p[2] * 6) + 0.006 * math.sin(p[1] * 23))))
-    rbox(m, (0.6, -0.27, 0.0), (0.075, 0.25, 0.24), 0.045, n=(2, 5, 5), n_r=2,
+    rbox(m, (0.545, -0.27, 0.0), (0.05, 0.23, 0.21), 0.035, n=(2, 5, 5), n_r=2,
          disp=lambda p, n: add(p, mul(n, 0.008 * math.sin(p[1] * 30))))
-    rbox(m, (0.69, -0.02, 0.0), (0.03, 0.065, 0.255), 0.025, n=(1, 2, 5), n_r=2)
+    rbox(m, (0.605, -0.03, 0.0), (0.02, 0.055, 0.225), 0.018, n=(1, 2, 5), n_r=2)
     # strap hanging from the flap
-    rbox(m, (0.7, -0.24, 0.11), (0.012, 0.2, 0.028), 0.01, n=(1, 4, 1), n_r=2)
+    rbox(m, (0.605, -0.24, 0.1), (0.01, 0.18, 0.024), 0.008, n=(1, 4, 1), n_r=2)
     h = new("px_cargo_snaps", "UpperLeg", "metal", "flap snaps + strap D-ring")
-    for dz in (-0.12, 0.12):
-        cylinder(h, (0.725, -0.02, dz), (1, 0, 0), 0.025, 0.008, sides=10, bevel=0.005)
-    torus(h, (0.715, -0.45, 0.11), (1.0, 0.0, 0.0), 0.03, 0.007, nu=12, nv=5)
+    for dz in (-0.11, 0.11):
+        cylinder(h, (0.628, -0.03, dz), (1, 0, 0), 0.02, 0.006, sides=10, bevel=0.004)
+    torus(h, (0.615, -0.43, 0.1), (1.0, 0.0, 0.0), 0.025, 0.006, nu=12, nv=5)
 
     m = new("px_cargo_lower", "LowerLeg", "fleece", "baggy stacked cargo leg")
-    rbox(m, (0.0, 0.22, 0.0), (0.56, 0.44, 0.55), 0.16, n=(4, 5, 4), n_r=2,
+    rbox(m, (0.0, 0.22, 0.0), (0.52, 0.44, 0.51), 0.14, n=(4, 5, 4), n_r=2,
          disp=lambda p, n: add(p, mul(n, 0.01 * math.sin(p[1] * 13 + p[0] * 4))))
     for i, y in enumerate((-0.18, -0.3, -0.42, -0.53)):
-        rbox(m, (0.0, y, 0.0), (0.585 + 0.014 * i, 0.08, 0.575 + 0.014 * i), 0.075, n=(4, 1, 4), n_r=1,
+        rbox(m, (0.0, y, 0.0), (0.535 + 0.01 * i, 0.075, 0.525 + 0.01 * i), 0.065, n=(4, 1, 4), n_r=1,
              xform=lambda p, i=i: (p[0], p[1] + 0.025 * math.sin(math.atan2(p[0], p[2]) * 2 + i * 1.7), p[2]))
 
 
 # ----------------------------------------------------------------- high-tops
 def build_hightops():
     # foot canonical half (0.50, 0.156, 0.50); toe at -Z
-    TOP = 0.66
+    TOP = 0.6
 
     def shape(p):
-        drop = 0.5 * smooth(0.02, -0.6, p[2]) * smooth(-0.12, 0.42, p[1])
-        narrow = 1 - 0.1 * smooth(-0.2, -0.7, p[2])
+        drop = 0.46 * smooth(0.04, -0.54, p[2]) * smooth(-0.12, 0.4, p[1])
+        narrow = 1 - 0.1 * smooth(-0.2, -0.62, p[2])
         return (p[0] * narrow, p[1] - drop, p[2])
-    C, Hh, R = (0.0, 0.245, -0.1), (0.53, 0.415, 0.645), 0.17
+    HX = 0.515
+    C, Hh, R = (0.0, 0.215, -0.065), (HX, 0.385, 0.575), 0.15
 
     def upper(mesh, off, n, keep=None):
         rbox(mesh, C, Hh, R, n=n, n_r=3, disp=(lambda p, nn: add(p, mul(nn, off))) if off else None,
@@ -516,57 +517,57 @@ def build_hightops():
 
     m = new("px_hightop_base", "Foot", "leather", "high-top upper: base panels, tongue, padded collar")
     upper(m, 0.0, (5, 4, 7))
-    torus(m, (0.0, TOP + 0.0, 0.18), (0.0, 1.0, 0.12), 0.38, 0.07, nu=24, nv=7, rx=0.5, rz=0.4)
-    rbox(m, (0.0, TOP + 0.08, -0.1), (0.2, 0.12, 0.05), 0.04, n=(4, 3, 1), n_r=2,
+    torus(m, (0.0, TOP + 0.0, 0.16), (0.0, 1.0, 0.12), 0.38, 0.05, nu=24, nv=7, rx=0.49, rz=0.4)
+    rbox(m, (0.0, TOP + 0.06, -0.1), (0.18, 0.1, 0.04), 0.035, n=(4, 3, 1), n_r=2,
          xform=lambda p: (p[0], p[1], p[2] - 0.12 * clamp(-p[1] / 0.15, -0.5, 1)))
 
     # overlays: mudguard + toe cap, eyestays, heel counter, collar panel
     def overlay(p):
         x, y, z = p
-        mud = y < 0.035 or z < -0.56
-        eyestay = y > 0.2 and 0.1 < abs(x) < 0.33 and -0.5 < z < 0.08
-        heel = z > 0.3 and y < 0.48
+        mud = y < 0.03 or z < -0.5
+        eyestay = y > 0.18 and 0.1 < abs(x) < 0.32 and -0.44 < z < 0.08
+        heel = z > 0.28 and y < 0.44
         collar = y > TOP - 0.17 and z > -0.2
         return mud or eyestay or heel or collar
     o = new("px_hightop_overlay", "Foot", "leather", "contrast overlays (main)")
-    upper(o, 0.011, (11, 9, 14), keep=overlay)
+    upper(o, 0.009, (11, 9, 14), keep=overlay)
 
     # original EXIT 6 side mark: a hex patch on the quarter panel carrying a
     # raised "6" (deliberately not a stripe / swoosh-like sweep)
-    HEX_C, HEX_R = (0.08, 0.27), 0.15
+    HEX_C, HEX_R = (0.08, 0.25), 0.13
 
     def in_hex(z, y):
         dz, dy = abs(z - HEX_C[0]), abs(y - HEX_C[1])
         return dy <= HEX_R * 0.866 and dz <= HEX_R - dy * 0.577
     k = new("px_hightop_mark", "Foot", "leather", "hex side patch (accent)")
-    upper(k, 0.02, (13, 22, 30), keep=lambda p: abs(p[0]) > 0.4 and in_hex(p[2], p[1]))
+    upper(k, 0.016, (13, 22, 30), keep=lambda p: abs(p[0]) > 0.4 and in_hex(p[2], p[1]))
     outer6, holes6, w6 = GLYPHS["6"]
     six = [([(x - w6 / 2, y - 0.7) for x, y in outer6], [[(x - w6 / 2, y - 0.7) for x, y in h] for h in holes6])]
     for side in (1, -1):
         # readable from each side: text right runs toe-ward on +X, heel-ward on -X
         def mapping(x, y, zz, side=side):
-            return (side * (0.552 + zz), HEX_C[1] + y * 0.12, HEX_C[0] - side * x * 0.12)
+            return (side * (HX + 0.017 + zz), HEX_C[1] + y * 0.105, HEX_C[0] - side * x * 0.105)
         extrude_text(o, o, six, mapping, 0.012, rim=0.07, recess=0.15, back=False)
 
     s = new("px_hightop_sole", "Foot", "rubber", "cupsole with toe bumper and sidewall groove")
-    rbox(s, (0.0, -0.105, -0.1), (0.565, 0.085, 0.675), 0.06, n=(6, 2, 8), n_r=2,
+    rbox(s, (0.0, -0.1, -0.065), (0.535, 0.075, 0.6), 0.05, n=(6, 2, 8), n_r=2,
          disp=lambda p, n: add(p, mul(n, -0.01 * (1 if abs(p[1] + 0.005) < 0.012 and abs(n[1]) < 0.5 else 0))),
-         xform=lambda p: (p[0] * (1 - 0.08 * smooth(-0.2, -0.75, p[2])),
-                          p[1] + 0.05 * smooth(-0.45, -0.78, p[2]) * smooth(-0.05, 0.08, p[1]), p[2]))
+         xform=lambda p: (p[0] * (1 - 0.08 * smooth(-0.2, -0.65, p[2])),
+                          p[1] + 0.04 * smooth(-0.4, -0.68, p[2]) * smooth(-0.05, 0.07, p[1]), p[2]))
 
     lace = new("px_hightop_laces", "Foot", "knit", "flat laces, criss-cross")
 
     def top_y(z):
-        return TOP - 0.5 * smooth(0.02, -0.6, z) + 0.035
-    rungs = [-0.46 + 0.085 * i for i in range(7)]
+        return TOP - 0.46 * smooth(0.04, -0.54, z) + 0.03
+    rungs = [-0.42 + 0.08 * i for i in range(7)]
     for a, b in zip(rungs, rungs[1:]):
         for sgn in (-1, 1):
-            p0 = (sgn * 0.17, top_y(a) - 0.01, a)
-            p1 = (-sgn * 0.17, top_y(b) - 0.01, b)
+            p0 = (sgn * 0.15, top_y(a) - 0.01, a)
+            p1 = (-sgn * 0.15, top_y(b) - 0.01, b)
             mid = vlerp(p0, p1, 0.5)
-            tube(lace, [p0, (mid[0], mid[1] + 0.02, mid[2]), p1], 0.017, sides=4, squash=0.45)
-    tube(lace, catmull([(0.0, top_y(-0.46), -0.47), (0.14, top_y(-0.46) - 0.08, -0.52), (0.2, top_y(-0.46) - 0.25, -0.5)], 4),
-         0.014, sides=4)
+            tube(lace, [p0, (mid[0], mid[1] + 0.015, mid[2]), p1], 0.014, sides=4, squash=0.45)
+    tube(lace, catmull([(0.0, top_y(-0.42), -0.43), (0.12, top_y(-0.42) - 0.07, -0.47), (0.17, top_y(-0.42) - 0.2, -0.46)], 4),
+         0.012, sides=4)
 
 
 # ----------------------------------------------------------------- hair
@@ -586,11 +587,11 @@ def build_hair():
         pts = strand(p, n, r.uniform(0.95, 1.3), 1.3, 0.098, sweep=sweep, brow=0.5, lift=0.25, step=0.075)
         if len(pts) < 3:
             continue
-        tube(m, pts, twist_r(0.051, 2.2 + r.random(), 0.14, taper=0.12), sides=6)
+        tube(m, pts, twist_r(0.044, 2.2 + r.random(), 0.14, taper=0.12), sides=6)
         if i % 4 == 1 and len(pts) > 9:
             j = r.randint(5, len(pts) - 4)
             t = norm(sub(pts[j + 1], pts[j - 1]))
-            cylinder(cuffs, pts[j], t, 0.062, 0.03, sides=10, bevel=0.01)
+            cylinder(cuffs, pts[j], t, 0.054, 0.026, sides=10, bevel=0.008)
 
     # designer cornrows: S-curved rows that finish in short braids at the nape
     def surface_along(dirv, offset):
@@ -638,7 +639,7 @@ def build_studs():
     for s in (-1, 1):
         c = (s * 0.612, -0.06, 0.04)
         ax, u, w = basis((s, 0.0, 0.0))
-        R, T = 0.056, 0.034
+        R, T = 0.042, 0.026
 
         def ring(rad, out, rot=0.0):
             pts = []
@@ -649,37 +650,38 @@ def build_studs():
                 pts.append(add(c, add(mul(ax, out), add(mul(u, math.cos(a) * sq), mul(w, math.sin(a) * sq)))))
             return pts
         gird = ring(R, 0.0)
-        table = ring(T, 0.026)
-        tip = add(c, mul(ax, -0.04))
+        table = ring(T, 0.02)
+        tip = add(c, mul(ax, -0.03))
         facet(g, table, add(c, mul(ax, -1.0)))
         for k in range(8):
             facet(g, [gird[k], gird[(k + 1) % 8], table[(k + 1) % 8], table[k]], c)
             facet(g, [gird[(k + 1) % 8], gird[k], tip], c)
         for k in range(4):
             a = TAU * k / 4 + math.pi / 4
-            base = add(c, add(mul(ax, -0.022), add(mul(u, math.cos(a) * (R + 0.004)), mul(w, math.sin(a) * (R + 0.004)))))
-            top = add(c, add(mul(ax, 0.02), add(mul(u, math.cos(a) * (R - 0.006)), mul(w, math.sin(a) * (R - 0.006)))))
-            tube(st, [base, top], 0.0085, sides=6)
-        torus(st, add(c, mul(ax, -0.024)), ax, R * 0.85, 0.006, nu=16, nv=5)
+            base = add(c, add(mul(ax, -0.017), add(mul(u, math.cos(a) * (R + 0.003)), mul(w, math.sin(a) * (R + 0.003)))))
+            top = add(c, add(mul(ax, 0.015), add(mul(u, math.cos(a) * (R - 0.005)), mul(w, math.sin(a) * (R - 0.005)))))
+            tube(st, [base, top], 0.0065, sides=6)
+        torus(st, add(c, mul(ax, -0.018)), ax, R * 0.85, 0.0045, nu=16, nv=5)
 
 
 def build_watch():
-    # left wrist; dial faces out (-X)
+    # left wrist; dial faces out (-X). Sized to a real wrist: ~0.25-stud case
+    # on a 1-stud forearm, bracelet hugging the arm.
     case = new("px_watch_case", "LeftLowerArm", "metal", "octagon case, lugs, three-row link bracelet")
     ice = new("px_watch_ice", "LeftLowerArm", "pave", "iced bezel, dial and centre links")
     hands = new("px_watch_hands", "LeftLowerArm", "metal", "baguette markers and hands")
-    Y = -0.36
-    ax = (-1.0, 0.0, 0.0)
+    Y = -0.38
+    RC, RD = 0.125, 0.085          # case and dial radius
+    XB, XF, XT = -0.522, -0.556, -0.572   # case back, case front, bezel top
 
     def octo(x, rad, rot=math.pi / 8):
         return [(x, Y + math.cos(TAU * k / 8 + rot) * rad, math.sin(TAU * k / 8 + rot) * rad) for k in range(8)]
-    # case: an octagonal prism with bevelled bezel
-    back, front, bez_in = octo(-0.55, 0.215), octo(-0.615, 0.215), octo(-0.64, 0.15)
-    cen = (-0.59, Y, 0.0)
+    back, front, bez_in = octo(XB, RC), octo(XF, RC), octo(XT, RD)
+    cen = (-0.54, Y, 0.0)
     for k in range(8):
         j = (k + 1) % 8
         facet(case, [back[k], back[j], front[j], front[k]], cen)
-    bez_top = octo(-0.64, 0.205)
+    bez_top = octo(XT, RC - 0.006)
     for k in range(8):
         j = (k + 1) % 8
         facet(case, [front[k], front[j], bez_top[j], bez_top[k]], cen)
@@ -688,37 +690,39 @@ def build_watch():
     for k in range(8):
         j = (k + 1) % 8
         facet(ice, [bez_top[k], bez_top[j], bez_in[j], bez_in[k]], add(cen, (0.3, 0, 0)))
-    dial = octo(-0.632, 0.15)
+    dial = octo(XT + 0.005, RD)
     facet(ice, dial, (0.0, Y, 0.0))
     # markers and hands, raised off the dial
+    XM = XT + 0.001
     for k in range(12):
         a = TAU * k / 12
-        L = 0.03 if k % 3 == 0 else 0.018
-        cy, cz = Y + math.cos(a) * 0.11, math.sin(a) * 0.11
-        tube(hands, [(-0.636, cy, cz), (-0.636, Y + math.cos(a) * (0.11 - L), math.sin(a) * (0.11 - L))],
-             0.007, sides=4)
-    tube(hands, [(-0.64, Y, 0.0), (-0.64, Y + 0.075, 0.03)], 0.006, sides=4)
-    tube(hands, [(-0.642, Y, 0.0), (-0.642, Y - 0.03, -0.1)], 0.0045, sides=4)
-    cylinder(hands, (-0.641, Y, 0.0), (1, 0, 0), 0.012, 0.004, sides=8)
+        L = 0.018 if k % 3 == 0 else 0.011
+        r0 = RD * 0.75
+        cy, cz = Y + math.cos(a) * r0, math.sin(a) * r0
+        tube(hands, [(XM, cy, cz), (XM, Y + math.cos(a) * (r0 - L), math.sin(a) * (r0 - L))],
+             0.0045, sides=4)
+    tube(hands, [(XM - 0.003, Y, 0.0), (XM - 0.003, Y + 0.045, 0.018)], 0.004, sides=4)
+    tube(hands, [(XM - 0.005, Y, 0.0), (XM - 0.005, Y - 0.018, -0.06)], 0.003, sides=4)
+    cylinder(hands, (XM - 0.004, Y, 0.0), (1, 0, 0), 0.008, 0.003, sides=8)
     # bracelet: three rows of links round the wrist, skipping under the case
-    N = 26
+    N = 30
     for k in range(N):
         a = TAU * k / N
-        if abs(math.atan2(math.sin(a), math.cos(a)) - math.pi) < 0.42 or abs(math.atan2(math.sin(a), math.cos(a)) + math.pi) < 0.42:
+        if abs(abs(math.atan2(math.sin(a), math.cos(a))) - math.pi) < 0.26:
             continue
         s_, c_ = math.sin(a), math.cos(a)
-        rad = 0.545 / (abs(s_) ** 4 + abs(c_) ** 4) ** 0.25
+        rad = 0.515 / (abs(s_) ** 4 + abs(c_) ** 4) ** 0.25
         centre = (rad * c_ * 1.0, Y, rad * s_)
         out = norm((c_, 0.0, s_))
         tang = (-s_, 0.0, c_)
-        for row, (dy, target, hw) in enumerate(((-0.07, case, 0.032), (0.0, ice, 0.034), (0.07, case, 0.032))):
+        for row, (dy, target, hw) in enumerate(((-0.04, case, 0.018), (0.0, ice, 0.019), (0.04, case, 0.018))):
             p0 = add(centre, (0.0, dy, 0.0))
             # a link = small box: tangent x radial x vertical
             corners = []
             for sy in (-1, 1):
                 for st_ in (-1, 1):
                     for so in (-1, 1):
-                        corners.append(add(p0, add(add(mul(tang, st_ * 0.055), mul((0, 1, 0), sy * hw)), mul(out, so * 0.02))))
+                        corners.append(add(p0, add(add(mul(tang, st_ * 0.05), mul((0, 1, 0), sy * hw)), mul(out, so * 0.012))))
             def C(sy, st_, so):
                 return corners[((sy + 1) // 2) * 4 + ((st_ + 1) // 2) * 2 + (so + 1) // 2]
             faces = [[C(-1, -1, 1), C(-1, 1, 1), C(1, 1, 1), C(1, -1, 1)],
@@ -732,7 +736,7 @@ def build_watch():
     # lugs joining case and bracelet
     for dz in (-1, 1):
         for dy in (-1, 1):
-            rbox(case, (-0.575, Y + dy * 0.06, dz * 0.215), (0.03, 0.03, 0.05), 0.015, n=(1, 1, 2), n_r=2)
+            rbox(case, (-0.53, Y + dy * 0.038, dz * RC), (0.016, 0.016, 0.03), 0.008, n=(1, 1, 2), n_r=2)
 
 
 def build_cap():
@@ -740,7 +744,7 @@ def build_cap():
     cap_low = lambda az: lerp(0.24, 0.12, smooth(30, 120, abs(math.degrees(az))))
 
     def crown_t(az, v):
-        return 0.15 + 0.05 * math.sin(math.pi * clamp(v * 1.2, 0, 1)) + 0.08 * smooth(0.5, 1.0, v)
+        return 0.085 + 0.03 * math.sin(math.pi * clamp(v * 1.2, 0, 1)) + 0.045 * smooth(0.5, 1.0, v)
     m = new("px_cap_crown", "Head", "knit", "structured fitted crown, panel seams, flat brim")
     head_cap(m, cap_low, crown_t, rows=18, cols=64, rim_r=0.03)
     for k in range(6):
@@ -752,9 +756,9 @@ def build_cap():
             p, n = head_point(az, lerp(l0, l1, v), crown_t(az, v) + 0.006)
             pts.append(p)
         tube(m, pts, 0.008, sides=4)
-    cylinder(m, (0.0, HY + 0.24, 0.0), (0, 1, 0), 0.06, 0.018, sides=12, bevel=0.012)
-    rbox(m, (0.0, 0.21, -0.86), (0.49, 0.022, 0.27), 0.02, n=(8, 1, 5), n_r=2,
-         xform=lambda p: (p[0] * (1 - 0.15 * smooth(-0.85, -1.12, p[2])), p[1], p[2]))
+    cylinder(m, (0.0, HY + 0.135, 0.0), (0, 1, 0), 0.05, 0.015, sides=12, bevel=0.01)
+    rbox(m, (0.0, 0.2, -0.79), (0.45, 0.018, 0.245), 0.016, n=(8, 1, 5), n_r=2,
+         xform=lambda p: (p[0] * (1 - 0.15 * smooth(-0.78, -1.03, p[2])), p[1], p[2]))
 
     w = new("px_cap_wordmark", "Head", "knit", "raised EXIT 6 embroidery (accent)")
     layout, (x0, y0, x1, y1) = text_layout([("EXIT 6", 1.0, 0.0, 0.0)], italic=0.16)

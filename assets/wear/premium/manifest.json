@@ -3,17 +3,17 @@
     "name": "px_cuban_chain",
     "part": "UpperTorso",
     "tex": "pave",
-    "triangles": 5700,
-    "vertices": 2850,
+    "triangles": 5520,
+    "vertices": 2760,
     "size": [
-      0.9297,
-      0.7004,
-      1.0562
+      0.8828,
+      0.6638,
+      1.0364
     ],
     "center": [
-      -0.0009,
-      0.6146,
-      -0.1356
+      -0.0011,
+      0.6255,
+      -0.1325
     ],
     "note": "diamond Cuban link chain, heavy"
   },
@@ -42,14 +42,14 @@
     "triangles": 148,
     "vertices": 260,
     "size": [
-      0.3647,
-      0.3433,
+      0.2834,
+      0.2668,
       0.006
     ],
     "center": [
       0.0,
-      0.0729,
-      -0.664
+      0.1485,
+      -0.651
     ],
     "note": "EXIT 6 iced pendant (stone face)"
   },
@@ -60,14 +60,14 @@
     "triangles": 524,
     "vertices": 760,
     "size": [
-      0.3892,
-      0.4387,
-      0.077
+      0.3024,
+      0.3408,
+      0.0598
     ],
     "center": [
       0.0,
-      0.1102,
-      -0.646
+      0.1775,
+      -0.637
     ],
     "note": "EXIT 6 iced pendant (metal rim, walls, bail)"
   },
@@ -114,13 +114,13 @@
     "triangles": 6120,
     "vertices": 3334,
     "size": [
-      2.4313,
-      2.5583,
-      1.4774
+      2.1361,
+      2.4654,
+      1.2096
     ],
     "center": [
       0.0,
-      -0.0532,
+      -0.0867,
       0.0
     ],
     "note": "oversized quilted puffer body"
@@ -132,9 +132,9 @@
     "triangles": 480,
     "vertices": 240,
     "size": [
-      2.35,
-      0.1429,
-      1.39
+      2.13,
+      0.1169,
+      1.23
     ],
     "center": [
       0.0,
@@ -147,17 +147,17 @@
     "name": "px_puffer_zip",
     "part": "UpperTorso",
     "tex": "metal",
-    "triangles": 1236,
-    "vertices": 774,
+    "triangles": 1184,
+    "vertices": 744,
     "size": [
-      0.056,
-      2.5042,
-      0.1634
+      0.048,
+      2.4355,
+      0.1459
     ],
     "center": [
       0.0,
-      -0.0479,
-      -0.5883
+      -0.0822,
+      -0.5301
     ],
     "note": "two-way front zip + pull"
   },
@@ -168,14 +168,14 @@
     "triangles": 2092,
     "vertices": 1162,
     "size": [
-      1.5765,
-      0.9051,
-      1.593
+      1.2932,
+      0.7628,
+      1.3391
     ],
     "center": [
-      -0.0001,
-      0.9218,
-      0.0619
+      -0.0,
+      0.853,
+      0.0232
     ],
     "note": "hoodie hood over the collar"
   },
@@ -186,13 +186,13 @@
     "triangles": 2048,
     "vertices": 1206,
     "size": [
-      1.3899,
-      1.3597,
-      1.3899
+      1.17,
+      1.2984,
+      1.17
     ],
     "center": [
       0.0,
-      0.0182,
+      0.0222,
       0.0
     ],
     "note": "puffer sleeve, upper"
@@ -204,9 +204,9 @@
     "triangles": 1536,
     "vertices": 918,
     "size": [
-      1.3398,
-      1.0077,
-      1.3398
+      1.1398,
+      0.9872,
+      1.1398
     ],
     "center": [
       0.0,
@@ -330,14 +330,14 @@
     "triangles": 2652,
     "vertices": 1706,
     "size": [
-      1.3173,
-      1.5027,
-      1.1696
+      1.1725,
+      1.4639,
+      1.0699
     ],
     "center": [
-      0.0614,
-      -0.0264,
-      0.0008
+      0.0387,
+      -0.0246,
+      -0.0
     ],
     "note": "baggy cargo thigh with bellows pocket + flap"
   },
@@ -349,13 +349,13 @@
     "vertices": 144,
     "size": [
       0.0247,
-      0.4908,
-      0.292
+      0.45,
+      0.261
     ],
     "center": [
-      0.7207,
-      -0.2416,
-      0.001
+      0.6216,
+      -0.236,
+      0.0005
     ],
     "note": "flap snaps + strap D-ring"
   },
@@ -366,13 +366,13 @@
     "triangles": 1984,
     "vertices": 1362,
     "size": [
-      1.254,
-      1.3018,
-      1.234
+      1.13,
+      1.2963,
+      1.11
     ],
     "center": [
       0.0,
-      0.0177,
+      0.02,
       0.0
     ],
     "note": "baggy stacked cargo leg"
@@ -384,14 +384,14 @@
     "triangles": 2392,
     "vertices": 1424,
     "size": [
-      1.14,
-      1.03,
-      1.3917
+      1.08,
+      0.93,
+      1.2468
     ],
     "center": [
       0.0,
-      0.345,
-      -0.0492
+      0.295,
+      -0.0166
     ],
     "note": "high-top upper: base panels, tongue, padded collar"
   },
@@ -399,17 +399,17 @@
     "name": "px_hightop_overlay",
     "part": "Foot",
     "tex": "leather",
-    "triangles": 3224,
-    "vertices": 2268,
+    "triangles": 3238,
+    "vertices": 2276,
     "size": [
-      1.128,
-      0.852,
-      1.312
+      1.088,
+      0.788,
+      1.168
     ],
     "center": [
       0.0,
-      0.245,
-      -0.1
+      0.215,
+      -0.065
     ],
     "note": "contrast overlays (main)"
   },
@@ -417,17 +417,17 @@
     "name": "px_hightop_mark",
     "part": "Foot",
     "tex": "leather",
-    "triangles": 336,
-    "vertices": 212,
+    "triangles": 296,
+    "vertices": 190,
     "size": [
-      1.1,
-      0.2673,
-      0.285
+      1.062,
+      0.235,
+      0.255
     ],
     "center": [
       0.0,
-      0.2673,
-      0.0742
+      0.247,
+      0.0908
     ],
     "note": "hex side patch (accent)"
   },
@@ -438,14 +438,14 @@
     "triangles": 1008,
     "vertices": 622,
     "size": [
-      1.13,
-      0.195,
-      1.35
+      1.07,
+      0.1721,
+      1.2
     ],
     "center": [
       0.0,
-      -0.0925,
-      -0.1
+      -0.0889,
+      -0.065
     ],
     "note": "cupsole with toe bumper and sidewall groove"
   },
@@ -456,14 +456,14 @@
     "triangles": 360,
     "vertices": 206,
     "size": [
-      0.393,
-      0.7051,
-      0.5999
+      0.3393,
+      0.6204,
+      0.5559
     ],
     "center": [
-      0.0166,
-      0.3545,
-      -0.2335
+      0.0116,
+      0.3242,
+      -0.2044
     ],
     "note": "flat laces, criss-cross"
   },
@@ -474,14 +474,14 @@
     "triangles": 9100,
     "vertices": 4662,
     "size": [
-      1.6143,
-      2.1245,
-      1.504
+      1.6007,
+      2.1157,
+      1.4945
     ],
     "center": [
       0.0076,
-      -0.323,
-      0.075
+      -0.3255,
+      0.073
     ],
     "note": "long locs, mid-back length"
   },
@@ -492,13 +492,13 @@
     "triangles": 800,
     "vertices": 420,
     "size": [
-      1.5089,
-      0.9906,
-      1.4668
+      1.4935,
+      0.9787,
+      1.4507
     ],
     "center": [
-      0.06,
-      0.2536,
+      0.0599,
+      0.2518,
       0.0878
     ],
     "note": "silver loc cuffs"
@@ -528,9 +528,9 @@
     "triangles": 60,
     "vertices": 128,
     "size": [
-      1.276,
-      0.1064,
-      0.1064
+      1.264,
+      0.0798,
+      0.0798
     ],
     "center": [
       0.0,
@@ -546,9 +546,9 @@
     "triangles": 512,
     "vertices": 272,
     "size": [
-      1.2739,
-      0.1072,
-      0.1072
+      1.2616,
+      0.0804,
+      0.0804
     ],
     "center": [
       0.0,
@@ -561,17 +561,17 @@
     "name": "px_watch_case",
     "part": "LeftLowerArm",
     "tex": "metal",
-    "triangles": 1950,
-    "vertices": 2136,
+    "triangles": 2046,
+    "vertices": 2328,
     "size": [
-      1.2184,
-      0.3973,
-      1.1608
+      1.1134,
+      0.231,
+      1.0809
     ],
     "center": [
-      -0.0308,
-      -0.36,
-      -0.0
+      -0.0153,
+      -0.38,
+      0.0
     ],
     "note": "octagon case, lugs, three-row link bracelet"
   },
@@ -579,17 +579,17 @@
     "name": "px_watch_ice",
     "part": "LeftLowerArm",
     "tex": "pave",
-    "triangles": 298,
-    "vertices": 592,
+    "triangles": 346,
+    "vertices": 688,
     "size": [
-      1.2184,
-      0.3788,
-      1.1608
+      1.1134,
+      0.2199,
+      1.0809
     ],
     "center": [
-      -0.0308,
-      -0.36,
-      -0.0
+      -0.0153,
+      -0.38,
+      0.0
     ],
     "note": "iced bezel, dial and centre links"
   },
@@ -600,13 +600,13 @@
     "triangles": 256,
     "vertices": 158,
     "size": [
-      0.0175,
-      0.2284,
-      0.2284
+      0.0125,
+      0.1329,
+      0.1329
     ],
     "center": [
-      -0.6378,
-      -0.36,
+      -0.5727,
+      -0.38,
       0.0
     ],
     "note": "baguette markers and hands"
@@ -618,14 +618,14 @@
     "triangles": 4548,
     "vertices": 2436,
     "size": [
-      1.5443,
-      0.7577,
-      1.9205
+      1.3846,
+      0.6497,
+      1.7434
     ],
     "center": [
       0.0,
-      0.4701,
-      -0.1697
+      0.4161,
+      -0.1633
     ],
     "note": "structured fitted crown, panel seams, flat brim"
   },
@@ -636,14 +636,14 @@
     "triangles": 416,
     "vertices": 832,
     "size": [
-      0.6378,
-      0.3392,
-      0.1676
+      0.577,
+      0.2777,
+      0.1454
     ],
     "center": [
-      0.0068,
-      0.5186,
-      -0.6962
+      0.0067,
+      0.4878,
+      -0.6322
     ],
     "note": "raised EXIT 6 embroidery (accent)"
   }

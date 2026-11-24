@@ -772,32 +772,32 @@ def build_tops():
     torus(m, (0.0, 0.89, -0.02), (0.0, 1.0, 0.0), 0.3, 0.035, nu=20, nv=6, rx=0.33, rz=0.28)
 
     m = new("tee_sleeve", "UpperArm", "short sleeve")
-    rounded_box(m, (0.0, 0.25, 0.0), (0.545, 0.42, 0.545), 0.16, n_mid=5, n_r=3, xform=flare(0.2, -0.17, 0.06))
-    torus(m, (0.0, -0.15, 0.0), (0.0, 1.0, 0.0), 0.5, 0.03, nu=20, nv=5, rx=0.56, rz=0.56)
+    rounded_box(m, (0.0, 0.25, 0.0), (0.525, 0.42, 0.525), 0.15, n_mid=5, n_r=3, xform=flare(0.2, -0.17, 0.03))
+    torus(m, (0.0, -0.15, 0.0), (0.0, 1.0, 0.0), 0.5, 0.025, nu=20, nv=5, rx=0.535, rz=0.535)
 
     # hoodie: baggy body, kangaroo pocket, drawstrings, bunched hood
     m = new("hoodie_torso", "UpperTorso", "pullover hoodie body")
-    rounded_box(m, (0.0, -0.2, 0.0), (1.04, 1.08, 0.575), 0.18, n_mid=7, n_r=3,
+    rounded_box(m, (0.0, -0.2, 0.0), (1.005, 1.08, 0.545), 0.16, n_mid=7, n_r=3,
                 disp=lambda p, n: add(p, mul(n, 0.008 * math.sin(p[0] * 7 + p[1] * 4))))
-    torus(m, (0.0, -1.24, 0.0), (0.0, 1.0, 0.0), 1.0, 0.045, nu=28, nv=6, rx=1.03, rz=0.56, squash=1.4)
-    rounded_box(m, (0.0, -0.73, -0.585), (0.58, 0.28, 0.035), 0.03, n_mid=4, n_r=2,
+    torus(m, (0.0, -1.24, 0.0), (0.0, 1.0, 0.0), 0.98, 0.04, nu=28, nv=6, rx=1.0, rz=0.535, squash=1.4)
+    rounded_box(m, (0.0, -0.73, -0.555), (0.56, 0.27, 0.025), 0.022, n_mid=4, n_r=2,
                 xform=lambda p: (p[0] * (1 - 0.15 * clamp((p[1] + 0.73) / 0.28, 0, 1)), p[1], p[2]))
-    hood = catmull([(-0.42, 0.86, -0.30), (-0.52, 0.96, 0.05), (-0.30, 1.02, 0.38), (0.0, 1.04, 0.47),
-                    (0.30, 1.02, 0.38), (0.52, 0.96, 0.05), (0.42, 0.86, -0.30)], per=6)
-    tube(m, hood, lambda i, f: 0.13 + 0.07 * math.sin(math.pi * f), sides=10, squash=0.75)
-    rounded_box(m, (0.0, 0.55, 0.62), (0.40, 0.36, 0.06), 0.05, n_mid=4, n_r=2,
+    hood = catmull([(-0.4, 0.86, -0.28), (-0.48, 0.94, 0.05), (-0.28, 0.99, 0.36), (0.0, 1.01, 0.44),
+                    (0.28, 0.99, 0.36), (0.48, 0.94, 0.05), (0.4, 0.86, -0.28)], per=6)
+    tube(m, hood, lambda i, f: 0.085 + 0.04 * math.sin(math.pi * f), sides=10, squash=0.75)
+    rounded_box(m, (0.0, 0.55, 0.575), (0.36, 0.32, 0.04), 0.035, n_mid=4, n_r=2,
                 xform=lambda p: (p[0] * (1 - 0.25 * clamp((0.55 - p[1]) / 0.5, 0, 1)), p[1], p[2]))
     for s in (-1, 1):
-        cord = [(s * 0.13, 0.84, -0.56), (s * 0.15, 0.6, -0.6), (s * 0.14, 0.35, -0.6)]
-        tube(m, catmull(cord, 4), 0.018, sides=5)
-        cylinder(m, (s * 0.14, 0.31, -0.6), (0, 1, 0), 0.025, 0.04, sides=6)
+        cord = [(s * 0.13, 0.84, -0.53), (s * 0.15, 0.6, -0.565), (s * 0.14, 0.35, -0.57)]
+        tube(m, catmull(cord, 4), 0.014, sides=5)
+        cylinder(m, (s * 0.14, 0.31, -0.57), (0, 1, 0), 0.02, 0.035, sides=6)
 
     # long sleeve pieces (hoodie / track jacket / puffer share this cut)
     m = new("sleeve_upper", "UpperArm", "long sleeve, upper")
-    rounded_box(m, (0.0, 0.03, 0.0), (0.55, 0.66, 0.55), 0.17, n_mid=5, n_r=3,
+    rounded_box(m, (0.0, 0.03, 0.0), (0.525, 0.66, 0.525), 0.15, n_mid=5, n_r=3,
                 disp=lambda p, n: add(p, mul(n, 0.006 * math.sin(p[1] * 11 + p[2] * 5))))
     m = new("sleeve_lower", "LowerArm", "long sleeve, lower with ribbed cuff")
-    rounded_box(m, (0.0, 0.08, 0.0), (0.535, 0.5, 0.535), 0.15, n_mid=5, n_r=3,
+    rounded_box(m, (0.0, 0.08, 0.0), (0.52, 0.5, 0.52), 0.14, n_mid=5, n_r=3,
                 disp=lambda p, n: add(p, mul(n, 0.012 * smooth(-0.1, -0.4, p[1]) * (0.5 + 0.5 * math.sin(p[1] * 40)))))
     rounded_box(m, (0.0, -0.46, 0.0), (0.51, 0.06, 0.51), 0.12, n_mid=4, n_r=2, disp=rib(28, 0.008))
 
@@ -813,19 +813,19 @@ def build_tops():
         rounded_box(m, (s * 0.99, 0.55, 0.0), (0.03, 0.18, 0.2), 0.02, n_mid=3, n_r=1)
     m = new("track_trim_upper", "UpperArm", "sleeve stripes (accent), outer side")
     for dz in (-0.09, 0.09):
-        rounded_box(m, (0.555, 0.03, dz), (0.012, 0.64, 0.035), 0.01, n_mid=4, n_r=1)
+        rounded_box(m, (0.532, 0.03, dz), (0.012, 0.64, 0.035), 0.01, n_mid=4, n_r=1)
     m = new("track_trim_lower", "LowerArm", "sleeve stripes (accent), outer side")
     for dz in (-0.09, 0.09):
-        rounded_box(m, (0.54, 0.08, dz), (0.012, 0.48, 0.035), 0.01, n_mid=4, n_r=1)
+        rounded_box(m, (0.527, 0.08, dz), (0.012, 0.48, 0.035), 0.01, n_mid=4, n_r=1)
 
     # puffer: quilted body + stand collar, quilted sleeves
     m = new("puffer_torso", "UpperTorso", "quilted puffer jacket body")
-    rounded_box(m, (0.0, -0.2, 0.0), (1.08, 1.08, 0.62), 0.24, n_mid=10, n_r=3, disp=quilt(0.3, 0.07))
-    torus(m, (0.0, 0.95, 0.0), (0.0, 1.0, 0.0), 0.42, 0.1, nu=24, nv=8, rx=0.46, rz=0.40, squash=1.6)
+    rounded_box(m, (0.0, -0.2, 0.0), (1.02, 1.08, 0.565), 0.22, n_mid=10, n_r=3, disp=quilt(0.3, 0.05))
+    torus(m, (0.0, 0.94, 0.0), (0.0, 1.0, 0.0), 0.42, 0.075, nu=24, nv=8, rx=0.46, rz=0.40, squash=1.6)
     m = new("puffer_upper", "UpperArm", "quilted puffer sleeve, upper")
-    rounded_box(m, (0.0, 0.03, 0.0), (0.6, 0.67, 0.6), 0.22, n_mid=8, n_r=3, disp=quilt(0.26, 0.06))
+    rounded_box(m, (0.0, 0.03, 0.0), (0.55, 0.67, 0.55), 0.2, n_mid=8, n_r=3, disp=quilt(0.26, 0.045))
     m = new("puffer_lower", "LowerArm", "quilted puffer sleeve, lower")
-    rounded_box(m, (0.0, 0.08, 0.0), (0.58, 0.5, 0.58), 0.2, n_mid=7, n_r=3, disp=quilt(0.24, 0.05))
+    rounded_box(m, (0.0, 0.08, 0.0), (0.54, 0.5, 0.54), 0.19, n_mid=7, n_r=3, disp=quilt(0.24, 0.04))
     rounded_box(m, (0.0, -0.46, 0.0), (0.5, 0.06, 0.5), 0.1, n_mid=4, n_r=2, disp=rib(28, 0.008))
 
 
@@ -848,11 +848,11 @@ def build_bottoms():
     m = new("jeans_stacked_lower", "LowerLeg", "straight denim leg stacking over the shoe")
     rounded_box(m, (0.0, 0.2, 0.0), (0.525, 0.47, 0.515), 0.15, n_mid=5, n_r=3)
     for i, y in enumerate((-0.2, -0.31, -0.42, -0.52)):
-        rounded_box(m, (0.0, y, 0.0), (0.55 + 0.012 * i, 0.075, 0.54 + 0.012 * i), 0.07, n_mid=4, n_r=2,
+        rounded_box(m, (0.0, y, 0.0), (0.53 + 0.009 * i, 0.07, 0.52 + 0.009 * i), 0.065, n_mid=4, n_r=2,
                     xform=lambda p, i=i: (p[0], p[1] + 0.02 * math.sin(math.atan2(p[0], p[2]) * 2 + i), p[2]))
 
     m = new("shorts_upper", "UpperLeg", "basketball shorts leg past the knee")
-    rounded_box(m, (0.0, -0.13, 0.0), (0.57, 0.84, 0.56), 0.16, n_mid=6, n_r=3, xform=flare(0.0, -0.95, 0.06))
+    rounded_box(m, (0.0, -0.13, 0.0), (0.545, 0.84, 0.535), 0.15, n_mid=6, n_r=3, xform=flare(0.0, -0.95, 0.04))
 
     m = new("leg_trim_upper", "UpperLeg", "side stripes (accent), outer side")
     for dz in (-0.08, 0.08):
@@ -866,28 +866,28 @@ def build_shoes():
     # foot canonical half (0.50, 0.156, 0.50); toe at -Z
     def toe_drop(p):
         # lower the toe box, round the heel
-        t = smooth(0.1, -0.7, p[2])
+        t = smooth(0.1, -0.62, p[2])
         return (p[0] * (1 - 0.08 * t), p[1] - 0.09 * t * smooth(-0.2, 0.2, p[1]), p[2])
     m = new("sneaker_upper", "Foot", "low-top sneaker upper with laces")
-    rounded_box(m, (0.0, 0.07, -0.1), (0.52, 0.22, 0.64), 0.16, n_mid=6, n_r=3, xform=toe_drop)
-    torus(m, (0.0, 0.29, 0.22), (0.0, 1.0, 0.2), 0.3, 0.05, nu=18, nv=6, rx=0.42, rz=0.32)
+    rounded_box(m, (0.0, 0.06, -0.065), (0.512, 0.2, 0.575), 0.14, n_mid=6, n_r=3, xform=toe_drop)
+    torus(m, (0.0, 0.26, 0.2), (0.0, 1.0, 0.2), 0.3, 0.04, nu=18, nv=6, rx=0.4, rz=0.31)
     for k in range(4):
-        z = -0.16 - 0.12 * k
-        tube(m, [(-0.24, 0.27 - 0.03 * k, z), (0.0, 0.3 - 0.03 * k, z - 0.01), (0.24, 0.27 - 0.03 * k, z)], 0.022, sides=5)
+        z = -0.14 - 0.105 * k
+        tube(m, [(-0.22, 0.25 - 0.03 * k, z), (0.0, 0.275 - 0.03 * k, z - 0.01), (0.22, 0.25 - 0.03 * k, z)], 0.018, sides=5)
     m = new("sneaker_sole", "Foot", "cupsole (white / gum)")
-    rounded_box(m, (0.0, -0.12, -0.1), (0.55, 0.07, 0.67), 0.06, n_mid=6, n_r=2,
-                xform=lambda p: (p[0], p[1] + 0.04 * smooth(-0.4, -0.8, p[2]) * smooth(-0.1, 0.1, p[1]), p[2]))
+    rounded_box(m, (0.0, -0.115, -0.065), (0.53, 0.065, 0.6), 0.05, n_mid=6, n_r=2,
+                xform=lambda p: (p[0], p[1] + 0.035 * smooth(-0.38, -0.68, p[2]) * smooth(-0.1, 0.1, p[1]), p[2]))
 
     m = new("boot_upper", "Foot", "work boot, padded collar above the ankle")
-    rounded_box(m, (0.0, 0.32, -0.08), (0.55, 0.48, 0.63), 0.18, n_mid=7, n_r=3,
-                xform=lambda p: (p[0], p[1] - 0.32 * smooth(0.0, -0.6, p[2]) * smooth(-0.1, 0.4, p[1]), p[2]))
-    torus(m, (0.0, 0.8, 0.05), (0.0, 1.0, 0.0), 0.5, 0.07, nu=20, nv=6, rx=0.54, rz=0.52)
+    rounded_box(m, (0.0, 0.31, -0.05), (0.525, 0.47, 0.58), 0.16, n_mid=7, n_r=3,
+                xform=lambda p: (p[0], p[1] - 0.3 * smooth(0.0, -0.55, p[2]) * smooth(-0.1, 0.4, p[1]), p[2]))
+    torus(m, (0.0, 0.78, 0.05), (0.0, 1.0, 0.0), 0.5, 0.05, nu=20, nv=6, rx=0.515, rz=0.5)
     for k in range(5):
-        z = -0.25 - 0.06 * k
-        y = 0.72 - 0.13 * k
-        tube(m, [(-0.3, y, z), (0.0, y + 0.02, z - 0.12), (0.3, y, z)], 0.02, sides=5)
+        z = -0.24 - 0.055 * k
+        y = 0.7 - 0.125 * k
+        tube(m, [(-0.28, y, z), (0.0, y + 0.02, z - 0.1), (0.28, y, z)], 0.017, sides=5)
     m = new("boot_sole", "Foot", "lug sole")
-    rounded_box(m, (0.0, -0.11, -0.08), (0.58, 0.085, 0.68), 0.06, n_mid=6, n_r=2,
+    rounded_box(m, (0.0, -0.105, -0.05), (0.545, 0.08, 0.61), 0.055, n_mid=6, n_r=2,
                 disp=lambda p, n: add(p, mul(n, 0.01 * (1 if math.sin(p[2] * 40) > 0 else 0) * (1 if n[1] < -0.5 else 0))))
 
 
@@ -905,7 +905,7 @@ def build_hats():
     # fitted cap: tall crown, flat brim, button, panel seams
     cap_low = lambda az: lerp(0.24, 0.12, smooth(30, 120, abs(math.degrees(az))))
     def crown_t(az, v):
-        return 0.15 + 0.05 * math.sin(math.pi * clamp(v * 1.2, 0, 1)) + 0.08 * smooth(0.5, 1.0, v)
+        return 0.085 + 0.03 * math.sin(math.pi * clamp(v * 1.2, 0, 1)) + 0.045 * smooth(0.5, 1.0, v)
     m = new("cap_fitted", "Head", "fitted cap crown + flat brim")
     head_cap(m, cap_low, crown_t, rows=16, rim_r=0.03)
     for k in range(6):
@@ -917,26 +917,26 @@ def build_hats():
             p, n = head_point(az, lerp(l0, l1, v), crown_t(az, v) + 0.006)
             pts.append(p)
         tube(m, pts, 0.008, sides=4)
-    cylinder(m, (0.0, HY + 0.24, 0.0), (0, 1, 0), 0.06, 0.018, sides=10, bevel=0.012)
-    rounded_box(m, (0.0, 0.21, -0.84), (0.47, 0.022, 0.25), 0.02, n_mid=6, n_r=2,
-                xform=lambda p: (p[0] * (1 - 0.15 * smooth(-0.85, -1.1, p[2])), p[1] - 0.02 * (p[0] * p[0]), p[2]))
+    cylinder(m, (0.0, HY + 0.135, 0.0), (0, 1, 0), 0.05, 0.015, sides=10, bevel=0.01)
+    rounded_box(m, (0.0, 0.2, -0.79), (0.45, 0.018, 0.245), 0.016, n_mid=6, n_r=2,
+                xform=lambda p: (p[0] * (1 - 0.15 * smooth(-0.78, -1.03, p[2])), p[1] - 0.02 * (p[0] * p[0]), p[2]))
     m = new("cap_emblem", "Head", "embroidered '6' on the crown front (accent)")
     six = digit_six(1.6)
     tilt = math.radians(-14)
-    pts = [(p[0], 0.42 + p[1] * math.cos(tilt), -0.78 - p[1] * math.sin(tilt)) for p in six]
+    pts = [(p[0], 0.42 + p[1] * math.cos(tilt), -0.695 - p[1] * math.sin(tilt)) for p in six]
     tube(m, pts, 0.026, sides=6, squash=0.5)
 
     # beanie: ribbed knit with folded cuff
     m = new("beanie", "Head", "ribbed knit beanie with fold")
     b_low = lambda az: lerp(0.24, 0.10, smooth(30, 120, abs(math.degrees(az))))
-    head_cap(m, b_low, lambda az, v: 0.07 + 0.1 * smooth(0.6, 1.0, v), rows=16,
+    head_cap(m, b_low, lambda az, v: 0.05 + 0.06 * smooth(0.6, 1.0, v), rows=16,
              disp=lambda p, n, az, v: add(p, mul(n, 0.01 * math.sin(az * 36))), rim=False)
     pts = []
     for i in range(41):
         az = TAU * i / 40 - math.pi
-        p, n = head_point(az, ell_at_y(az, b_low(az) + 0.08), 0.1)
+        p, n = head_point(az, ell_at_y(az, b_low(az) + 0.07), 0.07)
         pts.append(p)
-    tube(m, pts, 0.1, sides=8, caps=False, squash=0.75)
+    tube(m, pts, 0.07, sides=8, caps=False, squash=0.75)
 
     # durag: tight cap, centre seam, forehead band, flowing tail
     m = new("durag", "Head", "durag with seam and tails")
@@ -1028,8 +1028,8 @@ def build_jewelry():
                     (0.3, 1.06, 0.38), (0.5, 1.0, 0.1), (0.45, 0.88, -0.22)], per=6)
     tube(m, band, 0.035, sides=7, squash=0.6)
     for s in (-1, 1):
-        cylinder(m, (s * 0.42, 0.9, -0.38), norm((s * 0.25, 1.0, -0.35)), 0.17, 0.065, sides=18, bevel=0.03)
-        torus(m, (s * 0.42, 0.9, -0.38), norm((s * 0.25, 1.0, -0.35)), 0.15, 0.04, nu=16, nv=6)
+        cylinder(m, (s * 0.4, 0.9, -0.36), norm((s * 0.25, 1.0, -0.35)), 0.14, 0.055, sides=18, bevel=0.025)
+        torus(m, (s * 0.4, 0.9, -0.36), norm((s * 0.25, 1.0, -0.35)), 0.125, 0.032, nu=16, nv=6)
 
     # watch on the left wrist: case faces out (-X), band wraps the forearm
     m = new("watch_case", "LeftLowerArm", "watch case + band")
@@ -1037,13 +1037,13 @@ def build_jewelry():
     for k in range(33):
         a = TAU * k / 32
         s, c = math.sin(a), math.cos(a)
-        r = 0.535 / (abs(s) ** 4 + abs(c) ** 4) ** 0.25
-        ring.append((r * c, -0.36, r * s))
-    tube(m, ring, 0.05, sides=6, caps=False, squash=1.4)
-    cylinder(m, (-0.585, -0.36, 0.0), (1, 0, 0), 0.17, 0.05, sides=20, bevel=0.025)
-    torus(m, (-0.63, -0.36, 0.0), (1, 0, 0), 0.165, 0.022, nu=20, nv=5)
+        r = 0.515 / (abs(s) ** 4 + abs(c) ** 4) ** 0.25
+        ring.append((r * c, -0.38, r * s))
+    tube(m, ring, 0.022, sides=6, caps=False, squash=1.8)
+    cylinder(m, (-0.54, -0.38, 0.0), (1, 0, 0), 0.11, 0.036, sides=20, bevel=0.014)
+    torus(m, (-0.56, -0.38, 0.0), (1, 0, 0), 0.105, 0.013, nu=20, nv=5)
     m = new("watch_dial", "LeftLowerArm", "watch dial (accent / ice)")
-    cylinder(m, (-0.64, -0.36, 0.0), (1, 0, 0), 0.14, 0.008, sides=20)
+    cylinder(m, (-0.562, -0.38, 0.0), (1, 0, 0), 0.09, 0.006, sides=20)
 
     # bracelet on the right wrist (cuban links round the cuff line)
     m = new("bracelet_cuban", "RightLowerArm", "Cuban link bracelet")
@@ -1051,9 +1051,9 @@ def build_jewelry():
     for k in range(29):
         a = TAU * k / 28
         s, c = math.sin(a), math.cos(a)
-        r = 0.54 / (abs(s) ** 4 + abs(c) ** 4) ** 0.25
+        r = 0.515 / (abs(s) ** 4 + abs(c) ** 4) ** 0.25
         ring.append((r * c, -0.38, r * s))
-    tube(m, ring, lambda i, f: 0.035 * (1 + 0.35 * abs(math.sin(math.pi * i / 1.0))), sides=6, caps=False, squash=1.3)
+    tube(m, ring, lambda i, f: 0.024 * (1 + 0.35 * abs(math.sin(math.pi * i / 1.0))), sides=6, caps=False, squash=1.3)
 
     # earrings: studs and hoops at ear height
     m = new("earring_studs", "Head", "diamond studs")

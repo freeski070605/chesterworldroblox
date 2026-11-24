@@ -41,6 +41,9 @@ Players wear original EXIT 6 meshes (hair, clothing, shoes, headwear, jewelry) f
 | --- | --- |
 | `70526844842195` "Exit6 Wear v1" | All 61 meshes |
 | `111400965165098` "Exit6 Wear patch 1" | `cap_emblem`, `pendant_six` (the "6" was mirrored in v1) and `hair_afro_taper` (rounder shape). These replace the v1 copies. |
+| `116547797476710` "Exit6 Wear patch 2" | Slim fit for 22 meshes. Tops, sleeves, puffer, shorts, stacked jeans, sneakers, boots, cap, beanie, headphones, watch and bracelet now sit about 0.05–0.1 stud off the body. Before, the puffer was 2.30 × 1.38 on a 1.94 × 1.0 torso and the watch dial was 0.34 studs. |
+
+**Fit rule:** keep a piece within about 0.1 stud of its body part on each side. Size shoe height by the average of the foot's width and length scale. Some avatars have very tall foot boxes; with this rule, boot shafts don't tower up the shin on them (`Exit6Style` `weldPiece`).
 
 The Roblox importer turns glTF geometry 180° about Y. `Exit6Style` compensates with `MESH_TURN`; do not rotate the templates.
 

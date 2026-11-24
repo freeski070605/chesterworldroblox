@@ -1,9 +1,10 @@
 -- Studio Edit command: install the EXIT 6 Premium meshes + texture sets.
 --
--- 1. Insert, newest last (a later import replaces meshes of the same name):
---      79525151931765  "Exit6 Premium v1"       all 36 meshes -> Workspace.Exit6PremiumImport
---      129965163941748 "Exit6 Premium patch 1"  9 lighter puffer / cargo / high-top meshes
---                                                -> Workspace.Exit6PremiumPatch1
+-- 1. Insert the current model as Workspace.Exit6PremiumImport:
+--      86462441878149  "Exit6 Premium v2"  all 36 slim-fit meshes
+--    (v1 79525151931765 and patch 1 129965163941748 are superseded: too bulky.)
+--    A later patch can be inserted as Workspace.Exit6PremiumPatch1; it replaces
+--    meshes of the same name.
 -- 2. Run this. Every px_* MeshPart becomes a template in
 --    ServerStorage.Exit6ProductionAssets.Wear (next to the base wardrobe), and
 --    every texture set becomes ServerStorage.Exit6ProductionAssets.Surfaces.<set>

@@ -199,14 +199,44 @@ local function buildSlot(char, slot, itemId, look)
 	folder.Parent = char
 end
 
+-- skin tone: recolour the body through BodyColors (and the parts directly,
+-- for rigs without one); the avatar's own colours are remembered for "off"
+local SKIN_PARTS = {
+	HeadColor3 = { "Head" },
+	TorsoColor3 = { "UpperTorso", "LowerTorso" },
+	LeftArmColor3 = { "LeftUpperArm", "LeftLowerArm", "LeftHand" },
+	RightArmColor3 = { "RightUpperArm", "RightLowerArm", "RightHand" },
+	LeftLegColor3 = { "LeftUpperLeg", "LeftLowerLeg", "LeftFoot" },
+	RightLegColor3 = { "RightUpperLeg", "RightLowerLeg", "RightFoot" },
+}
+local function applySkin(char, index)
+	local tone = type(index) == "number" and Wardrobe.SkinTones[index]
+	local bc = char:FindFirstChildOfClass("BodyColors")
+	for prop, parts in pairs(SKIN_PARTS) do
+		if bc then
+			if bc:GetAttribute("Exit6Orig" .. prop) == nil then bc:SetAttribute("Exit6Orig" .. prop, bc[prop]) end
+			bc[prop] = tone and c3(tone.rgb) or bc:GetAttribute("Exit6Orig" .. prop)
+		end
+		for _, name in ipairs(parts) do
+			local p = char:FindFirstChild(name)
+			if p and p:IsA("BasePart") then
+				if p:GetAttribute("Exit6OrigColor") == nil then p:SetAttribute("Exit6OrigColor", p.Color) end
+				p.Color = tone and c3(tone.rgb) or p:GetAttribute("Exit6OrigColor")
+			end
+		end
+	end
+end
+
 function Style.Apply(player)
 	local char = player.Character
-	if not char or not Profile.Get(player) or not char:FindFirstChild("Head") then return end
+	local p = Profile.Get(player)
+	if not char or not p or not char:FindFirstChild("Head") then return end
 	local look = lookFor(player)
 	for _, slot in ipairs(Wardrobe.Slots) do
 		buildSlot(char, slot, look[slot], look)
 	end
 	hideOwn(char, look)
+	applySkin(char, p.style.skin)
 	-- mirror the worn look for the client (phone Closet / shop markers)
 	local worn = {}
 	for _, slot in ipairs(Wardrobe.Slots) do worn[slot] = look[slot] end
@@ -274,7 +304,19 @@ function Style.UseOwnAvatar(player)
 	local p = Profile.Get(player)
 	if not p then return false end
 	for _, slot in ipairs(Wardrobe.Slots) do p.style[slot] = nil end
+	p.style.skin = nil
 	previews[player] = nil
+	Profile.Publish(player)
+	Style.Apply(player)
+	return true
+end
+
+-- skin tone (free): index into Wardrobe.SkinTones, 0 = the avatar's own colours
+function Style.SetSkin(player, index)
+	local p = Profile.Get(player)
+	if not p or type(index) ~= "number" or index % 1 ~= 0
+		or index < 0 or index > #Wardrobe.SkinTones then return false end
+	p.style.skin = index > 0 and index or nil
 	Profile.Publish(player)
 	Style.Apply(player)
 	return true
@@ -321,6 +363,7 @@ if game:GetService("RunService"):IsStudio() then
 		end
 		local p = Profile.Get(player)
 		if not p then return false end
+		if look.skin ~= nil then p.style.skin = look.skin ~= 0 and look.skin or nil end
 		for _, slot in ipairs(Wardrobe.Slots) do
 			local id = look[slot]
 			if id ~= nil then

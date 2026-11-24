@@ -197,6 +197,8 @@ StyleAction.OnServerInvoke = function(player, verb, a, b)
 		return Style.UseOwnAvatar(player)
 	elseif verb == "starter" then
 		return Style.WearStarter(player)
+	elseif verb == "skin" then
+		return Style.SetSkin(player, a)
 	end
 	return false, "Unknown action"
 end

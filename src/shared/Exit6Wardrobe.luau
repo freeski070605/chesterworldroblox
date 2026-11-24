@@ -161,6 +161,20 @@ jewel("w_shades_gold", "Gold Frame Shades", 60, "eyes", { M("shades_frame"), { m
 jewel("w_headphones_white", "White Headphones", 90, "neck", { P("headphones_neck", "trim") }, { trim = { 236, 236, 236 } }, "clothing")
 jewel("w_headphones_black", "Black Headphones", 90, "neck", { P("headphones_neck", "trim") }, { trim = { 24, 24, 28 } }, "clothing")
 
+-- skin tones (free, Closet): profile style.skin = index, 0 / nil = the avatar's own colours
+Wardrobe.SkinTones = {
+	{ name = "Espresso", rgb = { 58, 36, 26 } },
+	{ name = "Deep Brown", rgb = { 86, 56, 40 } },
+	{ name = "Mahogany", rgb = { 110, 72, 50 } },
+	{ name = "Chestnut", rgb = { 132, 90, 62 } },
+	{ name = "Caramel", rgb = { 160, 112, 78 } },
+	{ name = "Honey", rgb = { 186, 136, 96 } },
+	{ name = "Tan", rgb = { 204, 156, 116 } },
+	{ name = "Sand", rgb = { 222, 184, 148 } },
+	{ name = "Light", rgb = { 238, 206, 176 } },
+	{ name = "Fair", rgb = { 248, 224, 204 } },
+}
+
 -- free starter fit every player owns (worn by default; Closet can switch to the Roblox avatar)
 Wardrobe.Starter = { top = "w_tee_white", bottom = "w_joggers_black", shoes = "w_sneakers_white" }
 

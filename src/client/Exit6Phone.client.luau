@@ -334,6 +334,22 @@ drawPhone = function()
 		local function closet(verb, a)
 			return act(function() StyleAction:InvokeServer(verb, a) end)
 		end
+		-- skin tone (free): step through the palette; 0 = the avatar's own
+		local tones = Wardrobe.SkinTones
+		local skin = tonumber(st.skin) or 0
+		local h = add("SKIN TONE", skin > 0 and tones[skin].name or "MY AVATAR'S")
+		h.BackgroundTransparency = 1
+		local swatch = add(skin > 0 and ("Skin: " .. tones[skin].name) or "Skin: my avatar's own", "")
+		if skin > 0 then
+			local c = tones[skin].rgb
+			local chip = new("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0),
+				Size = UDim2.fromOffset(28, 28), BackgroundColor3 = Color3.fromRGB(c[1], c[2], c[3]) }, swatch)
+			round(chip, 14)
+		end
+		-- the palette runs dark (1) -> fair (#tones); from "own" either way starts mid-palette
+		add("Lighter", skin < #tones and "SET" or "", skin < #tones and closet("skin", skin == 0 and 6 or skin + 1) or nil)
+		add("Darker", skin ~= 1 and "SET" or "", skin ~= 1 and closet("skin", skin == 0 and 5 or skin - 1) or nil)
+		if skin > 0 then add("Use my avatar's skin", "", closet("skin", 0)) end
 		for _, slot in ipairs(Wardrobe.Slots) do
 			local ids = {}
 			for id in pairs(owned) do

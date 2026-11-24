@@ -26,13 +26,14 @@ Players wear original EXIT 6 meshes (hair, clothing, shoes, headwear, jewelry) f
   - Jewellers (`jewel`/`diamond` names, plus about a third of the fictional "Neighborhood Styles" fronts, which become "Chester Gold & Time") sell the jewelry only.
   - Buying grants ownership and wears the item; buying an owned item just wears it, for free.
 - **Try-on:** at a counter, the first **A**/click tries the item on (server-side, session only). The row then reads `BUY $n`, and pressing again buys it. Leaving the counter, closing the menu or **B** puts the saved look back.
+- **Skin tone** (free, top of the Closet): 10 tones from Espresso to Fair (`Wardrobe.SkinTones`), stepped with **Lighter** / **Darker**. "Use my avatar's skin" restores the avatar's own body colours, and so does "Wear my Roblox avatar". It is applied through `BodyColors` and the body parts, with the originals remembered.
 - **Closet** (phone tab, replaces Hair Test) lists owned items by slot:
   - **A** on an item wears it; **A** on a worn item takes it off.
   - "Put the starter fit back on" restores the free starter fit.
   - "Wear my Roblox avatar" clears every slot.
   - Rows are chained for the gamepad.
-- **Save data:** `Exit6Profile.style = { v = 2, owned = {...}, <slot> = itemId }`. Import accepts only wearables valid for their slot, drops unknown ownership entries, and maps old ids through `Wardrobe.Legacy`; mapped ids count as owned. On the first v2 load everyone owns the starter fit (white tee, black joggers, white low-tops), and it is worn in any empty top, bottom or shoes slot.
-- **Remotes:** `Exit6Remotes.StyleAction` (`preview` / `cancel` / `equip` / `unequip` / `avatar` / `starter`) is server-validated, rate-limited to 0.12 s, and checks menu and reach on preview and ownership on equip. `HairTestAction` is gone.
+- **Save data:** `Exit6Profile.style = { v = 2, owned = {...}, <slot> = itemId, skin = toneIndex }`. Import accepts only wearables valid for their slot, drops unknown ownership entries, and maps old ids through `Wardrobe.Legacy`; mapped ids count as owned. On the first v2 load everyone owns the starter fit (white tee, black joggers, white low-tops), and it is worn in any empty top, bottom or shoes slot.
+- **Remotes:** `Exit6Remotes.StyleAction` (`preview` / `cancel` / `equip` / `unequip` / `avatar` / `starter` / `skin`) is server-validated, rate-limited to 0.12 s, and checks menu and reach on preview and ownership on equip. `HairTestAction` is gone.
 
 ## Uploaded assets (owner: user 10028644772)
 
@@ -71,6 +72,7 @@ Templates use `RenderFidelity = Automatic`, so distant characters draw lower LOD
 | Fit on a non-default R15 avatar (thin arms, tall feet, dynamic head), 13 looks, front and side | **Studio-verified** (screenshots in session). Fixes from these checks: mirrored "6", boot scaling, waistband at hem, own hair under beanie. |
 | Starter fit on first load; legacy save migration; save → load round-trip; tampered save rejected | **Studio-verified** |
 | Try-on / cancel / off-menu refusal / buy (cash deducted) / re-buy owned (free) / equip, unequip, avatar, starter / unowned equip refused | **Studio-verified** via the real remotes |
+| Skin tone: set via the remote, out-of-range / fractional / text values refused, revert to own colours, kept across respawn and save → load, bad saved value dropped | **Studio-verified** |
 | Respawn rebuilds every slot; all pieces welded, non-colliding, massless; own hair hidden | **Studio-verified** |
 | Shop menu rows and gamepad hint | **Studio-verified** (structure). The button press path itself was not clicked in Studio. |
 | Walking / driving / riding animation with pieces attached | Welds follow the parts. Clones were posed only; **not watched in motion** |
@@ -84,7 +86,7 @@ The place must be saved or published with `ServerStorage.Exit6ProductionAssets.W
 1. Spawn: you are in the starter fit.
 2. Barbershop: **A** on a cut tries it on, **A** again buys it, and **B** reverts an unbought try-on.
 3. Clothing store: try on and buy a hoodie, a fitted cap with locs, and a chain over a puffer.
-4. Phone (**View** / **D-pad Up**) → Closet: D-pad through the rows, then wear and take off items. "Wear my Roblox avatar", then "Put the starter fit back on".
+4. Phone (**View** / **D-pad Up**) → Closet: step the skin tone with Lighter / Darker, then D-pad through the rows and wear and take off items. "Wear my Roblox avatar", then "Put the starter fit back on".
 5. Respawn and rejoin: the look persists.
 6. Walk, sprint, drive, ride a bike: look for floating or clipping pieces.
 7. Stand in a group of players: watch frame time in the perf HUD.

@@ -8,7 +8,8 @@
 --              engine / handling (upgrade stages)
 --   bikeLife = { bestWheelie (s), totalWheelie (s), rideouts, finished, bestRide (points) }
 --   style    = { v, owned = { [itemId] = true }, hair, hat, top, bottom, shoes,
---                chain, neck, watch, bracelet, ears, eyes }   (Exit6Wardrobe ids)
+--                chain, neck, watch, bracelet, ears, eyes,      (Exit6Wardrobe ids)
+--                skin = Wardrobe.SkinTones index (nil = avatar's own) }
 --   home     = { id = "building:door", street = "..." }
 --   stash    = { [itemId] = count }                 (kept at home)
 --   business = { [storeKey] = { name, kind, bank } }
@@ -47,6 +48,8 @@ local function importStyle(dst, src)
 			end
 		end
 	end
+	local skin = tonumber(src.skin)
+	if skin and skin % 1 == 0 and skin >= 1 and skin <= #Wardrobe.SkinTones then dst.skin = skin end
 	if src.v == STYLE_VERSION then dst.v = STYLE_VERSION end
 end
 local loaded = Instance.new("BindableEvent")

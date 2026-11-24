@@ -71,6 +71,39 @@ Reconstructed institutions are built server-side inside the building's own model
 touched. See the final report in the commit history for the measured instance
 counts.
 
+## Photo-matched models (second pass)
+
+Schools and church signs were redone to match the buildings themselves, not
+one front photo:
+
+| Step | File |
+| --- | --- |
+| More angles of a building (all sides, free metadata, billed images) | `tools/reconstruction/institution_views.py <ids> --max N --zoom` |
+| Tight zoom on a sign seen in any reference image | `tools/reconstruction/sign_zoom.py <id> <image stem> <x> <y> [fov] [name]` |
+| Exact county footprint + photo-ray anchors | `tools/reconstruction/institution_footprints.py` → `InstitutionFootprints.lua` |
+| Aerial overlays for tracing | `tools/harness/aerial_overlay.py`, `tools/harness/plan_overlay.py` |
+| Polygon geometry (walls per edge, ear-clipped roofs, rounded corners, punched windows, sign text) | `src/server/World/InstitutionShapes.lua` |
+| Polygon-mode builder (`poly={...}`) and signs for any mode (`signs={...}`) | `src/server/World/InstitutionPoly.lua` |
+| Bespoke model | `src/server/World/Institutions/ChesterHigh.lua` |
+
+* An **anchor** `"<pano 8>_<heading>"` is where a named reference photo's centre
+  ray meets the footprint. Entrances, projecting blocks, height zones
+  (`parts`) and signs are placed at anchors, so they sit where the photo shows
+  them.
+* **Chester High** (155084) is traced from the 50-vertex county polygon and
+  the 2025 aerial and matched to 42 views: bowed W 9th front, glazed entrance
+  bay over the cantilevered balcony, terraces, rounded-corner gym/auditorium
+  with its stage box, four-storey pods, Barclay St plaza, and the real
+  monument and pylon signs.
+* **Signs** carry only text read from a photo; illegible signs are not
+  invented and individuals' names (pastors, bishops) are left out. Where a
+  sign contradicts the recorded identity the building takes the
+  photographed name and the note keeps the record.
+* Studio preview without a full city build: `TileBuilderV2.BuildOne(tile, id,
+  folder)` from a cloned World folder. If the Rojo plugin is disconnected,
+  `tools/harness/studio_push_world.sh` + `studio_sync_world.luau` copy the
+  sources in.
+
 ## Known limits
 
 * County footprints are sliced into strips, not semantic parts: where a church and

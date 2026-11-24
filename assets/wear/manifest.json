@@ -1,0 +1,1039 @@
+[
+  {
+    "name": "hair_sharp_low_taper",
+    "part": "Head",
+    "triangles": 2520,
+    "vertices": 1294,
+    "size": [
+      1.2188,
+      0.8422,
+      1.228
+    ],
+    "center": [
+      0.0,
+      0.2099,
+      0.011
+    ],
+    "note": "hair"
+  },
+  {
+    "name": "fade_sharp_low_taper",
+    "part": "Head",
+    "triangles": 560,
+    "vertices": 336,
+    "size": [
+      1.198,
+      0.7306,
+      1.198
+    ],
+    "center": [
+      0.0,
+      0.0153,
+      0.0
+    ],
+    "note": "semi-transparent fade band"
+  },
+  {
+    "name": "hair_mid_skin_fade",
+    "part": "Head",
+    "triangles": 2520,
+    "vertices": 1294,
+    "size": [
+      1.2281,
+      0.4975,
+      1.2163
+    ],
+    "center": [
+      0.0,
+      0.3923,
+      0.0059
+    ],
+    "note": "hair"
+  },
+  {
+    "name": "fade_mid_a",
+    "part": "Head",
+    "triangles": 560,
+    "vertices": 336,
+    "size": [
+      1.198,
+      0.4058,
+      1.198
+    ],
+    "center": [
+      0.0,
+      0.1777,
+      0.0
+    ],
+    "note": "semi-transparent fade band"
+  },
+  {
+    "name": "fade_mid_b",
+    "part": "Head",
+    "triangles": 560,
+    "vertices": 336,
+    "size": [
+      1.198,
+      0.66,
+      1.198
+    ],
+    "center": [
+      0.0,
+      -0.01,
+      0.0
+    ],
+    "note": "semi-transparent fade band"
+  },
+  {
+    "name": "hair_high_top_fade",
+    "part": "Head",
+    "triangles": 4248,
+    "vertices": 2308,
+    "size": [
+      1.2017,
+      1.0756,
+      1.2018
+    ],
+    "center": [
+      0.0001,
+      0.8112,
+      0.0001
+    ],
+    "note": "hair"
+  },
+  {
+    "name": "fade_high_a",
+    "part": "Head",
+    "triangles": 560,
+    "vertices": 336,
+    "size": [
+      1.198,
+      0.3175,
+      1.198
+    ],
+    "center": [
+      0.0,
+      0.2431,
+      0.0
+    ],
+    "note": "semi-transparent fade band"
+  },
+  {
+    "name": "fade_high_b",
+    "part": "Head",
+    "triangles": 560,
+    "vertices": 336,
+    "size": [
+      1.198,
+      0.66,
+      1.198
+    ],
+    "center": [
+      0.0,
+      -0.01,
+      0.0
+    ],
+    "note": "semi-transparent fade band"
+  },
+  {
+    "name": "hair_waves_360",
+    "part": "Head",
+    "triangles": 2520,
+    "vertices": 1294,
+    "size": [
+      1.2299,
+      0.8542,
+      1.2379
+    ],
+    "center": [
+      0.0,
+      0.2159,
+      0.0159
+    ],
+    "note": "hair"
+  },
+  {
+    "name": "fade_waves",
+    "part": "Head",
+    "triangles": 560,
+    "vertices": 336,
+    "size": [
+      1.198,
+      0.7306,
+      1.198
+    ],
+    "center": [
+      0.0,
+      0.0153,
+      0.0
+    ],
+    "note": "semi-transparent fade band"
+  },
+  {
+    "name": "hair_afro_taper",
+    "part": "Head",
+    "triangles": 3648,
+    "vertices": 1862,
+    "size": [
+      1.6351,
+      1.2364,
+      1.6536
+    ],
+    "center": [
+      -0.0018,
+      0.4051,
+      0.093
+    ],
+    "note": "hair"
+  },
+  {
+    "name": "fade_afro",
+    "part": "Head",
+    "triangles": 560,
+    "vertices": 336,
+    "size": [
+      1.198,
+      0.7306,
+      1.198
+    ],
+    "center": [
+      0.0,
+      0.0153,
+      0.0
+    ],
+    "note": "semi-transparent fade band"
+  },
+  {
+    "name": "hair_starter_locs",
+    "part": "Head",
+    "triangles": 5720,
+    "vertices": 2998,
+    "size": [
+      1.6825,
+      1.2982,
+      1.6886
+    ],
+    "center": [
+      -0.009,
+      0.1918,
+      0.0013
+    ],
+    "note": "hair"
+  },
+  {
+    "name": "hair_medium_locs",
+    "part": "Head",
+    "triangles": 11560,
+    "vertices": 5962,
+    "size": [
+      1.6816,
+      1.6074,
+      1.6483
+    ],
+    "center": [
+      -0.0033,
+      -0.0625,
+      0.0093
+    ],
+    "note": "hair"
+  },
+  {
+    "name": "hair_shoulder_locs",
+    "part": "Head",
+    "triangles": 13620,
+    "vertices": 6992,
+    "size": [
+      1.6061,
+      2.1385,
+      1.5736
+    ],
+    "center": [
+      -0.0026,
+      -0.3432,
+      0.0049
+    ],
+    "note": "hair"
+  },
+  {
+    "name": "hair_two_strand_twists",
+    "part": "Head",
+    "triangles": 8890,
+    "vertices": 4671,
+    "size": [
+      1.6925,
+      1.3179,
+      1.672
+    ],
+    "center": [
+      0.003,
+      0.1798,
+      0.0349
+    ],
+    "note": "hair"
+  },
+  {
+    "name": "hair_cornrows",
+    "part": "Head",
+    "triangles": 7032,
+    "vertices": 3566,
+    "size": [
+      1.214,
+      1.0199,
+      1.3523
+    ],
+    "center": [
+      0.0,
+      0.1806,
+      0.0002
+    ],
+    "note": "hair"
+  },
+  {
+    "name": "hair_box_braids",
+    "part": "Head",
+    "triangles": 9650,
+    "vertices": 4941,
+    "size": [
+      1.6047,
+      2.1715,
+      1.4974
+    ],
+    "center": [
+      0.0021,
+      -0.3657,
+      0.087
+    ],
+    "note": "hair"
+  },
+  {
+    "name": "hair_braided_ponytail",
+    "part": "Head",
+    "triangles": 6824,
+    "vertices": 3460,
+    "size": [
+      1.214,
+      1.925,
+      1.6429
+    ],
+    "center": [
+      0.0,
+      -0.2719,
+      0.1428
+    ],
+    "note": "hair"
+  },
+  {
+    "name": "hair_high_bun",
+    "part": "Head",
+    "triangles": 3600,
+    "vertices": 1836,
+    "size": [
+      1.2111,
+      1.4922,
+      1.2125
+    ],
+    "center": [
+      0.0,
+      0.3768,
+      0.0038
+    ],
+    "note": "hair"
+  },
+  {
+    "name": "hair_space_buns",
+    "part": "Head",
+    "triangles": 3512,
+    "vertices": 1796,
+    "size": [
+      1.3055,
+      1.2818,
+      1.2125
+    ],
+    "center": [
+      -0.0007,
+      0.2716,
+      0.0038
+    ],
+    "note": "hair"
+  },
+  {
+    "name": "hair_long_silk_press",
+    "part": "Head",
+    "triangles": 5720,
+    "vertices": 3222,
+    "size": [
+      1.454,
+      2.003,
+      1.4616
+    ],
+    "center": [
+      -0.0038,
+      -0.3345,
+      0.1202
+    ],
+    "note": "hair"
+  },
+  {
+    "name": "tee_torso",
+    "part": "UpperTorso",
+    "triangles": 2268,
+    "vertices": 1296,
+    "size": [
+      2.0376,
+      2.1662,
+      1.1117
+    ],
+    "center": [
+      -0.002,
+      -0.1628,
+      0.0
+    ],
+    "note": "tee body, hangs to the hips"
+  },
+  {
+    "name": "tee_sleeve",
+    "part": "UpperArm",
+    "triangles": 1652,
+    "vertices": 964,
+    "size": [
+      1.18,
+      0.8485,
+      1.18
+    ],
+    "center": [
+      0.0,
+      0.2457,
+      0.0
+    ],
+    "note": "short sleeve"
+  },
+  {
+    "name": "hoodie_torso",
+    "part": "UpperTorso",
+    "triangles": 4868,
+    "vertices": 2810,
+    "size": [
+      2.15,
+      2.4891,
+      1.305
+    ],
+    "center": [
+      0.0,
+      -0.05,
+      0.0275
+    ],
+    "note": "pullover hoodie body"
+  },
+  {
+    "name": "sleeve_upper",
+    "part": "UpperArm",
+    "triangles": 1452,
+    "vertices": 864,
+    "size": [
+      1.1119,
+      1.3306,
+      1.1098
+    ],
+    "center": [
+      0.0,
+      0.0305,
+      0.0011
+    ],
+    "note": "long sleeve, upper"
+  },
+  {
+    "name": "sleeve_lower",
+    "part": "LowerArm",
+    "triangles": 1964,
+    "vertices": 1206,
+    "size": [
+      1.0705,
+      1.1032,
+      1.0705
+    ],
+    "center": [
+      0.0,
+      0.0284,
+      0.0
+    ],
+    "note": "long sleeve, lower with ribbed cuff"
+  },
+  {
+    "name": "track_torso",
+    "part": "UpperTorso",
+    "triangles": 2292,
+    "vertices": 1308,
+    "size": [
+      2.0,
+      2.2335,
+      1.09
+    ],
+    "center": [
+      0.0,
+      -0.1032,
+      0.0
+    ],
+    "note": "track jacket body"
+  },
+  {
+    "name": "track_trim_torso",
+    "part": "UpperTorso",
+    "triangles": 1064,
+    "vertices": 744,
+    "size": [
+      2.04,
+      2.0,
+      0.787
+    ],
+    "center": [
+      0.0,
+      -0.18,
+      -0.1935
+    ],
+    "note": "zip line + collar tape (accent)"
+  },
+  {
+    "name": "track_trim_upper",
+    "part": "UpperArm",
+    "triangles": 864,
+    "vertices": 588,
+    "size": [
+      0.024,
+      1.28,
+      0.25
+    ],
+    "center": [
+      0.555,
+      0.03,
+      0.0
+    ],
+    "note": "sleeve stripes (accent), outer side"
+  },
+  {
+    "name": "track_trim_lower",
+    "part": "LowerArm",
+    "triangles": 864,
+    "vertices": 588,
+    "size": [
+      0.024,
+      0.96,
+      0.25
+    ],
+    "center": [
+      0.54,
+      0.08,
+      0.0
+    ],
+    "note": "sleeve stripes (accent), outer side"
+  },
+  {
+    "name": "puffer_torso",
+    "part": "UpperTorso",
+    "triangles": 3456,
+    "vertices": 1926,
+    "size": [
+      2.2985,
+      2.4104,
+      1.3785
+    ],
+    "center": [
+      0.0,
+      -0.0952,
+      0.0
+    ],
+    "note": "quilted puffer jacket body"
+  },
+  {
+    "name": "puffer_upper",
+    "part": "UpperArm",
+    "triangles": 2352,
+    "vertices": 1350,
+    "size": [
+      1.3184,
+      1.3754,
+      1.3184
+    ],
+    "center": [
+      0.0,
+      0.03,
+      0.0
+    ],
+    "note": "quilted puffer sleeve, upper"
+  },
+  {
+    "name": "puffer_lower",
+    "part": "LowerArm",
+    "triangles": 2540,
+    "vertices": 1518,
+    "size": [
+      1.2596,
+      1.1099,
+      1.2596
+    ],
+    "center": [
+      0.0,
+      0.0317,
+      0.0
+    ],
+    "note": "quilted puffer sleeve, lower"
+  },
+  {
+    "name": "pants_waist",
+    "part": "LowerTorso",
+    "triangles": 2400,
+    "vertices": 1452,
+    "size": [
+      2.0676,
+      0.4937,
+      1.078
+    ],
+    "center": [
+      0.0,
+      -0.0132,
+      0.0
+    ],
+    "note": "waistband + drawcord"
+  },
+  {
+    "name": "pants_upper",
+    "part": "UpperLeg",
+    "triangles": 1452,
+    "vertices": 864,
+    "size": [
+      1.0759,
+      1.4554,
+      1.0551
+    ],
+    "center": [
+      0.0,
+      -0.0197,
+      0.0001
+    ],
+    "note": "pant leg, thigh"
+  },
+  {
+    "name": "jogger_lower",
+    "part": "LowerLeg",
+    "triangles": 2240,
+    "vertices": 1356,
+    "size": [
+      1.04,
+      1.2166,
+      1.02
+    ],
+    "center": [
+      0.0,
+      0.0617,
+      0.0
+    ],
+    "note": "jogger leg tapering into a gathered cuff"
+  },
+  {
+    "name": "jeans_stacked_lower",
+    "part": "LowerLeg",
+    "triangles": 4524,
+    "vertices": 2808,
+    "size": [
+      1.172,
+      1.2849,
+      1.152
+    ],
+    "center": [
+      0.0,
+      0.0276,
+      0.0
+    ],
+    "note": "straight denim leg stacking over the shoe"
+  },
+  {
+    "name": "shorts_upper",
+    "part": "UpperLeg",
+    "triangles": 1728,
+    "vertices": 1014,
+    "size": [
+      1.195,
+      1.68,
+      1.174
+    ],
+    "center": [
+      0.0,
+      -0.13,
+      0.0
+    ],
+    "note": "basketball shorts leg past the knee"
+  },
+  {
+    "name": "leg_trim_upper",
+    "part": "UpperLeg",
+    "triangles": 864,
+    "vertices": 588,
+    "size": [
+      0.024,
+      1.4,
+      0.226
+    ],
+    "center": [
+      0.535,
+      -0.02,
+      0.0
+    ],
+    "note": "side stripes (accent), outer side"
+  },
+  {
+    "name": "leg_trim_lower",
+    "part": "LowerLeg",
+    "triangles": 864,
+    "vertices": 588,
+    "size": [
+      0.024,
+      1.0,
+      0.226
+    ],
+    "center": [
+      0.525,
+      0.08,
+      0.0
+    ],
+    "note": "side stripes (accent), outer side"
+  },
+  {
+    "name": "sneaker_upper",
+    "part": "Foot",
+    "triangles": 2064,
+    "vertices": 1190,
+    "size": [
+      1.04,
+      0.549,
+      1.3168
+    ],
+    "center": [
+      0.0,
+      0.1245,
+      -0.0816
+    ],
+    "note": "low-top sneaker upper with laces"
+  },
+  {
+    "name": "sneaker_sole",
+    "part": "Foot",
+    "triangles": 1200,
+    "vertices": 726,
+    "size": [
+      1.1,
+      0.1602,
+      1.34
+    ],
+    "center": [
+      0.0,
+      -0.1099,
+      -0.1
+    ],
+    "note": "cupsole (white / gum)"
+  },
+  {
+    "name": "boot_upper",
+    "part": "Foot",
+    "triangles": 2418,
+    "vertices": 1381,
+    "size": [
+      1.22,
+      1.0206,
+      1.35
+    ],
+    "center": [
+      0.0,
+      0.3503,
+      -0.035
+    ],
+    "note": "work boot, padded collar above the ankle"
+  },
+  {
+    "name": "boot_sole",
+    "part": "Foot",
+    "triangles": 1200,
+    "vertices": 726,
+    "size": [
+      1.16,
+      0.18,
+      1.36
+    ],
+    "center": [
+      0.0,
+      -0.115,
+      -0.08
+    ],
+    "note": "lug sole"
+  },
+  {
+    "name": "cap_fitted",
+    "part": "Head",
+    "triangles": 4200,
+    "vertices": 2274,
+    "size": [
+      1.5495,
+      0.7577,
+      1.8795
+    ],
+    "center": [
+      0.0,
+      0.4701,
+      -0.1503
+    ],
+    "note": "fitted cap crown + flat brim"
+  },
+  {
+    "name": "cap_emblem",
+    "part": "Head",
+    "triangles": 516,
+    "vertices": 260,
+    "size": [
+      0.2475,
+      0.4217,
+      0.1499
+    ],
+    "center": [
+      -0.0085,
+      0.5159,
+      -0.7554
+    ],
+    "note": "embroidered '6' on the crown front (accent)"
+  },
+  {
+    "name": "beanie",
+    "part": "Head",
+    "triangles": 2424,
+    "vertices": 1231,
+    "size": [
+      1.5696,
+      0.6707,
+      1.5677
+    ],
+    "center": [
+      -0.0,
+      0.4354,
+      0.001
+    ],
+    "note": "ribbed knit beanie with fold"
+  },
+  {
+    "name": "durag",
+    "part": "Head",
+    "triangles": 2930,
+    "vertices": 1505,
+    "size": [
+      1.2376,
+      1.65,
+      1.4005
+    ],
+    "center": [
+      0.0001,
+      -0.171,
+      0.0523
+    ],
+    "note": "durag with seam and tails"
+  },
+  {
+    "name": "ski_mask",
+    "part": "Head",
+    "triangles": 3520,
+    "vertices": 1866,
+    "size": [
+      1.2535,
+      1.3805,
+      1.2535
+    ],
+    "center": [
+      0.0,
+      0.0017,
+      -0.0
+    ],
+    "note": "knit ski mask"
+  },
+  {
+    "name": "chain_cuban",
+    "part": "UpperTorso",
+    "triangles": 6500,
+    "vertices": 3250,
+    "size": [
+      0.8856,
+      0.6236,
+      1.035
+    ],
+    "center": [
+      -0.0005,
+      0.6418,
+      -0.1308
+    ],
+    "note": "Cuban link chain"
+  },
+  {
+    "name": "chain_rope",
+    "part": "UpperTorso",
+    "triangles": 3300,
+    "vertices": 1660,
+    "size": [
+      0.8831,
+      0.5447,
+      1.0154
+    ],
+    "center": [
+      0.0004,
+      0.6703,
+      -0.1275
+    ],
+    "note": "rope chain (twisted)"
+  },
+  {
+    "name": "pendant_six",
+    "part": "UpperTorso",
+    "triangles": 702,
+    "vertices": 353,
+    "size": [
+      0.1647,
+      0.342,
+      0.0723
+    ],
+    "center": [
+      -0.004,
+      0.222,
+      -0.63
+    ],
+    "note": "'6' pendant (logo mark)"
+  },
+  {
+    "name": "headphones_neck",
+    "part": "UpperTorso",
+    "triangles": 1190,
+    "vertices": 601,
+    "size": [
+      1.2087,
+      0.3172,
+      1.0431
+    ],
+    "center": [
+      0.0,
+      0.944,
+      -0.0384
+    ],
+    "note": "over-ear headphones round the neck"
+  },
+  {
+    "name": "watch_case",
+    "part": "LeftLowerArm",
+    "triangles": 744,
+    "vertices": 380,
+    "size": [
+      1.2359,
+      0.374,
+      1.17
+    ],
+    "center": [
+      -0.033,
+      -0.36,
+      0.0
+    ],
+    "note": "watch case + band"
+  },
+  {
+    "name": "watch_dial",
+    "part": "LeftLowerArm",
+    "triangles": 80,
+    "vertices": 42,
+    "size": [
+      0.016,
+      0.28,
+      0.28
+    ],
+    "center": [
+      -0.64,
+      -0.36,
+      0.0
+    ],
+    "note": "watch dial (accent / ice)"
+  },
+  {
+    "name": "bracelet_cuban",
+    "part": "RightLowerArm",
+    "triangles": 336,
+    "vertices": 174,
+    "size": [
+      1.15,
+      0.0788,
+      1.15
+    ],
+    "center": [
+      -0.0,
+      -0.38,
+      0.0
+    ],
+    "note": "Cuban link bracelet"
+  },
+  {
+    "name": "earring_studs",
+    "part": "Head",
+    "triangles": 200,
+    "vertices": 104,
+    "size": [
+      1.27,
+      0.1,
+      0.0951
+    ],
+    "center": [
+      0.0,
+      -0.06,
+      0.04
+    ],
+    "note": "diamond studs"
+  },
+  {
+    "name": "earring_hoops",
+    "part": "Head",
+    "triangles": 576,
+    "vertices": 288,
+    "size": [
+      1.2512,
+      0.316,
+      0.316
+    ],
+    "center": [
+      0.0,
+      -0.2,
+      0.04
+    ],
+    "note": "gold hoops"
+  },
+  {
+    "name": "shades_frame",
+    "part": "Head",
+    "triangles": 970,
+    "vertices": 501,
+    "size": [
+      1.317,
+      0.2452,
+      0.8497
+    ],
+    "center": [
+      -0.0016,
+      0.0718,
+      -0.2665
+    ],
+    "note": "sunglasses frame"
+  },
+  {
+    "name": "shades_lens",
+    "part": "Head",
+    "triangles": 360,
+    "vertices": 184,
+    "size": [
+      0.76,
+      0.19,
+      0.0295
+    ],
+    "center": [
+      0.0,
+      0.075,
+      -0.64
+    ],
+    "note": "sunglasses lenses (tint)"
+  }
+]

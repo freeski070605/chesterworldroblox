@@ -24,6 +24,23 @@ Wardrobe.Roles = {
 	metal = { material = Enum.Material.Foil },
 	gem = { material = Enum.Material.Glass, reflectance = 0.25 },
 	lens = { material = Enum.Material.Glass, reflectance = 0.35 },
+	-- premium roles: `surface` names a PBR SurfaceAppearance set
+	-- (ServerStorage.Exit6ProductionAssets.Surfaces) that Exit6Style clones onto
+	-- premium meshes (which carry UVs + tangents) and tints with the role colour;
+	-- `material` is the fallback when the set is missing or the mesh is a base one
+	shell = { material = Enum.Material.SmoothPlastic, surface = "nylon" },
+	fleece = { material = Enum.Material.Fabric, surface = "fleece" },
+	accent = { material = Enum.Material.Fabric, surface = "fleece" },
+	knit = { material = Enum.Material.Fabric, surface = "knit" },
+	lace = { material = Enum.Material.Fabric, surface = "knit" },
+	stitch = { material = Enum.Material.Fabric, surface = "knit" },
+	leather = { material = Enum.Material.Leather, surface = "leather" },
+	overlay = { material = Enum.Material.Leather, surface = "leather" },
+	mark = { material = Enum.Material.Leather, surface = "leather" },
+	rubber = { material = Enum.Material.Rubber, surface = "rubber" },
+	ice = { material = Enum.Material.Glass, reflectance = 0.2, surface = "pave" },
+	silver = { material = Enum.Material.Foil, surface = "metal" },
+	locs = { material = Enum.Material.Fabric, surface = "locs" },
 }
 
 local HAIR = { 22, 17, 14 }
@@ -161,6 +178,75 @@ jewel("w_shades_gold", "Gold Frame Shades", 60, "eyes", { M("shades_frame"), { m
 jewel("w_headphones_white", "White Headphones", 90, "neck", { P("headphones_neck", "trim") }, { trim = { 236, 236, 236 } }, "clothing")
 jewel("w_headphones_black", "Black Headphones", 90, "neck", { P("headphones_neck", "trim") }, { trim = { 24, 24, 28 } }, "clothing")
 
+-- ---------------------------------------------------------------- EXIT 6 Premium (Robux)
+-- Sold only through Exit6Premium products (developer products, see that
+-- module). store = "premium" keeps them off every Chester Cash menu;
+-- premium = true makes Exit6Style render them only for owners (or try-on).
+-- bundleOnly items exist only inside an outfit bundle. Meshes: px_* from
+-- tools/assets/build_premium.py (Exit6PremiumMeshes).
+local BLK, CHAR, WHT = { 22, 22, 26 }, { 58, 58, 64 }, { 236, 236, 232 }
+local CHROME, DIAMOND = { 206, 210, 218 }, { 232, 242, 252 }
+local function premium(id, def)
+	def.store = "premium"
+	def.premium = true
+	def.price = 0
+	item(id, def)
+end
+local function R(mesh, role) return { mesh = mesh, role = role } end
+
+premium("p_pendant_silver", { name = "EXIT 6 Silver Pendant Chain", slot = "chain",
+	pieces = { R("px_box_chain", "silver"), R("px_pendant_s_body", "silver"), R("px_pendant_s_face", "silver") },
+	colors = { silver = CHROME } })
+premium("p_cuban_diamond", { name = "Diamond Cuban + EXIT 6 Piece", slot = "chain",
+	pieces = { R("px_cuban_chain", "ice"), R("px_pendant_body", "silver"), R("px_pendant_face", "ice") },
+	colors = { ice = DIAMOND, silver = CHROME } })
+premium("p_studs_diamond", { name = "Diamond Stud Earrings", slot = "ears",
+	pieces = { R("px_stud_stone", "gem"), R("px_stud_setting", "silver") },
+	colors = { gem = DIAMOND, silver = CHROME } })
+premium("p_watch_iced", { name = "Iced Octagon Watch", slot = "watch",
+	pieces = { R("px_watch_case", "silver"), R("px_watch_ice", "ice"), R("px_watch_hands", "silver") },
+	colors = { silver = CHROME, ice = DIAMOND } })
+
+local PUFFER_P = { R("px_puffer_body", "shell"), R("px_puffer_upper", "shell"), R("px_puffer_lower", "shell"),
+	R("px_puffer_cuff", "knit"), R("px_puffer_knit", "knit"), R("px_puffer_zip", "silver"), R("px_puffer_hood", "fleece") }
+premium("p_puffer_black", { name = "Oversized Winter Puffer", slot = "top", pieces = PUFFER_P, depth = 0.19,
+	colors = { shell = { 18, 18, 21 }, knit = BLK, silver = CHROME, fleece = CHAR } })
+
+local TRACK_TOP = { R("px_track_jacket", "fleece"), R("px_track_rib", "knit"), R("px_track_panels", "accent"),
+	R("px_track_zip", "silver"), R("px_track_logo", "silver"), R("sleeve_upper", "fleece"), R("sleeve_lower", "fleece"),
+	R("track_trim_upper", "accent"), R("track_trim_lower", "accent") }
+local TRACK_PANTS = { { mesh = "pants_waist", role = "fleece", underTop = true }, R("pants_upper", "fleece"),
+	R("jogger_lower", "fleece"), R("leg_trim_upper", "accent"), R("leg_trim_lower", "accent") }
+premium("p_track_top_black", { name = "Premium Track Jacket", slot = "top", pieces = TRACK_TOP, depth = 0.04,
+	colors = { fleece = BLK, knit = BLK, accent = WHT, silver = CHROME } })
+premium("p_track_pants_black", { name = "Premium Track Pants", slot = "bottom", pieces = TRACK_PANTS,
+	colors = { fleece = BLK, accent = WHT } })
+premium("p_track_top_nightlife", { name = "Nightlife Track Jacket (VIP)", slot = "top", pieces = TRACK_TOP, depth = 0.04,
+	bundleOnly = true, colors = { fleece = { 14, 14, 17 }, knit = { 14, 14, 17 }, accent = CHROME, silver = CHROME } })
+premium("p_track_pants_nightlife", { name = "Nightlife Track Pants (VIP)", slot = "bottom", pieces = TRACK_PANTS,
+	bundleOnly = true, colors = { fleece = { 14, 14, 17 }, accent = CHROME } })
+premium("p_cargo_black", { name = "Founder's Stacked Cargos", slot = "bottom", bundleOnly = true,
+	pieces = { { mesh = "pants_waist", role = "fleece", underTop = true }, R("px_cargo_upper", "fleece"),
+		R("px_cargo_snaps", "silver"), R("px_cargo_lower", "fleece") },
+	colors = { fleece = BLK, silver = CHROME } })
+
+local HIGHTOP = { R("px_hightop_base", "leather"), R("px_hightop_overlay", "overlay"), R("px_hightop_mark", "mark"),
+	R("px_hightop_sole", "rubber"), R("px_hightop_laces", "lace") }
+premium("p_hightops", { name = "EXIT 6 High-Tops", slot = "shoes", pieces = HIGHTOP,
+	colors = { leather = WHT, overlay = BLK, mark = { 196, 28, 36 }, rubber = { 244, 244, 240 }, lace = WHT } })
+premium("p_hightops_midnight", { name = "EXIT 6 High-Tops Midnight (VIP)", slot = "shoes", pieces = HIGHTOP, bundleOnly = true,
+	colors = { leather = { 20, 20, 24 }, overlay = { 12, 12, 14 }, mark = CHROME, rubber = { 26, 26, 30 }, lace = { 20, 20, 24 } } })
+
+premium("p_cap_fitted", { name = "Signature EXIT 6 Fitted", slot = "hat", cap = true,
+	pieces = { R("px_cap_crown", "knit"), R("px_cap_wordmark", "stitch") },
+	colors = { knit = { 16, 16, 19 }, stitch = CHROME } })
+
+premium("p_long_locs", { name = "Long Locs", slot = "hair", showsUnderCap = true,
+	pieces = { R("px_hair_long_locs", "locs"), R("px_loc_cuffs", "silver") },
+	colors = { locs = { 34, 25, 20 }, silver = CHROME } })
+premium("p_designer_cornrows", { name = "Designer Cornrows", slot = "hair", showsUnderCap = true,
+	pieces = { R("px_hair_designer_cornrows", "locs") }, colors = { locs = { 30, 22, 18 } } })
+
 -- skin tones (free, Closet): profile style.skin = index, 0 / nil = the avatar's own colours
 Wardrobe.SkinTones = {
 	{ name = "Espresso", rgb = { 58, 36, 26 } },
@@ -177,6 +263,9 @@ Wardrobe.SkinTones = {
 
 -- free starter fit every player owns (worn by default; Closet can switch to the Roblox avatar)
 Wardrobe.Starter = { top = "w_tee_white", bottom = "w_joggers_black", shoes = "w_sneakers_white" }
+
+-- saved outfits (loadouts) in the Closet: profile style.outfits["1".."4"] = { slot = itemId }
+Wardrobe.OutfitSlots = 4
 
 -- old profile ids -> new items (part-built looks and the Hair Test collection)
 Wardrobe.Legacy = {

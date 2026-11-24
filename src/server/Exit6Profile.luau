@@ -9,7 +9,10 @@
 --   bikeLife = { bestWheelie (s), totalWheelie (s), rideouts, finished, bestRide (points) }
 --   style    = { v, owned = { [itemId] = true }, hair, hat, top, bottom, shoes,
 --                chain, neck, watch, bracelet, ears, eyes,      (Exit6Wardrobe ids)
---                skin = Wardrobe.SkinTones index (nil = avatar's own) }
+--                skin = Wardrobe.SkinTones index (nil = avatar's own),
+--                outfits = { ["1".."4"] = { slot = itemId } } }   (saved loadouts)
+--              premium (Robux) items are never owned through this table on load:
+--              Exit6PremiumStore.server grants them from the entitlement store
 --   home     = { id = "building:door", street = "..." }
 --   stash    = { [itemId] = count }                 (kept at home)
 --   business = { [storeKey] = { name, kind, bank } }
@@ -32,7 +35,9 @@ local function importStyle(dst, src)
 	local n = 0
 	for id, v in pairs(owned) do
 		local it = type(id) == "string" and Catalog.Items[id]
-		if v == true and it and it.kind == "wear" and n < MAX_OWNED then
+		-- premium ownership comes only from the entitlement store
+		-- (Exit6PremiumStore.server grants it after load), never from the profile
+		if v == true and it and it.kind == "wear" and not it.premium and n < MAX_OWNED then
 			dst.owned[id] = true
 			n += 1
 		end
@@ -43,8 +48,25 @@ local function importStyle(dst, src)
 			id = Wardrobe.Legacy[id] or id
 			local it = Catalog.Items[id]
 			if it and it.kind == "wear" and it.slot == slot then
+				-- a worn premium item stays in its slot; Exit6Style renders it
+				-- only once the entitlement grant marks it owned
 				dst[slot] = id
-				dst.owned[id] = true
+				if not it.premium then dst.owned[id] = true end
+			end
+		end
+	end
+	if type(src.outfits) == "table" then
+		dst.outfits = {}
+		for i = 1, Wardrobe.OutfitSlots do
+			local look = src.outfits[tostring(i)]
+			if type(look) == "table" then
+				local clean = {}
+				for _, slot in ipairs(Wardrobe.Slots) do
+					local id = look[slot]
+					local it = type(id) == "string" and Catalog.Items[id]
+					if it and it.kind == "wear" and it.slot == slot then clean[slot] = id end
+				end
+				dst.outfits[tostring(i)] = clean
 			end
 		end
 	end

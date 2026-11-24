@@ -17,6 +17,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Catalog = require(Shared:WaitForChild("Exit6Catalog"))
 local Wardrobe = require(Shared:WaitForChild("Exit6Wardrobe"))
 local Meshes = require(Shared:WaitForChild("Exit6WearMeshes"))
+local PremiumMeshes = require(Shared:WaitForChild("Exit6PremiumMeshes"))
 local Profile = require(script.Parent:WaitForChild("Exit6Profile"))
 
 local Style = {}
@@ -50,9 +51,34 @@ local function template(name)
 	return (t and t:IsA("MeshPart")) and t or nil
 end
 
+-- fit data: base wardrobe meshes, then the premium (px_*) meshes
+local function meshInfo(name)
+	return Meshes.Meshes[name] or PremiumMeshes.Meshes[name]
+end
+Style.MeshInfo = meshInfo
+
+-- PBR sets (tools/studio/install_exit6_premium.luau); nil -> plain materials
+local function surface(name)
+	local root = ServerStorage:FindFirstChild("Exit6ProductionAssets")
+	local folder = root and root:FindFirstChild("Surfaces")
+	local sa = folder and folder:FindFirstChild(name)
+	return (sa and sa:IsA("SurfaceAppearance")) and sa or nil
+end
+
 function Style.Installed()
 	for name in pairs(Meshes.Meshes) do
 		if not template(name) then return false, name end
+	end
+	return true
+end
+
+-- every piece of an item has its template in the place (premium items are
+-- never sold or shown while their meshes are missing)
+function Style.ItemReady(itemId)
+	local it = Catalog.Items[itemId]
+	if not it or it.kind ~= "wear" then return false end
+	for _, piece in ipairs(it.pieces) do
+		if not meshInfo(piece.mesh) or not template(piece.mesh) then return false, piece.mesh end
 	end
 	return true
 end
@@ -100,7 +126,7 @@ end
 
 -- ---------------------------------------------------------------- fitting
 local function weldPiece(char, folder, piece, item, offset, underTop)
-	local info = Meshes.Meshes[piece.mesh]
+	local info = meshInfo(piece.mesh)
 	local tpl = template(piece.mesh)
 	if not info or not tpl then return 0 end
 	local role = Wardrobe.Roles[piece.role] or Wardrobe.Roles.main
@@ -135,7 +161,14 @@ local function weldPiece(char, folder, piece, item, offset, underTop)
 			mp.Color = color and c3(color) or Color3.fromRGB(30, 30, 34)
 			mp.Reflectance = role.reflectance or 0
 			mp.Transparency = piece.alpha or role.alpha or 0
-			mp.CastShadow = piece.role ~= "fade"
+			mp.CastShadow = piece.role ~= "fade" and info.size.Magnitude > 0.35
+			-- premium meshes carry UVs + tangents for their PBR set; tint it
+			local sa = info.tex and role.surface and surface(role.surface)
+			if sa then
+				local s = sa:Clone()
+				s.Color = mp.Color
+				s.Parent = mp
+			end
 			local w = Instance.new("Weld")
 			w.Name = "Exit6Fit"
 			w.Part0, w.Part1 = body, mp
@@ -156,11 +189,14 @@ local function lookFor(player)
 	local st = p and p.style or {}
 	local pv = previews[player] or {}
 	local look = {}
+	local owned = st.owned or {}
 	for _, slot in ipairs(Wardrobe.Slots) do
 		local id = pv[slot]
+		local previewed = id ~= nil
 		if id == nil then id = st[slot] end
 		local it = type(id) == "string" and Catalog.Items[id]
-		if it and it.slot == slot then look[slot] = id end
+		-- premium pieces only render for owners (or while trying them on)
+		if it and it.slot == slot and (previewed or not it.premium or owned[id] == true) then look[slot] = id end
 	end
 	local hat = look.hat and Catalog.Items[look.hat]
 	local hair = look.hair and Catalog.Items[look.hair]
@@ -263,6 +299,21 @@ function Style.Preview(player, itemId)
 	return true
 end
 
+-- try a whole look on (premium boutique: an outfit bundle or one product);
+-- look = { slot = itemId }, session only
+function Style.PreviewLook(player, look)
+	if not player.Character or type(look) ~= "table" then return false end
+	local pv = {}
+	for slot, id in pairs(look) do
+		local it = wearable(id)
+		if not it or it.slot ~= slot then return false end
+		pv[slot] = id
+	end
+	previews[player] = pv
+	Style.Apply(player)
+	return true
+end
+
 function Style.CancelPreview(player)
 	if previews[player] then
 		previews[player] = nil
@@ -317,6 +368,59 @@ function Style.SetSkin(player, index)
 	if not p or type(index) ~= "number" or index % 1 ~= 0
 		or index < 0 or index > #Wardrobe.SkinTones then return false end
 	p.style.skin = index > 0 and index or nil
+	Profile.Publish(player)
+	Style.Apply(player)
+	return true
+end
+
+-- saved outfits (loadouts): up to Wardrobe.OutfitSlots looks in the profile
+function Style.SaveOutfit(player, index)
+	local p = Profile.Get(player)
+	if not p or type(index) ~= "number" or index % 1 ~= 0 or index < 1 or index > Wardrobe.OutfitSlots then return false end
+	local look = {}
+	for _, slot in ipairs(Wardrobe.Slots) do
+		if p.style[slot] then look[slot] = p.style[slot] end
+	end
+	p.style.outfits = p.style.outfits or {}
+	p.style.outfits[tostring(index)] = look
+	Profile.Publish(player)
+	return true
+end
+
+function Style.WearOutfit(player, index)
+	local p = Profile.Get(player)
+	local outfits = p and p.style.outfits
+	local look = type(index) == "number" and outfits and outfits[tostring(index)]
+	if not look then return false end
+	-- only what the player still owns; everything else in the outfit is off
+	for _, slot in ipairs(Wardrobe.Slots) do
+		local id = look[slot]
+		local it = id and wearable(id)
+		p.style[slot] = (it and it.slot == slot and p.style.owned[id]) and id or nil
+	end
+	previews[player] = nil
+	Profile.Publish(player)
+	Style.Apply(player)
+	return true
+end
+
+function Style.ClearOutfit(player, index)
+	local p = Profile.Get(player)
+	if not p or not p.style.outfits or type(index) ~= "number" then return false end
+	p.style.outfits[tostring(index)] = nil
+	Profile.Publish(player)
+	return true
+end
+
+-- wear several owned items at once (a bought outfit bundle)
+function Style.EquipMany(player, ids)
+	local p = Profile.Get(player)
+	if not p then return false end
+	for _, id in ipairs(ids) do
+		local it = wearable(id)
+		if it and p.style.owned[id] then p.style[it.slot] = id end
+	end
+	previews[player] = nil
 	Profile.Publish(player)
 	Style.Apply(player)
 	return true

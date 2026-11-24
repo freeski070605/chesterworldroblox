@@ -90,3 +90,7 @@ The place must be saved or published with `ServerStorage.Exit6ProductionAssets.W
 5. Respawn and rejoin: the look persists.
 6. Walk, sprint, drive, ride a bike: look for floating or clipping pieces.
 7. Stand in a group of players: watch frame time in the perf HUD.
+
+## EXIT 6 Premium
+
+The Robux line (jewelry, streetwear, high-tops, hair, outfit bundles) builds on this system: see [EXIT6_PREMIUM.md](EXIT6_PREMIUM.md).

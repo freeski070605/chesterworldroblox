@@ -1,0 +1,80 @@
+{
+  "owner": {
+    "userId": 10028644772,
+    "note": "experience owner account; no group (DFB Solutions) id is configured, so assets are owned by the creator account that owns the place"
+  },
+  "model": {
+    "assetId": 79525151931765,
+    "name": "Exit6 Premium v1",
+    "file": "assets/wear/premium/exit6_premium.glb",
+    "meshes": 36,
+    "moderation": "Approved",
+    "uploaded": "2026-11-24"
+  },
+  "images": {
+    "pave": {
+      "color": 96263780496031,
+      "normal": 101855855010741,
+      "roughness": 120971305455033,
+      "metalness": 72219169611011
+    },
+    "metal": {
+      "color": 124141951325839,
+      "normal": 78198224979243,
+      "roughness": 123632756044323,
+      "metalness": 106795537735599
+    },
+    "nylon": {
+      "color": 72582694948204,
+      "normal": 71758027244946,
+      "roughness": 97652630943071
+    },
+    "fleece": {
+      "color": 139694740890408,
+      "normal": 103214488899613,
+      "roughness": 93783746180419
+    },
+    "knit": {
+      "color": 128687101975894,
+      "normal": 97432176287209,
+      "roughness": 90489567031265
+    },
+    "leather": {
+      "color": 106253754689630,
+      "normal": 123900542500442,
+      "roughness": 72500476441774
+    },
+    "rubber": {
+      "color": 77654006650020,
+      "normal": 114443497046839,
+      "roughness": 82166193064545
+    },
+    "locs": {
+      "color": 106508338453156,
+      "normal": 133289455080385,
+      "roughness": 129663155916191
+    }
+  },
+  "images_moderation": "all 26 Approved",
+  "patches": [
+    {
+      "assetId": 129965163941748,
+      "name": "Exit6 Premium patch 1",
+      "file": "assets/wear/premium/exit6_premium_patch.glb",
+      "meshes": [
+        "px_puffer_body",
+        "px_puffer_upper",
+        "px_puffer_lower",
+        "px_puffer_cuff",
+        "px_cargo_upper",
+        "px_cargo_lower",
+        "px_hightop_base",
+        "px_hightop_overlay",
+        "px_hightop_sole"
+      ],
+      "why": "lighter tessellation: Founder's Full Fit under the 70k-triangle look budget",
+      "moderation": "Approved",
+      "uploaded": "2026-11-24"
+    }
+  ]
+}

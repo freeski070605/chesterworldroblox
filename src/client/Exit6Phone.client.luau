@@ -20,6 +20,7 @@ local ShopOpen = remotes:WaitForChild("ShopOpen")
 local Purchase = remotes:WaitForChild("Purchase")
 local StyleAction = remotes:WaitForChild("StyleAction")
 local Wardrobe = require(Shared:WaitForChild("Exit6Wardrobe"))
+local Premium = require(Shared:WaitForChild("Exit6Premium"))
 local UseItem = remotes:WaitForChild("UseItem")
 local QuitJob = remotes:WaitForChild("QuitJob")
 
@@ -119,6 +120,13 @@ local function closeAll()
 	GuiService.SelectedObject = nil
 end
 
+-- EXIT 6 Premium boutique (Exit6Boutique.client): opened on a product
+local function openBoutique(sku)
+	local b = player.PlayerGui:FindFirstChild("Exit6Boutique")
+	local ev = b and b:FindFirstChild("Open")
+	if ev then ev:Fire(sku) end
+end
+
 local function drawShop()
 	if not openShop then return end
 	local c = cash()
@@ -168,6 +176,19 @@ local function drawShop()
 		if keep == order or not first then first = b end
 	end
 	shop.Hint.Text = wearShop and "A  TRY ON / BUY     B  CLOSE" or "A / CLICK  BUY       B / BACKSPACE  CLOSE"
+	-- the Robux collection for this kind of store: opens the boutique on it
+	local skus = Premium.ForStore(openShop.kind)
+	if #skus > 0 then
+		local h = row(shopList, 900, "EXIT 6 PREMIUM  (ROBUX)", "")
+		h.BackgroundTransparency = 1
+		for i, sku in ipairs(skus) do
+			local b = row(shopList, 900 + i, Premium.Products[sku].name, "R$ " .. Premium.Products[sku].robux, function()
+				closeAll()
+				openBoutique(sku)
+			end)
+			b.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
+		end
+	end
 	local leave = row(shopList, 999, "Leave", "", closeAll)
 	leave.BackgroundColor3 = Color3.fromRGB(28, 32, 40)
 	if GuiService.SelectedObject == nil or not GuiService.SelectedObject:IsDescendantOf(shop) then
@@ -367,6 +388,28 @@ drawPhone = function()
 				end
 			end
 		end
+		-- saved outfits (loadouts)
+		local outfits = type(st.outfits) == "table" and st.outfits or {}
+		local oh = add("OUTFITS", "")
+		oh.BackgroundTransparency = 1
+		for i = 1, Wardrobe.OutfitSlots do
+			local look = outfits[tostring(i)]
+			if type(look) == "table" then
+				local n = 0
+				for _ in pairs(look) do n += 1 end
+				add("Wear Outfit " .. i .. "  (" .. n .. " pieces)", "WEAR", closet("outfit_wear", i))
+				add("Save current fit over Outfit " .. i, "SAVE", closet("outfit_save", i))
+			else
+				add("Save current fit as Outfit " .. i, "SAVE", closet("outfit_save", i))
+			end
+		end
+		local ph = add("EXIT 6 PREMIUM", "")
+		ph.BackgroundTransparency = 1
+		local pb = add("Open the Premium boutique", "R$", function()
+			phone.Visible = false
+			openBoutique(nil)
+		end)
+		pb.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
 		add("Put the starter fit back on", "FREE", closet("starter"))
 		add("Wear my Roblox avatar", "", closet("avatar"))
 		add("Cuts: barbershops. Fits: clothing stores.", "")
@@ -645,6 +688,9 @@ ContextActionService:BindActionAtPriority("Exit6Phone", function(_, state, input
 	if state ~= Enum.UserInputState.Begin then return Enum.ContextActionResult.Pass end
 	local mainMenu = player.PlayerGui:FindFirstChild("Exit6MainMenu")
 	if mainMenu and mainMenu.Enabled then return Enum.ContextActionResult.Pass end
+	-- the Premium boutique owns the D-pad while it is open
+	local boutique = player.PlayerGui:FindFirstChild("Exit6Boutique")
+	if boutique and boutique.Enabled then return Enum.ContextActionResult.Pass end
 	if input.KeyCode == Enum.KeyCode.DPadUp and player:GetAttribute("CW_Flying") then return Enum.ContextActionResult.Pass end
 	togglePhone()
 	return Enum.ContextActionResult.Sink
@@ -658,7 +704,8 @@ local phoneButton = new("TextButton", { Name = "PhoneButton", AnchorPoint = Vect
 round(phoneButton, 10)
 phoneButton.Activated:Connect(togglePhone)
 RunService.Heartbeat:Connect(function()
-	phoneButton.Visible = not phone.Visible and not shop.Visible
+	local boutique = player.PlayerGui:FindFirstChild("Exit6Boutique")
+	phoneButton.Visible = not phone.Visible and not shop.Visible and not (boutique and boutique.Enabled)
 end)
 
 local function closePhoneAndShop()

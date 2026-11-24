@@ -199,6 +199,12 @@ StyleAction.OnServerInvoke = function(player, verb, a, b)
 		return Style.WearStarter(player)
 	elseif verb == "skin" then
 		return Style.SetSkin(player, a)
+	elseif verb == "outfit_save" then
+		return Style.SaveOutfit(player, a)
+	elseif verb == "outfit_wear" then
+		return Style.WearOutfit(player, a)
+	elseif verb == "outfit_clear" then
+		return Style.ClearOutfit(player, a)
 	end
 	return false, "Unknown action"
 end

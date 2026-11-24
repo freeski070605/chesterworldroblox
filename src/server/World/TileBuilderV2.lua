@@ -2611,8 +2611,12 @@ local BuildingReviewOverrides = require(script.Parent:WaitForChild("BuildingRevi
 local NeighborhoodScope = require(script.Parent:WaitForChild("NeighborhoodScope"))
 local PropertyReconstruction = require(script.Parent:WaitForChild("PropertyReconstruction"))
 local HouseKitSpec = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("HouseKit"))
+-- photo-reviewed schools / churches / institutions (InstitutionArchitecture.lua)
+local InstitutionReconstruction = require(script.Parent:WaitForChild("InstitutionReconstruction"))
+local InstitutionArchitecture = require(script.Parent:WaitForChild("InstitutionArchitecture"))
 local function buildFootprintBuilding(parent, building, shapeData)
 	local review = shapeData._review
+	local inst = shapeData._inst
 	local style = BUILDING_STYLES[shapeData.style] or BUILDING_STYLES.generic
 	local seed = tonumber(building.id) or 1
 	local wall = pick(style.walls, seed, 1)
@@ -2674,7 +2678,7 @@ local function buildFootprintBuilding(parent, building, shapeData)
 		model:SetAttribute("ReconstructionReviewed", true)
 	end
 	local gable = (style.roof == "gable" or (review and review.roof == "gable"))
-        and (#shapeData.r <= 3 or tostring(building.id) == "147448")
+        and (#shapeData.r <= 3 or tostring(building.id) == "147448") and not inst
 	local roofColor = style.roofs and pick(style.roofs, seed, 2)
 	-- measured roof colour from the 2025 aerial (tools/build_building_tiles.py),
 	-- slightly darkened: the orthophoto is brighter than in-game lighting
@@ -2933,7 +2937,7 @@ local function buildFootprintBuilding(parent, building, shapeData)
             end
 			built += 1
 			local area = along * across
-			local info = { index = rectIndex - 1, x = x, z = z, along = along, across = across, area = area,
+			local info = { index = rectIndex - 1, x = x, z = z, along = along, across = across, area = area, base = base,
 				bandY = math.min(streetLevel + math.max(storey, 12) - 1.4, wallTop - 1.6),
 				streetLevel = streetLevel, porchTop = math.min(streetLevel + storey, wallTop - 1),
 				wallTop = wallTop, storey = storey }
@@ -3053,7 +3057,18 @@ local function buildFootprintBuilding(parent, building, shapeData)
             end
         end
     end
-	if built > 0 and review and review.gothic and signRect and shapeData.fb then
+	if built > 0 and inst then
+		model:SetAttribute("InstitutionKind", inst.kind)
+		model:SetAttribute("InstitutionArch", inst.arch)
+		model:SetAttribute("InstitutionConfidence", inst.confidence)
+		model:SetAttribute("InstitutionEvidence", inst.photo)
+		model:SetAttribute("InstitutionSeen", inst.seen)
+		local ok, err = pcall(InstitutionArchitecture.Build, model, inst, {
+			rects = builtRects, yaw = yaw, S = S, hStuds = heightStuds, wall = wall, material = material,
+			roofColor = measured, front = shapeData.fb, corner = shapeData.fb2, buildingId = tostring(building.id), applyFacade = applyFacade })
+		if not ok then warn("[ChesterWorld Institutions] " .. tostring(building.id) .. " " .. tostring(err)) end
+	end
+	if built > 0 and not inst and review and review.gothic and signRect and shapeData.fb then
 		local frame = CFrame.new(signRect.x,0,signRect.z)*yaw
 		local normal = faceToward(frame,shapeData.fb)
 		local extent = normal.X ~= 0 and signRect.along/2 or signRect.across/2
@@ -3079,7 +3094,7 @@ local function buildFootprintBuilding(parent, building, shapeData)
 			end
 		end
 	end
-	if built > 0 and shapeData.pb and shapeData.pd and signRect and not (realCtx and realCtx.homeBuilt) then
+	if built > 0 and not inst and shapeData.pb and shapeData.pd and signRect and not (realCtx and realCtx.homeBuilt) then
 		buildPorch(model, shapeData, signRect, yaw)
 	end
 	if built > 0 and shapeData.lm and shapeData.lb then
@@ -3155,6 +3170,29 @@ end
 
 local function buildBuilding(parent, building, shapes)
     local shapeData = shapes and shapes[tostring(building.id)]
+    local inst = InstitutionReconstruction[tostring(building.id)]
+    if inst and inst.kind == "demolished" then
+        -- photographed as an empty lot: the county footprint is out of date
+        return
+    end
+    if shapeData and inst then
+        local copy = {}
+        for key, value in pairs(shapeData) do copy[key] = value end
+        if inst.name ~= nil then copy.name = inst.name or nil end
+        if inst.kind == "reclassified" then
+            -- the photo shows another building type entirely (e.g. garden
+            -- apartments matched to a school address): type change only
+            copy.style = inst.style
+        elseif inst.kind ~= "rename" then
+            copy._inst = inst
+            copy.style = inst.style or copy.style
+            if inst.h then copy.h = inst.h end
+            -- institutions carry no zoning shopfront ground storey / porch
+            copy.gs, copy.pb, copy.pd = nil, nil, nil
+            if not copy.ss then copy.sb = nil end
+        end
+        shapeData = copy
+    end
     local correction, recon = reviewFor(tostring(building.id))
     if shapeData and recon and not correction then
         -- evidence status only (no verified structure): keep the fallback shape
@@ -3239,6 +3277,9 @@ local function buildBuilding(parent, building, shapes)
             copy.pb, copy.pd = nil, nil
         end
         shapeData = copy
+    end
+    if shapeData and shapeData._inst and shapeData._inst.style then
+        shapeData.style = shapeData._inst.style   -- the institution review outranks older archetypes
     end
 	if shapeData and buildFootprintBuilding(parent, building, shapeData) then
 		return

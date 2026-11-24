@@ -283,7 +283,10 @@ local function restyledWithSign(key, label, material, color, signColor, textColo
 	if not wall then return end
 	local model = Instance.new("Model")
 	model.Name = Landmarks[key].name
-	restyle(models, material, color, true)
+	-- a photo-reviewed institution (InstitutionReconstruction.lua) already
+	-- carries its photographed material and colour: keep it, add the sign only
+	local reviewed = models[1] and models[1]:GetAttribute("InstitutionKind") ~= nil
+	if not reviewed then restyle(models, material, color, true) end
 	local face, width = streetFace(wall)
 	local bottom = wallBottomY(wall)
 	face = face - Vector3.new(0, face.Position.Y - bottom, 0)

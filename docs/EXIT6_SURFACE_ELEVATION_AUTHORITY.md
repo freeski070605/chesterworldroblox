@@ -19,6 +19,8 @@ the driving collision geometry.
 | Mapped parking | Existing Terrain collision; OSM material polygons | Existing Terrain collision, material only |
 | Gas forecourts | Terrain under canopy | Nearby finished road where within two studs; Terrain takes collision where a slab overlaps a road, walk, another canopy, or uneven ground |
 | Gas entrances | Forecourt and finished road tops | Graded ramp Parts; intersecting sidewalk Parts are split around the entrance |
+| Kerlin over Chester Creek (Crozer Park) | `WorldData/DesignedRoadProfiles` chord between bank anchors | TileBuilderV2 strip sampling (road, sidewalks, centre line); LocalBridgeDressing dresses it |
+| Lot access crossings | Finished road top, walk top, final lot Terrain | `AccessCrossings`: curb-cut apron replaces the split walk; two eased strips to the lot at <= 12 % |
 
 `RoadTerrainClear` removes Terrain protruding above road, junction, and walk
 footprints after road conformance; `WaterBuilder` restores mapped water after

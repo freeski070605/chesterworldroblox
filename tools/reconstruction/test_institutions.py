@@ -147,6 +147,16 @@ class InstitutionRules(unittest.TestCase):
         self.assertGreaterEqual(len(archs), len(ENTRIES) * 0.3)
         self.assertLess(len(steepled), len(churches) * 0.25, "most real Chester churches have no steeple")
 
+    def test_spec_module_is_well_formed(self):
+        """Cheap structural check (no Luau parser here): balanced braces outside
+        strings and no doubled commas - a broken table silently drops every
+        institution in game."""
+        text = SPEC.read_text(encoding="utf-8")
+        stripped = re.sub(r'"(?:[^"\\\n]|\\.)*"', '""', text)
+        stripped = re.sub(r"--[^\n]*", "", stripped)
+        self.assertEqual(stripped.count("{"), stripped.count("}"))
+        self.assertNotRegex(stripped, r",\s*,")
+
     def test_custom_models_exist(self):
         """A bespoke photo-matched model (custom=...) must exist as a module."""
         for bid, body in ENTRIES.items():

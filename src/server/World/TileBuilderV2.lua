@@ -9,6 +9,7 @@ local HighwayProfile = require(script.Parent:WaitForChild("HighwayProfile"))
 local RailProfile = require(script.Parent:WaitForChild("RailProfile"))
 local RealBuildings = require(script.Parent:WaitForChild("RealBuildings"))
 local WaterMap = require(script.Parent:WaitForChild("WaterMap"))
+local DesignedRoadProfiles = require(Shared:WaitForChild("WorldData"):WaitForChild("DesignedRoadProfiles"))
 RealBuildings.stats = { frontDoors = 0, backDoors = 0, sideDoors = 0, storefronts = 0, shops = 0, homes = 0, stores = 0 }
 
 local TileBuilderV2 = {}
@@ -107,6 +108,79 @@ local function terrainY(xStuds, zStuds)
 	return hit and hit.Position.Y or nil
 end
 
+-- Designed street profiles (WorldData/DesignedRoadProfiles): untagged valley
+-- crossings whose strips must be generated on the bank-to-bank chord rather
+-- than on the valley floor. Resolved on first use, once Terrain exists.
+local designedProfiles = nil
+local designedStreet = nil   -- street of the strip currently being sampled
+local function designKeyName(name)
+	local value = string.lower(tostring(name or "")):gsub("[^%w%s]", " ")
+	value = value:gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+	for _, suffix in ipairs({ "%s+street$", "%s+st$", "%s+avenue$", "%s+ave$", "%s+road$", "%s+rd$" }) do
+		value = value:gsub(suffix, "")
+	end
+	return value
+end
+local function resolveDesignedProfiles()
+	if designedProfiles then return designedProfiles end
+	designedProfiles = {}
+	for _, spec in ipairs(DesignedRoadProfiles) do
+		local sx, sz = sourceToStuds(spec.startM[1], spec.startM[2])
+		local ex, ez = sourceToStuds(spec.finishM[1], spec.finishM[2])
+		local sy, ey = terrainY(sx, sz), terrainY(ex, ez)
+		local axis = Vector3.new(ex - sx, 0, ez - sz)
+		local run = axis.Magnitude
+		local status = "applied"
+		if not sy or not ey or run < 1 then
+			status = "rejected:noAnchorTerrain"
+		elseif math.abs(ey - sy) / run > (spec.maxGrade or 0.06) then
+			status = "rejected:anchorGrade"
+		else
+			-- The chord must bridge the valley, never cut through a rise.
+			for i = 1, 19 do
+				local t = i / 20
+				local g = terrainY(sx + axis.X * t, sz + axis.Z * t)
+				if g and g > sy + (ey - sy) * t + 0.75 then
+					status = "rejected:terrainAboveChord"
+					break
+				end
+			end
+		end
+		local lowest = math.huge
+		for i = 0, 20 do
+			local g = terrainY(sx + axis.X * i / 20, sz + axis.Z * i / 20)
+			if g then lowest = math.min(lowest, g) end
+		end
+		print(("[ChesterWorld DesignedRoadProfile] id=%s %s start=(%.1f,%.1f) y=%s finish=(%.1f,%.1f) y=%s run=%.1f lowestTerrain=%.2f")
+			:format(spec.id, status, sx, sz, sy and ("%.2f"):format(sy) or "nil",
+				ex, ez, ey and ("%.2f"):format(ey) or "nil", run, lowest))
+		if status == "applied" then
+			table.insert(designedProfiles, {
+				id = spec.id, street = designKeyName(spec.street),
+				sx = sx, sz = sz, sy = sy, ey = ey,
+				ux = axis.X / run, uz = axis.Z / run, run = run,
+				halfWidth = spec.corridorHalfWidthStuds or 30,
+			})
+		end
+	end
+	return designedProfiles
+end
+-- Ground height a strip of the active street must use at (x, z), or nil.
+local function designedGroundY(x, z)
+	if not designedStreet or #DesignedRoadProfiles == 0 then return nil end
+	for _, p in ipairs(resolveDesignedProfiles()) do
+		if p.street == designedStreet then
+			local dx, dz = x - p.sx, z - p.sz
+			local along = dx * p.ux + dz * p.uz
+			local across = math.abs(dx * p.uz - dz * p.ux)
+			if along >= 0 and along <= p.run and across <= p.halfWidth then
+				return p.sy + (p.ey - p.sy) * along / p.run, p.id
+			end
+		end
+	end
+	return nil
+end
+
 -- Only fill small, nearly level holes at a terrain tile seam. Do not
 -- extrapolate across a cliff, excavation, river or elevated structure.
 local seamDirections = {
@@ -123,6 +197,8 @@ local function wetSurface(x,z)
     return hit ~= nil and hit.Material == Enum.Material.Water
 end
 local function terrainYForStripEndpoint(x,z)
+    local designed = designedGroundY(x,z)
+    if designed ~= nil then return designed end
     local exact = terrainY(x,z)
     if exact ~= nil then return exact end
     -- Only fill isolated, nearly level, DRY gaps. Never infer shoreline
@@ -995,7 +1071,8 @@ local function shouldSplit(a, b, depth, surfaceOffset, gradeOffset, sampleX, sam
 	if horizontalLength(a, b) > WorldConfig.ROAD_MAX_PIECE_LENGTH_STUDS then return true end
 	local midX = (a.X + b.X) / 2
 	local midZ = (a.Z + b.Z) / 2
-	local groundMid = terrainY(midX + (sampleX or 0), midZ + (sampleZ or 0))
+	local groundMid = designedGroundY(midX + (sampleX or 0), midZ + (sampleZ or 0))
+		or terrainY(midX + (sampleX or 0), midZ + (sampleZ or 0))
 	if groundMid == nil then return false end
 	local terrainMidY = groundMid + surfaceOffset + (gradeOffset or 0)
 	local linearMidY = (a.Y + b.Y) / 2
@@ -1016,6 +1093,11 @@ local function buildAdaptiveCenterStrip(parent, name, x1, z1, x2, z2, width, thi
 	-- lateral terrain slope must not create a separate vertical road profile.
 	local sampleX = attributes and attributes.__sampleX or 0
 	local sampleZ = attributes and attributes.__sampleZ or 0
+	-- Designed profiles are keyed by street; set the street for this strip's
+	-- samples (sidewalks and centre lines carry their street's name).
+	designedStreet = type(attributes) == "table" and (attributes.CW_GradeLevel or 0) == 0
+		and designKeyName(attributes.ChesterStreet) or nil
+	local _, designedId = designedGroundY((x1 + x2) / 2 + sampleX, (z1 + z2) / 2 + sampleZ)
 	local a, b, grade = groundPair(x1 + sampleX, z1 + sampleZ,
 		x2 + sampleX, z2 + sampleZ, surfaceOffset, gradeOffset)
 	if a and b then
@@ -1081,6 +1163,9 @@ local function buildAdaptiveCenterStrip(parent, name, x1, z1, x2, z2, width, thi
     if part and attributes then
         for key, value in pairs(attributes) do
             if string.sub(key, 1, 2) ~= "__" then part:SetAttribute(key, value) end
+        end
+        if designedId then
+            part:SetAttribute("CW_DesignedProfile", designedId)
         end
         if allowSteepHighway and gradeOffset == 0 then
             local run = horizontalLength(a, b)

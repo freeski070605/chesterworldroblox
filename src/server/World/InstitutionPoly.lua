@@ -34,6 +34,108 @@ end
 local FONTS = { serif = Enum.Font.Garamond, sans = Enum.Font.GothamBold, slab = Enum.Font.Bodoni,
 	plain = Enum.Font.Gotham, script = Enum.Font.Fondamento, block = Enum.Font.SourceSansBold }
 
+local function buildSigns(b, list, anchor, F, ctx, Shapes, ground)
+	local S = ctx.S
+	local function H(m) return m * S end
+	local function L(m) return m * S * 1.3 end
+	for _, sg in ipairs(list or {}) do
+		local e, x, h = anchor(sg.at)
+		if e then
+			local w, hh = L(sg.w or 3), H(sg.h or 0.9)
+			local bg = sg.bg and hex(sg.bg) or Color3.fromRGB(30, 40, 70)
+			local lines = {}
+			local yAcc = 0.06
+			for _, l in ipairs(sg.lines) do
+				local y = l.y or yAcc
+				table.insert(lines, { text = l[1], size = l[2] or 0.4, y = y, font = FONTS[l.font or sg.font or "sans"] or Enum.Font.GothamBold,
+					color = l.color and hex(l.color) or (sg.fg and hex(sg.fg) or Color3.new(1, 1, 1)), x = l.x, wScale = l.wScale })
+				yAcc = y + (l[2] or 0.4) + 0.04
+			end
+			if sg.kind == "awning" then
+				-- a sloped fabric awning over the doors, lettering on its face
+				local y = ground + H(sg.y or 3.2)
+				local d = L(sg.d or 1.2)
+				local p = b:part("InstitutionSign", Vector3.new(w, hh, 0.3), e.face * CFrame.new(x + L(sg.dx or 0), y, -d), Enum.Material.Fabric, bg)
+				b:part("AwningTop", Vector3.new(w, 0.3, d), e.face * CFrame.new(x + L(sg.dx or 0), y + hh / 2, -d / 2), Enum.Material.Fabric, bg)
+				Shapes.signText(p, Enum.NormalId.Front, lines, 28)
+			elseif sg.kind == "wall" or sg.kind == "banner" then
+				local y = ground + H(sg.y or 3.2)
+				local p = b:part("InstitutionSign", Vector3.new(w, hh, 0.3), e.face * CFrame.new(x + L(sg.dx or 0), y, -(sg.proud or 0.5)),
+					sg.kind == "banner" and Enum.Material.Fabric or Enum.Material.SmoothPlastic, bg)
+				if sg.clear then p.Transparency = 1 end
+				Shapes.signText(p, Enum.NormalId.Front, lines, 28)
+			else
+				-- freestanding: on the lawn between the wall and the camera
+				local hit = F.pt(h[1], h[2])
+				local cam = F.pt(h[3], h[4])
+				local dir = (cam - hit)
+				local dist = dir.Magnitude
+				dir = dist > 0 and dir / dist or e.n
+				local pos = hit + dir * math.min(L(sg.out or 6), dist * 0.8) + e.right * L(sg.dx or 0)
+				if sg.dist then
+					-- measured along the photo ray from the camera
+					pos = cam - dir * math.min(L(sg.dist), dist - 2) + e.right * L(sg.dx or 0)
+				end
+				local gy = ctx.terrainY(pos.X, pos.Z) or ground
+				local facing = sg.faceStreet and dir or e.n
+				local M = CFrame.lookAt(Vector3.new(pos.X, gy, pos.Z), Vector3.new(pos.X, gy, pos.Z) + facing)
+				local lift = H(sg.lift or (sg.kind == "pylon" and 1.6 or sg.kind == "board" and 0.8 or 0))
+				if sg.kind == "pylon" and sg.body then
+					local body = b:part("SignBody", Vector3.new(L(sg.body.w or 1.2), lift, L(sg.body.d or 0.5)), M * CFrame.new(0, lift / 2, 0.1),
+						Enum.Material.Metal, sg.post and hex(sg.post) or Color3.fromRGB(28, 28, 30), true)
+					if sg.body.text then
+						Shapes.signText(body, Enum.NormalId.Front, { { text = sg.body.text, size = 0.12, y = sg.body.y or 0.55, x = 0.25, wScale = 0.5,
+							font = Enum.Font.GothamBold, color = Color3.new(1, 1, 1) } }, 28)
+					end
+				elseif sg.kind == "monument" then
+					b:part("SignBase", Vector3.new(w + L(0.4), hh + lift + 1, L(0.6)), M * CFrame.new(0, (hh + lift) / 2 - 0.5, 0.15),
+						mat(sg.baseMaterial, Enum.Material.Brick), sg.base and hex(sg.base) or Color3.fromRGB(140, 74, 56), true)
+				else
+					for side = -1, 1, 2 do
+						if sg.kind == "board" or side == -1 then
+							b:part("SignPost", Vector3.new(0.5, lift + hh, 0.5),
+								M * CFrame.new(sg.kind == "pylon" and 0 or side * (w / 2 - 0.4), (lift + hh) / 2, 0.3), Enum.Material.Metal,
+								sg.post and hex(sg.post) or Color3.fromRGB(40, 40, 42), true)
+						end
+					end
+				end
+				local p = b:part("InstitutionSign", Vector3.new(w, hh, 0.35), M * CFrame.new(0, lift + hh / 2, -0.05),
+					Enum.Material.SmoothPlastic, bg, true)
+				Shapes.signText(p, Enum.NormalId.Front, lines, 28)
+				if sg.twoSided then
+					Shapes.signText(p, Enum.NormalId.Back, lines, 28)
+				end
+			end
+		end
+	end
+end
+
+-- walls of a footprint without building them (anchors for signs on
+-- buildings rebuilt by the other massing modes)
+local function edgesOf(F, poly)
+	local pts = {}
+	for i, p in ipairs(poly) do pts[i] = F.pt(p[1], p[2]) end
+	local area = 0
+	for i = 1, #pts do
+		local a, c = pts[i], pts[i % #pts + 1]
+		area += a.X * c.Z - c.X * a.Z
+	end
+	local edges = {}
+	for i = 1, #pts do
+		local p0, p1 = pts[i], pts[i % #pts + 1]
+		local d = p1 - p0
+		local len = d.Magnitude
+		if len > 0.2 then
+			d = d / len
+			local nrm = area > 0 and Vector3.new(d.Z, 0, -d.X) or Vector3.new(-d.Z, 0, d.X)
+			local mid = (p0 + p1) / 2
+			local face = CFrame.lookAt(mid, mid + nrm)
+			table.insert(edges, { p0 = p0, p1 = p1, mid = mid, len = len, n = nrm, face = face, right = face.RightVector, i = i })
+		end
+	end
+	return edges
+end
+
 function Poly.Build(b, spec, ctx, Shapes, fp)
 	local P = spec.poly
 	local S = ctx.S
@@ -159,6 +261,19 @@ function Poly.Build(b, spec, ctx, Shapes, fp)
 	if P.plinth then
 		band(lo - 1.5, ground + H(P.plinth.h or 1), P.plinth.color and hex(P.plinth.color) or wall,
 			mat(P.plinth.material, material), 0.35)
+	end
+	if P.quoins then
+		-- light corner quoins up every wall end (stucco campus buildings)
+		local qc = hex(P.quoins.color or 0xeeeae2)
+		local qw = L(P.quoins.w or 0.7)
+		for _, e in ipairs(edges) do
+			if e.len > qw * 3 then
+				for side = -1, 1, 2 do
+					b:part("Quoin", Vector3.new(qw, e.top - ground, 0.5), e.face * CFrame.new(side * (e.len / 2 - qw / 2), (e.top + ground) / 2, -0.2),
+						Enum.Material.SmoothPlastic, qc)
+				end
+			end
+		end
 	end
 	for _, s in ipairs(P.bands or {}) do
 		band(ground + H(s.at), ground + H(s.at + (s.h or 0.3)), s.color and hex(s.color) or wall, mat(s.material, Enum.Material.Concrete), 0.3)
@@ -341,77 +456,27 @@ function Poly.Build(b, spec, ctx, Shapes, fp)
 		end
 	end
 
-	-- signs, with the text the photographs show
-	for _, sg in ipairs(P.signs or {}) do
-		local e, x, h = anchor(sg.at)
-		if e then
-			local w, hh = L(sg.w or 3), H(sg.h or 0.9)
-			local bg = sg.bg and hex(sg.bg) or Color3.fromRGB(30, 40, 70)
-			local lines = {}
-			local yAcc = 0.06
-			for _, l in ipairs(sg.lines) do
-				table.insert(lines, { text = l[1], size = l[2] or 0.4, y = l.y or yAcc, font = FONTS[l.font or sg.font or "sans"] or Enum.Font.GothamBold,
-					color = l.color and hex(l.color) or (sg.fg and hex(sg.fg) or Color3.new(1, 1, 1)), x = l.x, wScale = l.wScale })
-				yAcc += (l[2] or 0.4) + 0.04
-			end
-			if sg.kind == "awning" then
-				-- a sloped fabric awning over the doors, lettering on its face
-				local y = ground + H(sg.y or 3.2)
-				local d = L(sg.d or 1.2)
-				local p = b:part("InstitutionSign", Vector3.new(w, hh, 0.3), e.face * CFrame.new(x + L(sg.dx or 0), y, -d), Enum.Material.Fabric, bg)
-				b:part("AwningTop", Vector3.new(w, 0.3, d), e.face * CFrame.new(x + L(sg.dx or 0), y + hh / 2, -d / 2), Enum.Material.Fabric, bg)
-				Shapes.signText(p, Enum.NormalId.Front, lines, 28)
-			elseif sg.kind == "wall" or sg.kind == "banner" then
-				local y = ground + H(sg.y or 3.2)
-				local p = b:part("InstitutionSign", Vector3.new(w, hh, 0.3), e.face * CFrame.new(x + L(sg.dx or 0), y, -(sg.proud or 0.5)),
-					sg.kind == "banner" and Enum.Material.Fabric or Enum.Material.SmoothPlastic, bg)
-				if sg.clear then p.Transparency = 1 end
-				Shapes.signText(p, Enum.NormalId.Front, lines, 28)
-			else
-				-- freestanding: on the lawn between the wall and the camera
-				local hit = F.pt(h[1], h[2])
-				local cam = F.pt(h[3], h[4])
-				local dir = (cam - hit)
-				local dist = dir.Magnitude
-				dir = dist > 0 and dir / dist or e.n
-				local pos = hit + dir * math.min(L(sg.out or 6), dist * 0.8) + e.right * L(sg.dx or 0)
-				if sg.dist then
-					-- measured along the photo ray from the camera
-					pos = cam - dir * math.min(L(sg.dist), dist - 2) + e.right * L(sg.dx or 0)
-				end
-				local gy = ctx.terrainY(pos.X, pos.Z) or ground
-				local facing = sg.faceStreet and dir or e.n
-				local M = CFrame.lookAt(Vector3.new(pos.X, gy, pos.Z), Vector3.new(pos.X, gy, pos.Z) + facing)
-				local lift = H(sg.lift or (sg.kind == "pylon" and 1.6 or sg.kind == "board" and 0.8 or 0))
-				if sg.kind == "pylon" and sg.body then
-					local body = b:part("SignBody", Vector3.new(L(sg.body.w or 1.2), lift, L(sg.body.d or 0.5)), M * CFrame.new(0, lift / 2, 0.1),
-						Enum.Material.Metal, sg.post and hex(sg.post) or Color3.fromRGB(28, 28, 30), true)
-					if sg.body.text then
-						Shapes.signText(body, Enum.NormalId.Front, { { text = sg.body.text, size = 0.12, y = sg.body.y or 0.55, x = 0.25, wScale = 0.5,
-							font = Enum.Font.GothamBold, color = Color3.new(1, 1, 1) } }, 28)
-					end
-				elseif sg.kind == "monument" then
-					b:part("SignBase", Vector3.new(w + L(0.4), hh + lift + 1, L(0.6)), M * CFrame.new(0, (hh + lift) / 2 - 0.5, 0.15),
-						mat(sg.baseMaterial, Enum.Material.Brick), sg.base and hex(sg.base) or Color3.fromRGB(140, 74, 56), true)
-				else
-					for side = -1, 1, 2 do
-						if sg.kind == "board" or side == -1 then
-							b:part("SignPost", Vector3.new(0.5, lift + hh, 0.5),
-								M * CFrame.new(sg.kind == "pylon" and 0 or side * (w / 2 - 0.4), (lift + hh) / 2, 0.3), Enum.Material.Metal,
-								sg.post and hex(sg.post) or Color3.fromRGB(40, 40, 42), true)
-						end
-					end
-				end
-				local p = b:part("InstitutionSign", Vector3.new(w, hh, 0.35), M * CFrame.new(0, lift + hh / 2, -0.05),
-					Enum.Material.SmoothPlastic, bg, true)
-				Shapes.signText(p, Enum.NormalId.Front, lines, 28)
-				if sg.twoSided then
-					Shapes.signText(p, Enum.NormalId.Back, lines, 28)
-				end
-			end
-		end
-	end
+	buildSigns(b, P.signs, anchor, F, ctx, Shapes, ground)
 	return top
+end
+
+-- signs only, for a building massed by another mode (gabled halls, churches)
+function Poly.Signs(b, spec, ctx, Shapes, fp)
+	local F = Shapes.frame(ctx, { 0, 0 }, 90)
+	local edges = edgesOf(F, fp.poly)
+	local _, mean = Shapes.groundOf(F, fp.poly)
+	local ground = mean
+	if spec.signDatum and fp.hits[spec.signDatum] then
+		local h = fp.hits[spec.signDatum]
+		ground = F.ground(h[1], h[2]) or mean
+	end
+	local function anchor(key)
+		local h = fp.hits[key]
+		if not h then return nil end
+		local e, x = Shapes.edgeAt(F, edges, h[1], h[2])
+		return e, x, h
+	end
+	buildSigns(b, spec.signs, anchor, F, ctx, Shapes, ground)
 end
 
 return Poly

@@ -771,6 +771,9 @@ function InstitutionArchitecture.Build(model, spec, ctx)
 	if spec.sign then
 		InstitutionArchitecture._sign(b, F, W, ground + math.min(eaveH - 3, spec.sign.y and spec.sign.y * S or 12), spec.sign)
 	end
+	if spec.signs and ctx.toStuds and ctx.terrainY and Footprints[ctx.buildingId] then
+		Poly.Signs(b, spec, ctx, Shapes, Footprints[ctx.buildingId])
+	end
 	model:SetAttribute("InstitutionParts", b.count)
 	return b.count
 end

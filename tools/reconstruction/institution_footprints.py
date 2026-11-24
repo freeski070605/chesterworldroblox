@@ -36,14 +36,13 @@ def src(lon, lat):
 
 
 def wanted(argv):
-    if argv:
-        return set(argv)
+    """spec ids with a poly={...} or signs={...} block, plus any ids given"""
     text = SPEC.read_text(encoding="utf-8")
     ids = set()
     for m in re.finditer(r'\n\["(\d+)"\]=\{(.*?)(?=\n\["|\n-{6}|\n\}\s*$)', text, re.S):
-        if re.search(r"\bpoly=\{", m.group(2)):
+        if re.search(r"\b(poly|signs)=\{", m.group(2)):
             ids.add(m.group(1))
-    return ids
+    return ids | set(argv)
 
 
 def photos(bid):

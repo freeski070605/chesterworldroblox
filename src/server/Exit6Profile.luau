@@ -7,7 +7,8 @@
 --              Bike Life rides also: paint (0 = factory), accent, number,
 --              engine / handling (upgrade stages)
 --   bikeLife = { bestWheelie (s), totalWheelie (s), rideouts, finished, bestRide (points) }
---   style    = { hair, top, bottom, hat }            (catalog item ids)
+--   style    = { v, owned = { [itemId] = true }, hair, hat, top, bottom, shoes,
+--                chain, neck, watch, bracelet, ears, eyes }   (Exit6Wardrobe ids)
 --   home     = { id = "building:door", street = "..." }
 --   stash    = { [itemId] = count }                 (kept at home)
 --   business = { [storeKey] = { name, kind, bank } }
@@ -16,8 +17,38 @@
 local HttpService = game:GetService("HttpService")
 local Catalog = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Exit6Catalog"))
 
+local Wardrobe = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Exit6Wardrobe"))
+
 local Profile = {}
 local data = {}
+local STYLE_VERSION = 2
+local MAX_OWNED = 400
+
+-- saved style -> session: slot ids must be wearables for that slot (old
+-- part-built / Hair Test ids map through Wardrobe.Legacy and count as owned)
+local function importStyle(dst, src)
+	local owned = type(src.owned) == "table" and src.owned or {}
+	local n = 0
+	for id, v in pairs(owned) do
+		local it = type(id) == "string" and Catalog.Items[id]
+		if v == true and it and it.kind == "wear" and n < MAX_OWNED then
+			dst.owned[id] = true
+			n += 1
+		end
+	end
+	for _, slot in ipairs(Wardrobe.Slots) do
+		local id = src[slot]
+		if type(id) == "string" then
+			id = Wardrobe.Legacy[id] or id
+			local it = Catalog.Items[id]
+			if it and it.kind == "wear" and it.slot == slot then
+				dst[slot] = id
+				dst.owned[id] = true
+			end
+		end
+	end
+	if src.v == STYLE_VERSION then dst.v = STYLE_VERSION end
+end
 local loaded = Instance.new("BindableEvent")
 Profile.Loaded = loaded.Event   -- (player, profile)
 
@@ -26,7 +57,7 @@ local function fresh()
 	return {
 		vehicles = { [starter] = { fuel = Catalog.Vehicles[starter].tank } },
 		active = starter,
-		style = {},
+		style = { owned = {} },
 		home = nil,
 		stash = {},
 		business = {},
@@ -66,12 +97,7 @@ function Profile.Import(player, saved)
 			end
 		end
 		if type(saved.active) == "string" and p.vehicles[saved.active] then p.active = saved.active end
-		if type(saved.style) == "table" then
-			for _, slot in ipairs({ "hair", "top", "bottom", "hat" }) do
-				local id = saved.style[slot]
-				if type(id) == "string" and Catalog.Items[id] then p.style[slot] = id end
-			end
-		end
+		if type(saved.style) == "table" then importStyle(p.style, saved.style) end
 		if type(saved.home) == "table" and type(saved.home.id) == "string" then
 			p.home = { id = saved.home.id, street = tostring(saved.home.street or "") }
 		end
@@ -120,6 +146,15 @@ function Profile.Import(player, saved)
 				end
 			end
 		end
+	end
+	if p.style.v ~= STYLE_VERSION then
+		-- first load on the mesh wardrobe: everyone owns the starter fit, and
+		-- whoever never picked a look wears it
+		for slot, id in pairs(Wardrobe.Starter) do
+			p.style.owned[id] = true
+			if p.style[slot] == nil then p.style[slot] = id end
+		end
+		p.style.v = STYLE_VERSION
 	end
 	data[player] = p
 	Profile.Publish(player)

@@ -31,6 +31,7 @@ end
 local ShopOpen = remote("RemoteEvent", "ShopOpen")
 local Purchase = remote("RemoteFunction", "Purchase")
 local UseItem = remote("RemoteFunction", "UseItem")
+local StyleAction = remote("RemoteFunction", "StyleAction")
 
 local stores = {}        -- storeId -> { model, kind, title, counter (BasePart), menu }
 local nextId = 0
@@ -102,7 +103,7 @@ local function menuFor(store)
 	local list = {}
 	for _, id in ipairs(Catalog.Menus[store.kind] or Catalog.Menus.market) do
 		local item = Catalog.Items[id]
-		table.insert(list, { id = id, name = item.name, price = item.price })
+		table.insert(list, { id = id, name = item.name, price = item.price, slot = item.kind == "wear" and item.slot or nil })
 	end
 	return list
 end
@@ -124,6 +125,11 @@ local function purchase(player, storeId, itemId)
 		if ok then notify(player, msg) end
 		return ok, msg
 	end
+	if item.kind == "wear" and Style.Owns(player, itemId) then
+		if not Style.Equip(player, itemId) then return false, "Can't do that right now" end
+		notify(player, "Wearing: " .. item.name)
+		return true, "owned"
+	end
 	local cash = stats(player)
 	if not cash or cash.Value < item.price then return false, "Not enough Chester Cash" end
     if item.repRequired then
@@ -132,10 +138,11 @@ local function purchase(player, storeId, itemId)
             return false, "Requires "..item.repRequired.." reputation to unlock"
         end
     end
-	if item.kind == "haircut" or item.kind == "clothing" then
-		if not Style.Wear(player, itemId) then return false, "Can't do that right now" end
+	if item.kind == "wear" then
+		-- wearables are owned for good: buy once, then wear from the Closet
+		if not Style.Grant(player, itemId) or not Style.Equip(player, itemId) then return false, "Can't do that right now" end
 		cash.Value -= item.price
-		notify(player, (item.kind == "haircut" and "Fresh cut: " or "Wearing: ") .. item.name ..
+		notify(player, (item.slot == "hair" and "Fresh cut: " or "Copped: ") .. item.name ..
 			(item.price > 0 and (" (-$" .. item.price .. ")") or ""))
 		return true
 	end
@@ -151,13 +158,49 @@ end
 Purchase.OnServerInvoke = function(player, storeId, itemId)
 	local ok, why = purchase(player, storeId, itemId)
 	if not ok and why then notify(player, why) end
-	if ok and stores[storeId] and Catalog.Items[itemId] and Catalog.Items[itemId].price > 0 then
+	if ok and why ~= "owned" and stores[storeId] and Catalog.Items[itemId] and Catalog.Items[itemId].price > 0 then
 		-- the owner's cut (Exit6Business.server owns this event)
 		local Sale = game:GetService("ServerStorage"):FindFirstChild("Exit6Sale")
 		if Sale then Sale:Fire(stores[storeId].model, player, Catalog.Items[itemId].price) end
 	end
 	return ok, why
 end
+
+-- try-on and the phone Closet (Exit6Style decides what is worn)
+local lastStyle = {}
+StyleAction.OnServerInvoke = function(player, verb, a, b)
+	if not ready(player) or type(verb) ~= "string" then return false, "Not ready" end
+	local now = os.clock()
+	if lastStyle[player] and now - lastStyle[player] < 0.12 then return false, "Wait a moment" end
+	lastStyle[player] = now
+	if verb == "cancel" then
+		Style.CancelPreview(player)
+		return true
+	elseif verb == "preview" then
+		-- a: storeId, b: itemId - only what this counter sells, within reach
+		local store = stores[a]
+		local item = Catalog.Items[b]
+		if not store or not item or item.kind ~= "wear" then return false, "Can't try that on" end
+		local onMenu = false
+		for _, id in ipairs(Catalog.Menus[store.kind] or {}) do
+			if id == b then onMenu = true break end
+		end
+		if not onMenu then return false, "Not sold here" end
+		if not inReach(player, store.counter, REACH * 1.5) then return false, "Walk up to the counter" end
+		return Style.Preview(player, b)
+	elseif verb == "equip" then
+		if type(a) ~= "string" or not Style.Owns(player, a) then return false, "You don't own that" end
+		return Style.Equip(player, a)
+	elseif verb == "unequip" then
+		return Style.Unequip(player, a)
+	elseif verb == "avatar" then
+		return Style.UseOwnAvatar(player)
+	elseif verb == "starter" then
+		return Style.WearStarter(player)
+	end
+	return false, "Unknown action"
+end
+Players.PlayerRemoving:Connect(function(player) lastStyle[player] = nil end)
 
 UseItem.OnServerInvoke = function(player, itemId)
 	local item = Catalog.Items[itemId]
@@ -385,6 +428,7 @@ local function simpleInterior(store)
  local accent=store.kind=="phone" and Color3.fromRGB(44,90,145)
   or store.kind=="clothing" and Color3.fromRGB(110,64,112)
   or store.kind=="barber" and Color3.fromRGB(45,105,115)
+  or store.kind=="jewelry" and Color3.fromRGB(150,118,52)
   or store.kind=="pizza" and Color3.fromRGB(160,68,43)
   or Color3.fromRGB(90,67,48)
  fixture("CheckoutCounter",Vector3.new(2.8,2.7,1.6),-spread,ground+1.35,4.2,accent,Enum.Material.Wood)
@@ -395,6 +439,9 @@ local function simpleInterior(store)
  elseif store.kind=="clothing" then
   fixture("ClothingRack",Vector3.new(1.1,4.4,3.6),spread,ground+2.2,5.5,Color3.fromRGB(67,69,76),Enum.Material.Metal)
   fixture("FoldedClothes",Vector3.new(1.5,0.8,2.4),spread,ground+3.4,5.5,accent)
+ elseif store.kind=="jewelry" then
+  fixture("JewelCase",Vector3.new(1.6,2.6,3.6),spread,ground+1.3,5.5,Color3.fromRGB(40,40,46),Enum.Material.Wood)
+  fixture("CaseGlass",Vector3.new(1.5,0.9,3.5),spread,ground+3.05,5.5,Color3.fromRGB(190,214,226),Enum.Material.Glass)
  elseif store.kind=="phone" then
   fixture("PhoneDisplay",Vector3.new(1.4,3.3,3.6),spread,ground+1.65,5.5,Color3.fromRGB(58,67,76),Enum.Material.Metal)
   fixture("DeviceCases",Vector3.new(1.2,0.8,2.5),spread,ground+2.9,5.5,accent)
@@ -444,6 +491,9 @@ local function setupSimple(model)
  local selected=names[hash%#names+1]
  local title=selected.title
  local kind=selected.kind
+ if kind=="clothing" and (hash//7)%3==0 then
+  title,kind="Chester Gold & Time","jewelry"
+ end
  local store = { model = model, title = title, kind = kind, counter = door, shelves = {}, simple = true }
  stores[id] = store
  model:SetAttribute("Exit6StoreId", id)

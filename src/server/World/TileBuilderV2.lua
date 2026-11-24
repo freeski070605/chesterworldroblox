@@ -3065,7 +3065,8 @@ local function buildFootprintBuilding(parent, building, shapeData)
 		model:SetAttribute("InstitutionSeen", inst.seen)
 		local ok, err = pcall(InstitutionArchitecture.Build, model, inst, {
 			rects = builtRects, yaw = yaw, S = S, hStuds = heightStuds, wall = wall, material = material,
-			roofColor = measured, front = shapeData.fb, corner = shapeData.fb2, buildingId = tostring(building.id), applyFacade = applyFacade })
+			roofColor = measured, front = shapeData.fb, corner = shapeData.fb2, buildingId = tostring(building.id), applyFacade = applyFacade,
+			toStuds = sourceToStuds, terrainY = terrainY })
 		if not ok then warn("[ChesterWorld Institutions] " .. tostring(building.id) .. " " .. tostring(err)) end
 	end
 	if built > 0 and not inst and review and review.gothic and signRect and shapeData.fb then
@@ -3302,6 +3303,23 @@ local function buildBuilding(parent, building, shapes)
 	part:SetAttribute("ChesterBuildingId", tostring(building.id or ""))
 	part:SetAttribute("SourceHeightMeters", building.height_m or 9.15)
 	part:SetAttribute("GroundY", groundY)
+end
+
+-- development preview: build one building of a tile into `parent` (used by
+-- the Studio edit-mode harness to inspect a reconstruction without a full
+-- city build)
+function TileBuilderV2.BuildOne(tileModule, buildingId, parent)
+	local tile = require(tileModule)
+	local tileId = tostring(tile.tile_id or tileModule.Name)
+	local shapeModule = BuildingTiles and BuildingTiles:FindFirstChild(tileId)
+	local shapes = shapeModule and require(shapeModule)
+	for _, building in ipairs(tile.buildings or {}) do
+		if tostring(building.id) == tostring(buildingId) then
+			buildBuilding(parent, building, shapes)
+			return true
+		end
+	end
+	return false
 end
 
 function TileBuilderV2.Stats()

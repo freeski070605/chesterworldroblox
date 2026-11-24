@@ -138,6 +138,16 @@ class InstitutionRules(unittest.TestCase):
         self.assertGreaterEqual(len(archs), len(ENTRIES) * 0.3)
         self.assertLess(len(steepled), len(churches) * 0.25, "most real Chester churches have no steeple")
 
+    def test_custom_models_exist(self):
+        """A bespoke photo-matched model (custom=...) must exist as a module."""
+        for bid, body in ENTRIES.items():
+            m = re.search(r'custom="(\w+)"', body)
+            if m:
+                with self.subTest(bid=bid):
+                    path = BUILDER.parent / "Institutions" / f"{m.group(1)}.lua"
+                    self.assertTrue(path.exists(), f"{bid}: missing {path}")
+                    self.assertIn("ChesterHigh.Build" if m.group(1) == "ChesterHigh" else ".Build", path.read_text(encoding="utf-8"))
+
     def test_builder_has_no_feature_defaults(self):
         src = BUILDER.read_text(encoding="utf-8")
         for key in ("tower", "towers", "cupola", "cross", "rose", "portico", "sign"):

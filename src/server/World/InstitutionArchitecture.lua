@@ -18,6 +18,7 @@
 -- per-pane geometry; repeating windows on schools are textures or one glass
 -- strip per storey.
 local InstitutionArchitecture = {}
+local Shapes = require(script.Parent.InstitutionShapes)
 
 local function hex(v)
 	return Color3.fromRGB(math.floor(v / 65536) % 256, math.floor(v / 256) % 256, v % 256)
@@ -411,6 +412,20 @@ function InstitutionArchitecture.Build(model, spec, ctx)
 	local roofMat = mat(spec.roofMaterial, Enum.Material.Slate)
 	local rects = ctx.rects
 	if #rects == 0 then return 0 end
+	if spec.custom then
+		-- bespoke, photo-matched model traced from the county polygon
+		-- (Institutions/<custom>.lua): the county boxes give way to it
+		local module = script.Parent:FindFirstChild("Institutions") and script.Parent.Institutions:FindFirstChild(spec.custom)
+		if module and ctx.toStuds and ctx.terrainY then
+			for _, c in ipairs(model:GetChildren()) do
+				if c:IsA("BasePart") then c:Destroy() end
+			end
+			require(module).Build(b, spec, ctx, Shapes)
+			model:SetAttribute("InstitutionCustom", spec.custom)
+			model:SetAttribute("InstitutionParts", b.count)
+			return b.count
+		end
+	end
 	local wall = spec.wall and hex(spec.wall) or ctx.wall
 	local material = mat(spec.material, ctx.material)
 	local roofColor = spec.roofColor and hex(spec.roofColor) or ctx.roofColor or rgb(70, 66, 62)

@@ -286,6 +286,11 @@ local function restyledWithSign(key, label, material, color, signColor, textColo
 	-- a photo-reviewed institution (InstitutionReconstruction.lua) already
 	-- carries its photographed material and colour: keep it, add the sign only
 	local reviewed = models[1] and models[1]:GetAttribute("InstitutionKind") ~= nil
+	-- a bespoke photo-matched model carries its real signs: add nothing
+	if models[1] and models[1]:GetAttribute("InstitutionCustom") then
+		built[key] = true
+		return
+	end
 	if not reviewed then restyle(models, material, color, true) end
 	local face, width = streetFace(wall)
 	local bottom = wallBottomY(wall)

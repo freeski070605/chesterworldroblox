@@ -621,4 +621,12 @@ return {
 	wall=0xbcb6aa,material="Concrete",roof="none",win={style="rect"},
 	seen="ruin",confidence="medium",photo=ph("118379","kASpAgOlag6mVh30ZExOJQ","2024-09"),
 	note="St. Mary G.U.P. Church of God (OSM): roofless burnt-out shell, overgrown, in 2024-09"},
+
+------------------------------------------------------------------------------
+-- type / identity corrections
+------------------------------------------------------------------------------
+["34448"]={kind="demolished",seen="demolished",confidence="medium",photo=ph("34448","A_Avh_iavx08L6ZkuJmUzQ","2024-09"),
+	note="Our Precious Jewels Childcare, 609 W 3rd: an empty graded lot behind a fence in 2024-09; the 2022 county footprint is stale"},
+["127978"]={kind="reclassified",style="apartment",seen="",confidence="high",photo=ph("127978","XXy9Y3ysT64pGtekTvVlYg","2024-08"),
+	note="Address-matched to Stetser Elementary (808 E 17th) but the photo shows two-storey brick garden apartments on Glen Terrace"},
 }

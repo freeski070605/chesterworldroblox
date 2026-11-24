@@ -291,8 +291,13 @@ function Shapes.punched(b, e, o)
 			if math.abs(x - s[1]) < s[2] then skipped = true end
 		end
 		if not skipped then
-			b:part("WindowGlass", Vector3.new(w, y1 - y0, 0.2), e.face * CFrame.new(x, (y0 + y1) / 2, -0.1),
-				Enum.Material.Glass, o.glass)
+			b:part(o.pane and "WindowFrame" or "WindowGlass", Vector3.new(w, y1 - y0, 0.2), e.face * CFrame.new(x, (y0 + y1) / 2, -0.1),
+				o.pane and Enum.Material.SmoothPlastic or Enum.Material.Glass, o.glass)
+			if o.pane then
+				-- glazing inside a coloured frame (blue / white sash schools)
+				b:part("WindowGlass", Vector3.new(w - 0.7, y1 - y0, 0.2), e.face * CFrame.new(x, (y0 + y1) / 2, -0.18),
+					Enum.Material.Glass, o.pane)
+			end
 			for k = 1, per - 1 do
 				b:part("Mullion", Vector3.new(gap, y1 - y0, 0.4),
 					e.face * CFrame.new(x - w / 2 + k * o.w + (k - 0.5) * gap, (y0 + y1) / 2, -0.2), o.wallMat, o.wall)
@@ -306,7 +311,9 @@ function Shapes.punched(b, e, o)
 	for k = 1, o.floors - 1 do
 		local a = o.ground + o.sill + (k - 1) * o.storey + o.h
 		local c = o.ground + o.sill + k * o.storey
-		b:part("Spandrel", Vector3.new(span + 2, c - a, 0.4), e.face * CFrame.new(0, (a + c) / 2, -0.2), o.wallMat, o.wall)
+		-- proud of the glass columns and mullions so the floors read as punched openings
+		b:part("Spandrel", Vector3.new(span + 2, c - a, 0.6), e.face * CFrame.new(0, (a + c) / 2, -0.3),
+			o.spandrelMat or o.wallMat, o.spandrelColor or o.wall)
 	end
 end
 

@@ -87,6 +87,15 @@ FEATURES = [
     (r"\bchimneys=", "chimneys"),
     (r"steps=\d", "steps"),
     (r"\bdoor=", "door"),
+    (r"\bsigns=", "sign"),
+    (r"\bentrances=", "door"),
+    (r"\bblocks=", "tower"),
+    (r"\babove=", "arch"),
+    (r'style="arch"', "arch"),
+    (r'kind="awning"', "awning"),
+    (r'kind="banner"', "banner"),
+    (r"pediment=true", "pediment"),
+    (r"\bletters=", "sign"),
 ]
 
 

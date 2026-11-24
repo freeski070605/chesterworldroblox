@@ -19,6 +19,8 @@
 -- strip per storey.
 local InstitutionArchitecture = {}
 local Shapes = require(script.Parent.InstitutionShapes)
+local Poly = require(script.Parent.InstitutionPoly)
+local Footprints = require(script.Parent.InstitutionFootprints)
 
 local function hex(v)
 	return Color3.fromRGB(math.floor(v / 65536) % 256, math.floor(v / 256) % 256, v % 256)
@@ -412,6 +414,19 @@ function InstitutionArchitecture.Build(model, spec, ctx)
 	local roofMat = mat(spec.roofMaterial, Enum.Material.Slate)
 	local rects = ctx.rects
 	if #rects == 0 then return 0 end
+	if spec.poly and ctx.toStuds and ctx.terrainY then
+		-- photo-matched massing on the exact county footprint
+		local fp = Footprints[ctx.buildingId]
+		if fp then
+			for _, c in ipairs(model:GetChildren()) do
+				if c:IsA("BasePart") then c:Destroy() end
+			end
+			Poly.Build(b, spec, ctx, Shapes, fp)
+			model:SetAttribute("InstitutionPoly", true)
+			model:SetAttribute("InstitutionParts", b.count)
+			return b.count
+		end
+	end
 	if spec.custom then
 		-- bespoke, photo-matched model traced from the county polygon
 		-- (Institutions/<custom>.lua): the county boxes give way to it

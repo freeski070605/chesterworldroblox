@@ -150,9 +150,9 @@ end
 local BUILDERS = {}
 
 BUILDERS.basketball = function(model, frame, L, W)
-	-- Clear only the mapped playing rectangle; the outer park terrain remains.
-	Workspace.Terrain:FillBlock(frame * CFrame.new(0, -2.5, 0),
-		Vector3.new(math.max(2, L - 1), 8, math.max(2, W - 1)), Enum.Material.Air)
+	-- Do not destructively carve terrain on a citywide park pass. Court geometry
+	-- is playable without altering underlying terrain; any grass fix needs a
+	-- separately validated, reversible site-specific conforming operation.
 	slab(model, "Court", frame, 0, 0, L, W, 0.6, Enum.Material.Asphalt, rgb(58, 60, 62))
 	if not meshVisual(model, "CourtPaintMesh", SportsMeshes.courtPaint,
 		frame * CFrame.new(0, 0.65, 0), Vector3.new(L / 100, 1, W / 60)) then
@@ -242,9 +242,9 @@ local function football(model, frame, L, W)
 end
 BUILDERS.american_football = function(model, frame, L, W, item)
 	football(model, frame, L, W)
-	-- The OSM football footprint at 17,1542 is Chester Athletic Complex,
+	-- The OSM football footprint at (17, +1542) is Chester Athletic Complex,
 	-- 1100 W 10th; the 2025 aerial shows a six-lane oval and west stand.
-	if math.abs(item.box[1] - 17.3) < 2 and math.abs(item.box[2] + 1541.6) < 2 then
+	if math.abs(item.box[1] - 17.3) < 2 and math.abs(item.box[2] - 1541.6) < 2 then
 		meshVisual(model, "AFieldTrackMesh", SportsMeshes.sixLaneOval,
 			frame * CFrame.new(0, 0.38, 0), Vector3.new(1, 1, 1.1))
 		for _, x in ipairs({ -75, 0, 75 }) do
@@ -267,7 +267,7 @@ BUILDERS.athletics = function(model, frame, L, W)
 	end
 	-- Gillespie Field already has a separate, mapped football pitch. Do not
 	-- place a second generic field over that pitch.
-	if math.abs(frame.Position.X - 8364) > 10 or math.abs(frame.Position.Z - 7027) > 10 then
+	if math.abs(frame.Position.X - 8364) > 10 or math.abs(frame.Position.Z + 7027) > 10 then
 		field(model, frame, L - 2 * lane - 8, W - 2 * lane - 8)
 	end
 end

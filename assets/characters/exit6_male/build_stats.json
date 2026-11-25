@@ -1,0 +1,57 @@
+{
+ "studs_per_ref_px": 0.006060606060606061,
+ "height_studs": 5.6,
+ "voxel_px": 0.85,
+ "objects": {
+  "Exit6_Male_Body": {
+   "verts": 1121562,
+   "tris": 2243032
+  },
+  "Exit6_Male_Hair_Twists": {
+   "verts": 140072,
+   "tris": 279584
+  },
+  "Exit6_Male_Hair_Scalp": {
+   "verts": 25432,
+   "tris": 50856
+  },
+  "Exit6_Male_Brows": {
+   "verts": 88,
+   "tris": 168
+  },
+  "Exit6_Male_Goatee": {
+   "verts": 1432,
+   "tris": 2860
+  },
+  "Exit6_Male_Briefs": {
+   "verts": 328472,
+   "tris": 656944
+  },
+  "Exit6_Male_Eye_R": {
+   "verts": 922,
+   "tris": 1840
+  },
+  "Exit6_Male_Eye_L": {
+   "verts": 922,
+   "tris": 1840
+  }
+ },
+ "bones": [
+  "HumanoidRootNode",
+  "LowerTorso",
+  "UpperTorso",
+  "Head",
+  "LeftUpperArm",
+  "LeftLowerArm",
+  "LeftHand",
+  "RightUpperArm",
+  "RightLowerArm",
+  "RightHand",
+  "LeftUpperLeg",
+  "LeftLowerLeg",
+  "LeftFoot",
+  "RightUpperLeg",
+  "RightLowerLeg",
+  "RightFoot"
+ ]
+}

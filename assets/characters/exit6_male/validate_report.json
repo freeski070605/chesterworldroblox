@@ -1,0 +1,177 @@
+{
+ "file": "assets\\characters\\exit6_male\\Exit6_Male_Base.glb",
+ "bytes": 5029652,
+ "gltf": {
+  "meshes": {
+   "Briefs_Geo": {
+    "verts": 1173,
+    "tris": 1606
+   },
+   "FaceDetails_Geo": {
+    "verts": 966,
+    "tris": 966
+   },
+   "Hair_Geo": {
+    "verts": 13588,
+    "tris": 7918
+   },
+   "Head_Geo": {
+    "verts": 1375,
+    "tris": 1715
+   },
+   "LeftFoot_Geo": {
+    "verts": 686,
+    "tris": 790
+   },
+   "LeftHand_Geo": {
+    "verts": 615,
+    "tris": 647
+   },
+   "LeftLowerArm_Geo": {
+    "verts": 270,
+    "tris": 400
+   },
+   "LeftLowerLeg_Geo": {
+    "verts": 538,
+    "tris": 847
+   },
+   "LeftUpperArm_Geo": {
+    "verts": 510,
+    "tris": 761
+   },
+   "LeftUpperLeg_Geo": {
+    "verts": 532,
+    "tris": 826
+   },
+   "LowerTorso_Geo": {
+    "verts": 695,
+    "tris": 976
+   },
+   "RightFoot_Geo": {
+    "verts": 708,
+    "tris": 780
+   },
+   "RightHand_Geo": {
+    "verts": 636,
+    "tris": 640
+   },
+   "RightLowerArm_Geo": {
+    "verts": 266,
+    "tris": 400
+   },
+   "RightLowerLeg_Geo": {
+    "verts": 532,
+    "tris": 854
+   },
+   "RightUpperArm_Geo": {
+    "verts": 497,
+    "tris": 751
+   },
+   "RightUpperLeg_Geo": {
+    "verts": 537,
+    "tris": 833
+   },
+   "UpperTorso_Geo": {
+    "verts": 2065,
+    "tris": 2780
+   }
+  },
+  "skins": [
+   {
+    "name": "Exit6_Male_GameRig",
+    "joints": 17
+   }
+  ],
+  "images": [
+   "Game_Briefs_Color",
+   "Game_Eye_L_Color",
+   "Game_Goatee_Color",
+   "Game_Brows_Color",
+   "Game_Eye_R_Color",
+   "Game_Hair_Twists_Color",
+   "Game_Hair_Scalp_Color",
+   "Game_Body_Normal",
+   "Game_Body_Color"
+  ],
+  "materials": [
+   "M_Game_Briefs",
+   "M_Game_Eye_L",
+   "M_Game_Goatee",
+   "M_Game_Brows",
+   "M_Game_Eye_R",
+   "M_Game_Hair_Twists",
+   "M_Game_Hair_Scalp",
+   "M_Game_Body"
+  ],
+  "total_tris": 24490
+ },
+ "import": {
+  "objects": [
+   "Briefs_Geo",
+   "FaceDetails_Geo",
+   "Hair_Geo",
+   "Head_Geo",
+   "LeftFoot_Geo",
+   "LeftHand_Geo",
+   "LeftLowerArm_Geo",
+   "LeftLowerLeg_Geo",
+   "LeftUpperArm_Geo",
+   "LeftUpperLeg_Geo",
+   "LowerTorso_Geo",
+   "RightFoot_Geo",
+   "RightHand_Geo",
+   "RightLowerArm_Geo",
+   "RightLowerLeg_Geo",
+   "RightUpperArm_Geo",
+   "RightUpperLeg_Geo",
+   "UpperTorso_Geo"
+  ],
+  "bone_tree": [
+   "Root",
+   "  HumanoidRootNode",
+   "    LowerTorso",
+   "      UpperTorso",
+   "        Head",
+   "        LeftUpperArm",
+   "          LeftLowerArm",
+   "            LeftHand",
+   "        RightUpperArm",
+   "          RightLowerArm",
+   "            RightHand",
+   "      LeftUpperLeg",
+   "        LeftLowerLeg",
+   "          LeftFoot",
+   "      RightUpperLeg",
+   "        RightLowerLeg",
+   "          RightFoot"
+  ],
+  "max_influences": 3,
+  "unweighted_verts": 0,
+  "bbox_min_studs": [
+   -0.976,
+   -0.481,
+   -2.978
+  ],
+  "bbox_max_studs": [
+   0.975,
+   0.591,
+   2.688
+  ],
+  "height_studs": 5.666,
+  "face_direction_blender": "-Y (glTF +Z, Roblox front after import turn)",
+  "lowertorso_head": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "root_head": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ "renders": [
+  "assets\\characters\\exit6_male\\renders\\glb_import_front.png",
+  "assets\\characters\\exit6_male\\renders\\glb_import_three_quarter.png"
+ ]
+}

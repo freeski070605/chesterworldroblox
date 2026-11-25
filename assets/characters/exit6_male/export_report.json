@@ -1,0 +1,187 @@
+{
+ "objects": {
+  "LowerTorso_Geo": {
+   "verts": 568,
+   "tris": 976,
+   "materials": [
+    "M_Game_Body"
+   ]
+  },
+  "UpperTorso_Geo": {
+   "verts": 1498,
+   "tris": 2780,
+   "materials": [
+    "M_Game_Body"
+   ]
+  },
+  "Head_Geo": {
+   "verts": 881,
+   "tris": 1715,
+   "materials": [
+    "M_Game_Body"
+   ]
+  },
+  "LeftUpperArm_Geo": {
+   "verts": 428,
+   "tris": 761,
+   "materials": [
+    "M_Game_Body"
+   ]
+  },
+  "LeftLowerArm_Geo": {
+   "verts": 231,
+   "tris": 400,
+   "materials": [
+    "M_Game_Body"
+   ]
+  },
+  "LeftHand_Geo": {
+   "verts": 347,
+   "tris": 647,
+   "materials": [
+    "M_Game_Body"
+   ]
+  },
+  "RightUpperArm_Geo": {
+   "verts": 419,
+   "tris": 751,
+   "materials": [
+    "M_Game_Body"
+   ]
+  },
+  "RightLowerArm_Geo": {
+   "verts": 229,
+   "tris": 400,
+   "materials": [
+    "M_Game_Body"
+   ]
+  },
+  "RightHand_Geo": {
+   "verts": 343,
+   "tris": 640,
+   "materials": [
+    "M_Game_Body"
+   ]
+  },
+  "LeftUpperLeg_Geo": {
+   "verts": 464,
+   "tris": 826,
+   "materials": [
+    "M_Game_Body"
+   ]
+  },
+  "LeftLowerLeg_Geo": {
+   "verts": 462,
+   "tris": 847,
+   "materials": [
+    "M_Game_Body"
+   ]
+  },
+  "LeftFoot_Geo": {
+   "verts": 423,
+   "tris": 790,
+   "materials": [
+    "M_Game_Body"
+   ]
+  },
+  "RightUpperLeg_Geo": {
+   "verts": 468,
+   "tris": 833,
+   "materials": [
+    "M_Game_Body"
+   ]
+  },
+  "RightLowerLeg_Geo": {
+   "verts": 467,
+   "tris": 854,
+   "materials": [
+    "M_Game_Body"
+   ]
+  },
+  "RightFoot_Geo": {
+   "verts": 419,
+   "tris": 780,
+   "materials": [
+    "M_Game_Body"
+   ]
+  },
+  "Hair_Geo": {
+   "verts": 4243,
+   "tris": 7918,
+   "materials": [
+    "M_Game_Hair_Twists",
+    "M_Game_Hair_Scalp"
+   ]
+  },
+  "FaceDetails_Geo": {
+   "verts": 493,
+   "tris": 966,
+   "materials": [
+    "M_Game_Eye_L",
+    "M_Game_Goatee",
+    "M_Game_Brows",
+    "M_Game_Eye_R"
+   ]
+  },
+  "Briefs_Geo": {
+   "verts": 803,
+   "tris": 1606,
+   "materials": [
+    "M_Game_Briefs"
+   ]
+  }
+ },
+ "textures": {
+  "Game_Body": {
+   "color": "assets\\characters\\exit6_male\\textures\\Game_Body_Color.png",
+   "normal": "assets\\characters\\exit6_male\\textures\\Game_Body_Normal.png"
+  },
+  "Game_Hair_Twists": {
+   "color": "assets\\characters\\exit6_male\\textures\\Game_Hair_Twists_Color.png"
+  },
+  "Game_Hair_Scalp": {
+   "color": "assets\\characters\\exit6_male\\textures\\Game_Hair_Scalp_Color.png"
+  },
+  "Game_Briefs": {
+   "color": "assets\\characters\\exit6_male\\textures\\Game_Briefs_Color.png"
+  },
+  "Game_Goatee": {
+   "color": "assets\\characters\\exit6_male\\textures\\Game_Goatee_Color.png"
+  },
+  "Game_Brows": {
+   "color": "assets\\characters\\exit6_male\\textures\\Game_Brows_Color.png"
+  },
+  "Game_Eye_L": {
+   "color": "assets\\characters\\exit6_male\\textures\\Game_Eye_L_Color.png"
+  },
+  "Game_Eye_R": {
+   "color": "assets\\characters\\exit6_male\\textures\\Game_Eye_R_Color.png"
+  }
+ },
+ "total_tris": 24490,
+ "r15_body_tris": 14000,
+ "bones": [
+  "Root",
+  "HumanoidRootNode",
+  "LowerTorso",
+  "UpperTorso",
+  "Head",
+  "LeftUpperArm",
+  "LeftLowerArm",
+  "LeftHand",
+  "RightUpperArm",
+  "RightLowerArm",
+  "RightHand",
+  "LeftUpperLeg",
+  "LeftLowerLeg",
+  "LeftFoot",
+  "RightUpperLeg",
+  "RightLowerLeg",
+  "RightFoot"
+ ],
+ "offset_studs": [
+  -0.0,
+  -0.0,
+  -2.9696969985961914
+ ]
+}

@@ -119,27 +119,28 @@ Catalog.DeliveryKinds = { food = true, pizza = true, chinese = true }
 
 -- vehicles: body + handling per model (Exit6CarBuilder / Exit6CarPhysics).
 -- size = body length / width / height (studs), tank in gallons, mpg as
--- studs per gallon (a tank lasts a good few trips across the city)
+-- studs per gallon. tools/validate_fuel_range.py measures the shipped road
+-- network circuit and checks every full tank has at least 25% reserve.
 Catalog.Vehicles = {
-	sedan = { name = "Family Sedan", body = "sedan", len = 16.4, wid = 7.2, topSpeed = 110, accel = 24, tank = 12, perGallon = 2600 },
-	hatch = { name = "Hatchback", body = "hatch", len = 14.2, wid = 6.8, topSpeed = 105, accel = 26, tank = 10, perGallon = 3200 },
-	van = { name = "Minivan", body = "van", len = 17.6, wid = 7.6, topSpeed = 100, accel = 20, tank = 16, perGallon = 2200 },
-	pickup = { name = "Pickup", body = "pickup", len = 19, wid = 7.8, topSpeed = 112, accel = 25, tank = 20, perGallon = 1800 },
-	suv = { name = "SUV", body = "suv", len = 17.8, wid = 7.8, topSpeed = 115, accel = 26, tank = 18, perGallon = 2000 },
-	coupe = { name = "Coupe", body = "coupe", len = 15.6, wid = 7.2, topSpeed = 135, accel = 34, tank = 13, perGallon = 2100 },
+	sedan = { name = "Family Sedan", body = "sedan", len = 16.4, wid = 7.2, topSpeed = 110, accel = 24, tank = 12, perGallon = 10000 },
+	hatch = { name = "Hatchback", body = "hatch", len = 14.2, wid = 6.8, topSpeed = 105, accel = 26, tank = 10, perGallon = 11200 },
+	van = { name = "Minivan", body = "van", len = 17.6, wid = 7.6, topSpeed = 100, accel = 20, tank = 16, perGallon = 7200 },
+	pickup = { name = "Pickup", body = "pickup", len = 19, wid = 7.8, topSpeed = 112, accel = 25, tank = 20, perGallon = 6000 },
+	suv = { name = "SUV", body = "suv", len = 17.8, wid = 7.8, topSpeed = 115, accel = 26, tank = 18, perGallon = 6400 },
+	coupe = { name = "Coupe", body = "coupe", len = 15.6, wid = 7.2, topSpeed = 135, accel = 34, tank = 13, perGallon = 8400 },
 	-- Bike Life rides (Exit6BikeBuilder / Exit6BikePhysics). Speeds in studs/s
 	-- (the speedo reads ~1.75 studs/s per mph), accel in studs/s^2, steerLock in
 	-- degrees, wheelie = the balance-point pitch in degrees at full throttle.
 	bike110 = { name = "110 Trail", body = "dirtbike", rideType = "bike", len = 5.9, wid = 2.5, topSpeed = 58, accel = 22,
-		brake = 60, grip = 1.15, steerLock = 36, wheelie = 24, mass = 22, tank = 2.3, perGallon = 1800 },
+		brake = 60, grip = 1.15, steerLock = 36, wheelie = 24, mass = 22, tank = 2.3, perGallon = 48000 },
 	bike250 = { name = "250 MX", body = "dirtbike", rideType = "bike", len = 7.5, wid = 3.0, topSpeed = 80, accel = 31,
-		brake = 66, grip = 1.2, steerLock = 33, wheelie = 30, mass = 26, tank = 2.8, perGallon = 1750 },
+		brake = 66, grip = 1.2, steerLock = 33, wheelie = 30, mass = 26, tank = 2.8, perGallon = 40000 },
 	bike450 = { name = "450 MX", body = "dirtbike", rideType = "bike", len = 7.8, wid = 3.2, topSpeed = 96, accel = 40,
-		brake = 70, grip = 1.25, steerLock = 32, wheelie = 34, mass = 28, tank = 3.2, perGallon = 1600 },
+		brake = 70, grip = 1.25, steerLock = 32, wheelie = 34, mass = 28, tank = 3.2, perGallon = 35000 },
 	quad450 = { name = "450 Sport Quad", body = "sportquad", rideType = "quad", len = 6.8, wid = 4.4, topSpeed = 82, accel = 30,
-		brake = 64, grip = 1.3, steerLock = 32, wheelie = 18, mass = 44, tank = 3.6, perGallon = 1550 },
+		brake = 64, grip = 1.3, steerLock = 32, wheelie = 18, mass = 44, tank = 3.6, perGallon = 31000 },
 	quad700 = { name = "700 Sport Quad", body = "sportquad", rideType = "quad", len = 7.2, wid = 4.8, topSpeed = 96, accel = 37,
-		brake = 68, grip = 1.35, steerLock = 30, wheelie = 22, mass = 50, tank = 4.0, perGallon = 1450 },
+		brake = 68, grip = 1.35, steerLock = 30, wheelie = 22, mass = 50, tank = 4.0, perGallon = 28000 },
 }
 Catalog.StarterVehicle = "sedan"
 Catalog.FuelPrice = 3.29          -- per gallon when a station has no price sign

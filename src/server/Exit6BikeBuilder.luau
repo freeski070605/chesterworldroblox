@@ -222,7 +222,7 @@ function BikeBuilder.Build(id, cf, opts)
 	m:SetAttribute("SteerLock", stats.steerLock or spec.steerLock)
 	m:SetAttribute("WheelieMax", stats.wheelie or spec.wheelie)
 	m:SetAttribute("Tank", spec.tank)
-	m:SetAttribute("Fuel", opts.fuel or spec.tank)
+	m:SetAttribute("Fuel", opts.fuel ~= nil and opts.fuel or spec.tank)
 	if opts.owner then m:SetAttribute("Owner", opts.owner.UserId) end
 	if opts.testRide then m:SetAttribute("TestRide", true) end
 

@@ -49,7 +49,7 @@ local PAINT = {
 }
 local lastCall = {}
 local overSince = {}   -- model -> os.clock() a client-owned ride first broke the limits
-local lastPos = {}     -- model -> last horizontal position (fuel burn)
+local lastPos = {}     -- model -> { position, sample time } (fuel burn)
 
 local function notify(player, text)
 	player:SetAttribute("Exit6Notice", text)
@@ -212,18 +212,28 @@ RunService.Heartbeat:Connect(function(dt)
 				-- driven: burn fuel by distance (the server sees the replicated chassis)
 				local p = chassis.Position
 				local flat = Vector3.new(p.X, 0, p.Z)
+				local now = os.clock()
 				local prev = lastPos[car]
-				lastPos[car] = flat
-				if prev then
-					local d = (flat - prev).Magnitude
-					if d < 200 then
-						local spec = Catalog.Vehicles[car:GetAttribute("Exit6Model")] or Catalog.Vehicles.sedan
-						local fuel = math.max(0, (car:GetAttribute("FuelExact") or car:GetAttribute("Fuel") or 0) - d / spec.perGallon)
-						car:SetAttribute("FuelExact", fuel)
-						-- the replicated gauge moves in 0.05 gal steps
-						if math.abs((car:GetAttribute("Fuel") or 0) - fuel) >= 0.05 or (fuel == 0 and car:GetAttribute("Fuel") ~= 0) then
-							car:SetAttribute("Fuel", math.floor(fuel * 100 + 0.5) / 100)
-							if fuel == 0 then notify(player, "Out of gas! Push it to a station or call it home") end
+				if not prev then
+					lastPos[car] = { position = flat, time = now }
+				else
+					local d = (flat - prev.position).Magnitude
+					-- Keep the old sample through sub-stud suspension/network noise.
+					-- A large jump is a teleport or physics correction, not mileage.
+					if d >= 0.75 then
+						local elapsed = math.clamp(now - prev.time, 0, 0.5)
+						local topSpeed = car:GetAttribute("TopSpeed") or 80
+						local plausible = d <= topSpeed * 1.6 * elapsed + 2
+						lastPos[car] = { position = flat, time = now }
+						if plausible and not overSince[car] then
+							local spec = Catalog.Vehicles[car:GetAttribute("Exit6Model")] or Catalog.Vehicles.sedan
+							local fuel = math.max(0, (car:GetAttribute("FuelExact") or car:GetAttribute("Fuel") or 0) - d / spec.perGallon)
+							car:SetAttribute("FuelExact", fuel)
+							-- the replicated gauge moves in 0.05 gal steps
+							if math.abs((car:GetAttribute("Fuel") or 0) - fuel) >= 0.05 or (fuel == 0 and car:GetAttribute("Fuel") ~= 0) then
+								car:SetAttribute("Fuel", math.floor(fuel * 100 + 0.5) / 100)
+								if fuel == 0 then notify(player, "Out of gas! Push it to a station or call it home") end
+							end
 						end
 					end
 				end

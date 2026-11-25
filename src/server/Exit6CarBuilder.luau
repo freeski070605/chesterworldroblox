@@ -102,7 +102,7 @@ function Builder.Build(modelId, cf, opts)
 	model:SetAttribute("TopSpeed", spec.topSpeed)
 	model:SetAttribute("EngineAccel", spec.accel)
 	model:SetAttribute("Tank", spec.tank)
-	model:SetAttribute("Fuel", opts.fuel or spec.tank)
+	model:SetAttribute("Fuel", opts.fuel ~= nil and opts.fuel or spec.tank)
 	if opts.owner then model:SetAttribute("Owner", opts.owner.UserId) end
 
 	local chassis = Instance.new("Part")

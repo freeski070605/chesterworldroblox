@@ -63,14 +63,21 @@ for v, (x0, x1) in FACE.items():
 sheet(rows, os.path.join(R3, "sheet_face_v3.png"))
 
 # ---------------------------------------------------------------- body
+def body(path, size):
+    """render_views framing (rows 0..1402, centre column 300) at 2x -> crop rows 180..1175, cols 150..450"""
+    im = load(path)
+    f = im.width / 600
+    return im.crop((int(150 * f), int(180 * f), int(450 * f), int(1175 * f))).resize(size, Image.LANCZOS)
+
+
 BODY = {"front": 166, "three_quarter": 462, "side": 700}
 rows = []
 for v, cx in BODY.items():
     size = (600, 1990)
     rows.append((v.replace("_", " "), [
         ("reference", ref_crop(cx - 150, 180, cx + 150, 1175, size)),
-        ("V3", load(os.path.join(R3, "review_body_%s.png" % v), size)),
-        ("V3 clay", load(os.path.join(R3, "review_body_clay_%s.png" % v), size)),
+        ("V3", body(os.path.join(R3, "review_body_%s.png" % v), size)),
+        ("V3 clay", body(os.path.join(R3, "review_body_clay_%s.png" % v), size)),
     ]))
 # one row: put the three views side by side
 cells = []

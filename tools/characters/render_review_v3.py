@@ -27,7 +27,25 @@ sc = bpy.context.scene
 cam = sc.camera
 sc.cycles.samples = SAMPLES
 sc.frame_set(1)
+# the export saves the game copy (split R15 parts, game rig, _Att markers) into the same file
+for o in bpy.data.objects:
+    if any(c.name.endswith("_Game") for c in o.users_collection):
+        o.hide_render = True
 FACE_CAMS = {"front": (0.0, 0.0, 120), "three_quarter": (-35.0, None, 150), "side": (90.0, -5.0, 130)}
+
+
+def body_shot(path, az, pct=200):
+    """same framing as build_exit6_male.render_views (600x1402 at ref scale), at pct %"""
+    a = math.radians(az)
+    cam.location = (math.sin(a) * 30, -math.cos(a) * 30, (SOLE - 701) * K)
+    cam.rotation_euler = (math.radians(90), 0, a)
+    cam.data.ortho_scale = 1402 * K
+    sc.render.resolution_x = 600; sc.render.resolution_y = 1402
+    sc.render.resolution_percentage = pct
+    sc.render.filepath = os.path.join(OUT, path)
+    bpy.ops.render.render(write_still=True)
+    sc.render.resolution_percentage = 100
+    print("rendered", path, flush=True)
 
 
 def shot(path, az, top, bot, xc, width, px_per_ref):
@@ -52,6 +70,27 @@ def shot(path, az, top, bot, xc, width, px_per_ref):
 
 hair_like = [o for o in bpy.data.objects if o.type == "MESH" and any(
     k in o.name for k in ("Hair_Twists", "Hair_Scalp", "Brows", "Goatee"))]
+ONLY = [a.split("=")[1] for a in ARGV if a.startswith("--only=")]
+if ONLY and ONLY[0] == "body":
+    for name, az in (("front", 0.0), ("three_quarter", 35.0), ("side", 90.0), ("back", 180.0)):
+        body_shot("review_body_%s.png" % name, az)
+    clay = bpy.data.materials.new("M_ReviewClay"); clay.use_nodes = True
+    p = clay.node_tree.nodes["Principled BSDF"]
+    p.inputs["Base Color"].default_value = (0.42, 0.42, 0.43, 1); p.inputs["Roughness"].default_value = 0.55
+    bpy.context.view_layer.material_override = clay
+    for o in [o for o in bpy.data.objects if o.type == "MESH" and any(
+            k in o.name for k in ("Hair_Twists", "Hair_Scalp", "Brows", "Goatee"))]:
+        o.hide_render = True
+    for name, az in (("front", 0.0), ("three_quarter", 35.0), ("side", 90.0)):
+        body_shot("review_body_clay_%s.png" % name, az)
+    bpy.context.view_layer.material_override = None
+    for o in [o for o in bpy.data.objects if o.type == "MESH" and any(
+            k in o.name for k in ("Hair_Twists", "Hair_Scalp", "Brows", "Goatee"))]:
+        o.hide_render = False
+    shot("review_torso_front.png", 0.0, 380, 720, 0.0, 300, 4)
+    shot("review_torso_three_quarter.png", 35.0, 380, 720, 0.0, 300, 4)
+    shot("review_legs_front.png", 0.0, 700, 1140, 0.0, 240, 3)
+    raise SystemExit
 # face, three variants
 for name, (az, xc, w) in FACE_CAMS.items():
     shot("review_face_%s.png" % name, az, 196, 350, xc, w, 8)
@@ -67,13 +106,13 @@ for name, (az, xc, w) in FACE_CAMS.items():
     shot("review_face_clay_%s.png" % name, az, 196, 350, xc, w, 8)
 # body clay (form only)
 for name, az in (("front", 0.0), ("three_quarter", 35.0), ("side", 90.0)):
-    shot("review_body_clay_%s.png" % name, az, 180, 1175, 0.0, 300, 2)
+    body_shot("review_body_clay_%s.png" % name, az)
 bpy.context.view_layer.material_override = None
 for o in hair_like:
     o.hide_render = False
 # full body, 2x
 for name, az in (("front", 0.0), ("three_quarter", 35.0), ("side", 90.0), ("back", 180.0)):
-    shot("review_body_%s.png" % name, az, 180, 1175, 0.0, 300, 2)
+    body_shot("review_body_%s.png" % name, az)
 # close-ups
 shot("review_torso_front.png", 0.0, 380, 720, 0.0, 300, 4)
 shot("review_torso_three_quarter.png", 35.0, 380, 720, 0.0, 300, 4)

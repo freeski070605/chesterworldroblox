@@ -1,5 +1,8 @@
 # Exit 6 sports reconstruction handoff
 
+> Superseded for geometry, elevation and mesh alignment by
+> [EXIT6_SPORTS_RECONSTRUCTION.md](EXIT6_SPORTS_RECONSTRUCTION.md) (aerial-verified, 2026-11-25).
+
 ## Geographic evidence
 
 - Chester Athletic Complex (local A Field): existing OSM football footprint at

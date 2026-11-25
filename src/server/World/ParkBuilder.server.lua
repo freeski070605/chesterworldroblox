@@ -6,6 +6,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Parks = require(Shared:WaitForChild("WorldData"):WaitForChild("Parks"))
+local VerifiedSports = require(Shared:WaitForChild("Exit6VerifiedSports"))
+local SportsMeshes = require(Shared:WaitForChild("Exit6SportsMeshIds"))
 
 while Workspace:GetAttribute("CW_BootstrapComplete") ~= true do task.wait(0.5) end
 
@@ -54,13 +56,32 @@ end
 local function frameOf(box)
 	local rotation = CFrame.Angles(0, math.rad(box[5]), 0)
 	local top
-	for _, c in ipairs({ { 0, 0 }, { 0.5, 0.5 }, { 0.5, -0.5 }, { -0.5, 0.5 }, { -0.5, -0.5 } }) do
-		local p = CFrame.new(box[1], 0, box[2]) * rotation * Vector3.new(c[1] * box[3], 0, c[2] * box[4])
-		local y = groundY(p.X, p.Z)
-		if y and (not top or y > top) then top = y end
+	for ix = -2, 2 do
+		for iz = -2, 2 do
+			local p = CFrame.new(box[1], 0, box[2]) * rotation * Vector3.new(ix * box[3] / 4, 0, iz * box[4] / 4)
+			local y = groundY(p.X, p.Z)
+			if y and (not top or y > top) then top = y end
+		end
 	end
 	if not top then return nil end
 	return CFrame.new(box[1], top, box[2]) * rotation
+end
+
+local function meshVisual(parent, name, id, cf, scale)
+	if id == "" then return false end
+	local carrier = counted(part(parent, name, Vector3.one, cf, Enum.Material.SmoothPlastic, WHITE))
+	carrier.CanCollide = false
+	carrier.CanTouch = false
+	carrier.CanQuery = false
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.FileMesh
+	mesh.MeshId = "rbxassetid://" .. id
+	if SportsMeshes.sportsPalette ~= "" then
+		mesh.TextureId = "rbxassetid://" .. SportsMeshes.sportsPalette
+	end
+	mesh.Scale = scale
+	mesh.Parent = carrier
+	return true
 end
 
 -- surfaces carry a skirt down to the ground on sloping sites
@@ -95,9 +116,21 @@ local function circleLine(parent, frame, radius, lift)
 end
 
 local function hoop(parent, frame, x, facing)
-	counted(part(parent, "HoopPole", Vector3.new(0.6, 12, 0.6), frame * CFrame.new(x, 6, 0), Enum.Material.Metal, POST))
-	counted(part(parent, "Backboard", Vector3.new(0.3, 3.6, 6), frame * CFrame.new(x - facing * 1.2, 11.5, 0), nil, WHITE))
-	counted(part(parent, "Rim", Vector3.new(1.6, 0.2, 1.6), frame * CFrame.new(x - facing * 2.4, 10.2, 0), Enum.Material.Metal, rgb(214, 96, 32)))
+	local yaw = facing == 1 and 0 or math.pi
+	local hasMesh = meshVisual(parent, "HoopMesh", SportsMeshes.streetHoop,
+		frame * CFrame.new(x, 0.6, 0) * CFrame.Angles(0, yaw, 0), Vector3.one)
+	if not hasMesh then
+		counted(part(parent, "HoopPole", Vector3.new(0.6, 12, 0.6), frame * CFrame.new(x, 6, 0), Enum.Material.Metal, POST))
+		counted(part(parent, "Backboard", Vector3.new(0.3, 3.6, 6), frame * CFrame.new(x - facing * 1.2, 11.5, 0), nil, WHITE))
+	end
+	-- Exit6Basketball.server reads exactly two Rim BaseParts as shot targets.
+	local rim = counted(part(parent, "Rim", Vector3.new(1.6, 0.12, 1.6),
+		frame * CFrame.new(x - facing * 2.4, 10.6, 0), Enum.Material.Metal, rgb(214, 96, 32)))
+	if hasMesh then
+		rim.Transparency = 1
+		rim.CanCollide = false
+		rim.CanQuery = false
+	end
 end
 
 local function net(parent, frame, width, height, lift)
@@ -117,9 +150,15 @@ end
 local BUILDERS = {}
 
 BUILDERS.basketball = function(model, frame, L, W)
-	slab(model, "Court", frame, 0, 0, L, W, 0.3, Enum.Material.Asphalt, rgb(58, 60, 62))
-	lines(model, frame, L - 2, W - 2, 0.3, { 0 })
-	circleLine(model, frame, math.min(W * 0.12, 6), 0.3)
+	-- Clear only the mapped playing rectangle; the outer park terrain remains.
+	Workspace.Terrain:FillBlock(frame * CFrame.new(0, -2.5, 0),
+		Vector3.new(math.max(2, L - 1), 8, math.max(2, W - 1)), Enum.Material.Air)
+	slab(model, "Court", frame, 0, 0, L, W, 0.6, Enum.Material.Asphalt, rgb(58, 60, 62))
+	if not meshVisual(model, "CourtPaintMesh", SportsMeshes.courtPaint,
+		frame * CFrame.new(0, 0.65, 0), Vector3.new(L / 100, 1, W / 60)) then
+		lines(model, frame, L - 2, W - 2, 0.6, { 0 })
+		circleLine(model, frame, math.min(W * 0.12, 6), 0.6)
+	end
 	hoop(model, frame, L / 2 - 1, 1)
 	hoop(model, frame, -L / 2 + 1, -1)
 end
@@ -172,17 +211,65 @@ local function field(model, frame, L, W)
 	goal(model, frame, -L / 2 + 2, goalWidth)
 end
 BUILDERS.soccer = field
-BUILDERS.american_football = field
 BUILDERS.pitch = field
+
+local function football(model, frame, L, W)
+	slab(model, "FootballField", frame, 0, 0, L, W, 0.3, Enum.Material.Grass, PITCH)
+	for _, side in ipairs({ -1, 1 }) do
+		local tint = slab(model, "EndZone", frame, side * (L / 2 - L / 24), 0,
+			L / 12, W - 1, 0.04, Enum.Material.Grass, rgb(66, 109, 51), 0.3)
+		tint.CanCollide = false
+	end
+	if not meshVisual(model, "FootballPaintMesh", SportsMeshes.footballPaint,
+		frame * CFrame.new(0, 0.6, 0), Vector3.new(L / 360, 1, W / 160)) then
+		lines(model, frame, L - 4, W - 4, 0.3)
+		for i = -4, 4 do
+			slab(model, "YardLine", frame, i * L * 0.0833, 0, 0.35, W - 4, 0.05, nil, WHITE, 0.32)
+		end
+	end
+	for _, side in ipairs({ -1, 1 }) do
+		local x = side * (L / 2 - 2)
+		local post = counted(part(model, "GoalPost", Vector3.new(0.5, 12, 0.5),
+			frame * CFrame.new(x, 6, 0), Enum.Material.Metal, rgb(220, 192, 65)))
+		post.CanCollide = false
+		counted(part(model, "GoalCrossbar", Vector3.new(0.5, 0.5, W * 0.22),
+			frame * CFrame.new(x, 10, 0), Enum.Material.Metal, rgb(220, 192, 65))).CanCollide = false
+		for _, z in ipairs({ -W * 0.11, W * 0.11 }) do
+			counted(part(model, "GoalUpright", Vector3.new(0.5, 8, 0.5),
+				frame * CFrame.new(x, 14, z), Enum.Material.Metal, rgb(220, 192, 65))).CanCollide = false
+		end
+	end
+end
+BUILDERS.american_football = function(model, frame, L, W, item)
+	football(model, frame, L, W)
+	-- The OSM football footprint at 17,1542 is Chester Athletic Complex,
+	-- 1100 W 10th; the 2025 aerial shows a six-lane oval and west stand.
+	if math.abs(item.box[1] - 17.3) < 2 and math.abs(item.box[2] + 1541.6) < 2 then
+		meshVisual(model, "AFieldTrackMesh", SportsMeshes.sixLaneOval,
+			frame * CFrame.new(0, 0.38, 0), Vector3.new(1, 1, 1.1))
+		for _, x in ipairs({ -75, 0, 75 }) do
+			meshVisual(model, "WestBleachers", SportsMeshes.bleacherSection,
+				frame * CFrame.new(x, 0.3, W / 2 + 42), Vector3.one)
+		end
+		model:SetAttribute("Facility", "Chester Athletic Complex A Field")
+	end
+end
 
 BUILDERS.athletics = function(model, frame, L, W)
 	local lane = math.clamp(W * 0.1, 12, 30)
 	local red = rgb(170, 72, 52)
-	slab(model, "Track", frame, 0, W / 2 - lane / 2, L, lane, 0.3, Enum.Material.SmoothPlastic, red)
-	slab(model, "Track", frame, 0, -W / 2 + lane / 2, L, lane, 0.3, Enum.Material.SmoothPlastic, red)
-	slab(model, "Track", frame, L / 2 - lane / 2, 0, lane, W - 2 * lane, 0.3, Enum.Material.SmoothPlastic, red)
-	slab(model, "Track", frame, -L / 2 + lane / 2, 0, lane, W - 2 * lane, 0.3, Enum.Material.SmoothPlastic, red)
-	field(model, frame, L - 2 * lane - 8, W - 2 * lane - 8)
+	if not meshVisual(model, "RunningTrackMesh", SportsMeshes.sixLaneOval,
+		frame * CFrame.new(0, 0.38, 0), Vector3.new(L / 560, 1, W / 260)) then
+		slab(model, "Track", frame, 0, W / 2 - lane / 2, L, lane, 0.3, Enum.Material.SmoothPlastic, red)
+		slab(model, "Track", frame, 0, -W / 2 + lane / 2, L, lane, 0.3, Enum.Material.SmoothPlastic, red)
+		slab(model, "Track", frame, L / 2 - lane / 2, 0, lane, W - 2 * lane, 0.3, Enum.Material.SmoothPlastic, red)
+		slab(model, "Track", frame, -L / 2 + lane / 2, 0, lane, W - 2 * lane, 0.3, Enum.Material.SmoothPlastic, red)
+	end
+	-- Gillespie Field already has a separate, mapped football pitch. Do not
+	-- place a second generic field over that pitch.
+	if math.abs(frame.Position.X - 8364) > 10 or math.abs(frame.Position.Z - 7027) > 10 then
+		field(model, frame, L - 2 * lane - 8, W - 2 * lane - 8)
+	end
 end
 
 BUILDERS.playground = function(model, frame, L, W)
@@ -276,9 +363,13 @@ railParams.FilterType = Enum.RaycastFilterType.Include
 railParams.FilterDescendantsInstances = railBeds
 railParams.MaxParts = 1
 local onRail = 0
-for _, item in ipairs(Parks.features) do
+local allFeatures = table.clone(Parks.features)
+for _, item in ipairs(VerifiedSports) do table.insert(allFeatures, item) end
+for _, item in ipairs(allFeatures) do
 	local key = item.kind == "pitch" and (item.sport or "pitch") or item.kind
 	local builder = BUILDERS[key] or BUILDERS[item.sport or ""] or (item.kind == "pitch" and BUILDERS.pitch)
+	-- Three nearby OSM steeplechase details are not whole stadium tracks.
+	if key == "athletics" and (item.box[3] < 300 or item.box[4] < 150) then builder = nil end
 	local frame = frameOf(item.box)
 	if frame and #railBeds > 0 and key ~= "cemetery"
 		and #Workspace:GetPartBoundsInBox(frame, Vector3.new(item.box[3], 40, item.box[4]), railParams) > 0 then
@@ -288,6 +379,7 @@ for _, item in ipairs(Parks.features) do
 	if builder and frame then
 		local model = Instance.new("Model")
 		model.Name = key
+		if item.facility then model:SetAttribute("Facility", item.facility) end
 		builder(model, frame, item.box[3], item.box[4], item)
 		model.Parent = featureFolder
 		if key == "basketball" then

@@ -24,9 +24,7 @@ OUT = ROOT / "src" / "shared" / "WorldData" / "Parks.lua"
 def studs(lon, lat):
     mx = lon * 20037508.34 / 180.0
     my = math.log(math.tan((90.0 + lat) * math.pi / 360.0)) * 6378137.0
-    # Runtime roads and terrain use north-positive Z. Keep this identical to
-    # the WorldPlacement recentering used by the street/route generators.
-    return (mx + 8397592 - 6347.889) * 3, (my - 4837229 - 7201.973) * 3
+    return (mx + 8397592 - 6347.889) * 3, -(my - 4837229 - 7201.973) * 3
 
 
 def to_studs(geom):

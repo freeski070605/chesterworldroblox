@@ -23,6 +23,9 @@ SAMPLES = 128
 for a in ARGV:
     if a.startswith("--samples="):
         SAMPLES = int(a.split("=")[1])
+    if a.startswith("--out="):            # e.g. --out=renders_v3_1 (folder next to the .blend files)
+        OUT = os.path.join(HERE, "..", "..", "assets", "characters", "exit6_male", a.split("=", 1)[1])
+os.makedirs(OUT, exist_ok=True)
 sc = bpy.context.scene
 cam = sc.camera
 sc.cycles.samples = SAMPLES
@@ -104,6 +107,8 @@ p.inputs["Base Color"].default_value = (0.42, 0.42, 0.43, 1); p.inputs["Roughnes
 bpy.context.view_layer.material_override = clay
 for name, (az, xc, w) in FACE_CAMS.items():
     shot("review_face_clay_%s.png" % name, az, 196, 350, xc, w, 8)
+if ONLY and ONLY[0] == "face":
+    raise SystemExit
 # body clay (form only)
 for name, az in (("front", 0.0), ("three_quarter", 35.0), ("side", 90.0)):
     body_shot("review_body_clay_%s.png" % name, az)

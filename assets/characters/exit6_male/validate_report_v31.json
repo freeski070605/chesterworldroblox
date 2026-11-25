@@ -1,0 +1,279 @@
+{
+ "file": "assets\\characters\\exit6_male\\Exit6_Male_V3_1_Body.glb",
+ "bytes": 4518764,
+ "gltf": {
+  "meshes": {
+   "Head_Geo": {
+    "verts": 4585,
+    "tris": 8494
+   },
+   "LeftFoot_Geo": {
+    "verts": 1282,
+    "tris": 2150
+   },
+   "LeftHand_Geo": {
+    "verts": 1895,
+    "tris": 3218
+   },
+   "LeftLowerArm_Geo": {
+    "verts": 435,
+    "tris": 542
+   },
+   "LeftLowerLeg_Geo": {
+    "verts": 419,
+    "tris": 516
+   },
+   "LeftUpperArm_Geo": {
+    "verts": 502,
+    "tris": 630
+   },
+   "LeftUpperLeg_Geo": {
+    "verts": 539,
+    "tris": 722
+   },
+   "LowerTorso_Geo": {
+    "verts": 688,
+    "tris": 716
+   },
+   "RightFoot_Geo": {
+    "verts": 1279,
+    "tris": 2144
+   },
+   "RightHand_Geo": {
+    "verts": 1895,
+    "tris": 3218
+   },
+   "RightLowerArm_Geo": {
+    "verts": 435,
+    "tris": 542
+   },
+   "RightLowerLeg_Geo": {
+    "verts": 425,
+    "tris": 522
+   },
+   "RightUpperArm_Geo": {
+    "verts": 502,
+    "tris": 630
+   },
+   "RightUpperLeg_Geo": {
+    "verts": 539,
+    "tris": 722
+   },
+   "UpperTorso_Geo": {
+    "verts": 1940,
+    "tris": 2810
+   }
+  },
+  "skins": [
+   {
+    "name": "Exit6_Male_V3_1_GameRig",
+    "joints": 17
+   }
+  ],
+  "images": [
+   "Exit6V31_Body_Normal",
+   "Exit6V31_Body_Color"
+  ],
+  "materials": [
+   "M_Exit6V31_Body",
+   "lambert2.001"
+  ],
+  "total_tris": 27576,
+  "attachment_meshes": [
+   "BodyBack_Att",
+   "BodyFront_Att",
+   "FaceCenter_Att",
+   "FaceFront_Att",
+   "Hair_Att",
+   "Hat_Att",
+   "Head_OuterCage",
+   "LeftCollar_Att",
+   "LeftFoot_Att",
+   "LeftFoot_OuterCage",
+   "LeftGrip_Att",
+   "LeftHand_OuterCage",
+   "LeftLowerArm_OuterCage",
+   "LeftLowerLeg_OuterCage",
+   "LeftShoulder_Att",
+   "LeftUpperArm_OuterCage",
+   "LeftUpperLeg_OuterCage",
+   "LowerTorso_OuterCage",
+   "Neck_Att",
+   "RightCollar_Att",
+   "RightFoot_Att",
+   "RightFoot_OuterCage",
+   "RightGrip_Att",
+   "RightHand_OuterCage",
+   "RightLowerArm_OuterCage",
+   "RightLowerLeg_OuterCage",
+   "RightShoulder_Att",
+   "RightUpperArm_OuterCage",
+   "RightUpperLeg_OuterCage",
+   "Root_Att",
+   "UpperTorso_OuterCage",
+   "WaistBack_Att",
+   "WaistCenter_Att",
+   "WaistFront_Att"
+  ]
+ },
+ "import": {
+  "objects": [
+   "BodyBack_Att",
+   "BodyFront_Att",
+   "FaceCenter_Att",
+   "FaceFront_Att",
+   "Hair_Att",
+   "Hat_Att",
+   "Head_Geo.001",
+   "Head_OuterCage",
+   "LeftCollar_Att",
+   "LeftFoot_Att",
+   "LeftFoot_Geo.001",
+   "LeftFoot_OuterCage",
+   "LeftGrip_Att",
+   "LeftHand_Geo.001",
+   "LeftHand_OuterCage",
+   "LeftLowerArm_Geo",
+   "LeftLowerArm_OuterCage",
+   "LeftLowerLeg_Geo",
+   "LeftLowerLeg_OuterCage",
+   "LeftShoulder_Att",
+   "LeftUpperArm_Geo.001",
+   "LeftUpperArm_OuterCage",
+   "LeftUpperLeg_Geo",
+   "LeftUpperLeg_OuterCage",
+   "LowerTorso_Geo.001",
+   "LowerTorso_OuterCage",
+   "Neck_Att",
+   "RightCollar_Att",
+   "RightFoot_Att",
+   "RightFoot_Geo.001",
+   "RightFoot_OuterCage",
+   "RightGrip_Att",
+   "RightHand_Geo.001",
+   "RightHand_OuterCage",
+   "RightLowerArm_Geo",
+   "RightLowerArm_OuterCage",
+   "RightLowerLeg_Geo",
+   "RightLowerLeg_OuterCage",
+   "RightShoulder_Att",
+   "RightUpperArm_Geo.001",
+   "RightUpperArm_OuterCage",
+   "RightUpperLeg_Geo",
+   "RightUpperLeg_OuterCage",
+   "Root_Att",
+   "UpperTorso_Geo.001",
+   "UpperTorso_OuterCage",
+   "WaistBack_Att",
+   "WaistCenter_Att",
+   "WaistFront_Att"
+  ],
+  "bone_tree": [
+   "Root",
+   "  HumanoidRootNode",
+   "    LowerTorso",
+   "      UpperTorso",
+   "        Head",
+   "        LeftUpperArm",
+   "          LeftLowerArm",
+   "            LeftHand",
+   "        RightUpperArm",
+   "          RightLowerArm",
+   "            RightHand",
+   "      LeftUpperLeg",
+   "        LeftLowerLeg",
+   "          LeftFoot",
+   "      RightUpperLeg",
+   "        RightLowerLeg",
+   "          RightFoot"
+  ],
+  "max_influences": 4,
+  "unweighted_verts": 4899,
+  "bbox_min_studs": [
+   -0.983,
+   -0.517,
+   -2.981
+  ],
+  "bbox_max_studs": [
+   0.984,
+   0.518,
+   2.637
+  ],
+  "height_studs": 5.618,
+  "object_types": [
+   "BodyBack_Att:MESH",
+   "BodyFront_Att:MESH",
+   "FaceCenter_Att:MESH",
+   "FaceFront_Att:MESH",
+   "Hair_Att:MESH",
+   "Hat_Att:MESH",
+   "Head_Geo.001:MESH",
+   "Head_Geo:EMPTY",
+   "Head_OuterCage:MESH",
+   "LeftCollar_Att:MESH",
+   "LeftFoot_Att:MESH",
+   "LeftFoot_Geo.001:MESH",
+   "LeftFoot_Geo:EMPTY",
+   "LeftFoot_OuterCage:MESH",
+   "LeftGrip_Att:MESH",
+   "LeftHand_Geo.001:MESH",
+   "LeftHand_Geo:EMPTY",
+   "LeftHand_OuterCage:MESH",
+   "LeftLowerArm_Geo:MESH",
+   "LeftLowerArm_OuterCage:MESH",
+   "LeftLowerLeg_Geo:MESH",
+   "LeftLowerLeg_OuterCage:MESH",
+   "LeftShoulder_Att:MESH",
+   "LeftUpperArm_Geo.001:MESH",
+   "LeftUpperArm_Geo:EMPTY",
+   "LeftUpperArm_OuterCage:MESH",
+   "LeftUpperLeg_Geo:MESH",
+   "LeftUpperLeg_OuterCage:MESH",
+   "LowerTorso_Geo.001:MESH",
+   "LowerTorso_Geo:EMPTY",
+   "LowerTorso_OuterCage:MESH",
+   "Neck_Att:MESH",
+   "RightCollar_Att:MESH",
+   "RightFoot_Att:MESH",
+   "RightFoot_Geo.001:MESH",
+   "RightFoot_Geo:EMPTY",
+   "RightFoot_OuterCage:MESH",
+   "RightGrip_Att:MESH",
+   "RightHand_Geo.001:MESH",
+   "RightHand_Geo:EMPTY",
+   "RightHand_OuterCage:MESH",
+   "RightLowerArm_Geo:MESH",
+   "RightLowerArm_OuterCage:MESH",
+   "RightLowerLeg_Geo:MESH",
+   "RightLowerLeg_OuterCage:MESH",
+   "RightShoulder_Att:MESH",
+   "RightUpperArm_Geo.001:MESH",
+   "RightUpperArm_Geo:EMPTY",
+   "RightUpperArm_OuterCage:MESH",
+   "RightUpperLeg_Geo:MESH",
+   "RightUpperLeg_OuterCage:MESH",
+   "Root_Att:MESH",
+   "UpperTorso_Geo.001:MESH",
+   "UpperTorso_Geo:EMPTY",
+   "UpperTorso_OuterCage:MESH",
+   "WaistBack_Att:MESH",
+   "WaistCenter_Att:MESH",
+   "WaistFront_Att:MESH"
+  ],
+  "face_direction_blender": "-Y (glTF +Z, Roblox front after import turn)",
+  "lowertorso_head": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "root_head": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ "renders": [
+  "assets\\characters\\exit6_male\\renders_v3_1\\glb_import_front.png",
+  "assets\\characters\\exit6_male\\renders_v3_1\\glb_import_three_quarter.png"
+ ]
+}

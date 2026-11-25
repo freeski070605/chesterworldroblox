@@ -1,0 +1,517 @@
+{
+ "objects": {
+  "LowerTorso_Geo": {
+   "verts": 360,
+   "tris": 716
+  },
+  "UpperTorso_Geo": {
+   "verts": 1407,
+   "tris": 2810
+  },
+  "Head_Geo": {
+   "verts": 4249,
+   "tris": 8494
+  },
+  "LeftUpperArm_Geo": {
+   "verts": 317,
+   "tris": 630
+  },
+  "LeftLowerArm_Geo": {
+   "verts": 273,
+   "tris": 542
+  },
+  "LeftHand_Geo": {
+   "verts": 1611,
+   "tris": 3218
+  },
+  "RightUpperArm_Geo": {
+   "verts": 317,
+   "tris": 630
+  },
+  "RightLowerArm_Geo": {
+   "verts": 273,
+   "tris": 542
+  },
+  "RightHand_Geo": {
+   "verts": 1611,
+   "tris": 3218
+  },
+  "LeftUpperLeg_Geo": {
+   "verts": 363,
+   "tris": 722
+  },
+  "LeftLowerLeg_Geo": {
+   "verts": 260,
+   "tris": 516
+  },
+  "LeftFoot_Geo": {
+   "verts": 1077,
+   "tris": 2150
+  },
+  "RightUpperLeg_Geo": {
+   "verts": 363,
+   "tris": 722
+  },
+  "RightLowerLeg_Geo": {
+   "verts": 263,
+   "tris": 522
+  },
+  "RightFoot_Geo": {
+   "verts": 1074,
+   "tris": 2144
+  },
+  "Hair_Geo": {
+   "verts": 5343,
+   "tris": 10454
+  },
+  "Briefs_Geo": {
+   "verts": 1456,
+   "tris": 2920
+  },
+  "Eyes_Geo.001": {
+   "verts": 552,
+   "tris": 1060
+  },
+  "Brows_Geo": {
+   "verts": 220,
+   "tris": 432
+  },
+  "Goatee_Geo": {
+   "verts": 700,
+   "tris": 1200
+  }
+ },
+ "textures": {
+  "Body": {
+   "color": "assets\\characters\\exit6_male\\textures_v3_1\\Exit6V31_Body_Color.png",
+   "normal": "assets\\characters\\exit6_male\\textures_v3_1\\Exit6V31_Body_Normal.png"
+  },
+  "Hair": {
+   "color": "assets\\characters\\exit6_male\\textures_v3_1\\Exit6V31_Hair_Color.png",
+   "normal": "assets\\characters\\exit6_male\\textures_v3_1\\Exit6V31_Hair_Normal.png"
+  },
+  "FaceDetails": {
+   "color": "assets\\characters\\exit6_male\\textures_v3_1\\Exit6V31_FaceDetails_Color.png"
+  },
+  "Briefs": {
+   "color": "assets\\characters\\exit6_male\\textures_v3_1\\Exit6V31_Briefs_Color.png"
+  }
+ },
+ "source": "Exit6_Male_V3_1.blend",
+ "caps": {
+  "LowerTorso": {
+   "caps": [
+    {
+     "verts": 44,
+     "recessed": false,
+     "faces": 44
+    },
+    {
+     "verts": 30,
+     "recessed": false,
+     "faces": 30
+    },
+    {
+     "verts": 30,
+     "recessed": false,
+     "faces": 30
+    }
+   ],
+   "open_edges_after": 0,
+   "non_manifold_edges": 0
+  },
+  "UpperTorso": {
+   "caps": [
+    {
+     "verts": 50,
+     "recessed": false,
+     "faces": 50
+    },
+    {
+     "verts": 34,
+     "recessed": false,
+     "faces": 34
+    },
+    {
+     "verts": 44,
+     "recessed": false,
+     "faces": 44
+    },
+    {
+     "verts": 34,
+     "recessed": false,
+     "faces": 34
+    }
+   ],
+   "open_edges_after": 0,
+   "non_manifold_edges": 0
+  },
+  "Head": {
+   "caps": [
+    {
+     "verts": 50,
+     "recessed": false,
+     "faces": 50
+    }
+   ],
+   "open_edges_after": 0,
+   "non_manifold_edges": 0
+  },
+  "LeftUpperArm": {
+   "caps": [
+    {
+     "verts": 34,
+     "recessed": false,
+     "faces": 34
+    },
+    {
+     "verts": 24,
+     "recessed": false,
+     "faces": 24
+    }
+   ],
+   "open_edges_after": 0,
+   "non_manifold_edges": 0
+  },
+  "LeftLowerArm": {
+   "caps": [
+    {
+     "verts": 24,
+     "recessed": false,
+     "faces": 24
+    },
+    {
+     "verts": 24,
+     "recessed": false,
+     "faces": 24
+    }
+   ],
+   "open_edges_after": 0,
+   "non_manifold_edges": 0
+  },
+  "LeftHand": {
+   "caps": [
+    {
+     "verts": 24,
+     "recessed": false,
+     "faces": 24
+    }
+   ],
+   "open_edges_after": 0,
+   "non_manifold_edges": 0
+  },
+  "RightUpperArm": {
+   "caps": [
+    {
+     "verts": 34,
+     "recessed": false,
+     "faces": 34
+    },
+    {
+     "verts": 24,
+     "recessed": false,
+     "faces": 24
+    }
+   ],
+   "open_edges_after": 0,
+   "non_manifold_edges": 0
+  },
+  "RightLowerArm": {
+   "caps": [
+    {
+     "verts": 24,
+     "recessed": false,
+     "faces": 24
+    },
+    {
+     "verts": 24,
+     "recessed": false,
+     "faces": 24
+    }
+   ],
+   "open_edges_after": 0,
+   "non_manifold_edges": 0
+  },
+  "RightHand": {
+   "caps": [
+    {
+     "verts": 24,
+     "recessed": false,
+     "faces": 24
+    }
+   ],
+   "open_edges_after": 0,
+   "non_manifold_edges": 0
+  },
+  "LeftUpperLeg": {
+   "caps": [
+    {
+     "verts": 30,
+     "recessed": false,
+     "faces": 30
+    },
+    {
+     "verts": 24,
+     "recessed": false,
+     "faces": 24
+    }
+   ],
+   "open_edges_after": 0,
+   "non_manifold_edges": 0
+  },
+  "LeftLowerLeg": {
+   "caps": [
+    {
+     "verts": 24,
+     "recessed": false,
+     "faces": 24
+    },
+    {
+     "verts": 22,
+     "recessed": false,
+     "faces": 22
+    }
+   ],
+   "open_edges_after": 0,
+   "non_manifold_edges": 0
+  },
+  "LeftFoot": {
+   "caps": [
+    {
+     "verts": 22,
+     "recessed": false,
+     "faces": 22
+    }
+   ],
+   "open_edges_after": 0,
+   "non_manifold_edges": 0
+  },
+  "RightUpperLeg": {
+   "caps": [
+    {
+     "verts": 30,
+     "recessed": false,
+     "faces": 30
+    },
+    {
+     "verts": 24,
+     "recessed": false,
+     "faces": 24
+    }
+   ],
+   "open_edges_after": 0,
+   "non_manifold_edges": 0
+  },
+  "RightLowerLeg": {
+   "caps": [
+    {
+     "verts": 24,
+     "recessed": false,
+     "faces": 24
+    },
+    {
+     "verts": 22,
+     "recessed": false,
+     "faces": 22
+    }
+   ],
+   "open_edges_after": 0,
+   "non_manifold_edges": 0
+  },
+  "RightFoot": {
+   "caps": [
+    {
+     "verts": 22,
+     "recessed": false,
+     "faces": 22
+    }
+   ],
+   "open_edges_after": 0,
+   "non_manifold_edges": 0
+  }
+ },
+ "attachments": {
+  "FaceCenter_Att": {
+   "part": "Head_Geo",
+   "pos": [
+    0.0,
+    -0.107,
+    2.2414
+   ]
+  },
+  "FaceFront_Att": {
+   "part": "Head_Geo",
+   "pos": [
+    0.0,
+    -0.3276,
+    2.2414
+   ]
+  },
+  "Hat_Att": {
+   "part": "Head_Geo",
+   "pos": [
+    0.0,
+    -0.107,
+    2.605
+   ]
+  },
+  "Hair_Att": {
+   "part": "Head_Geo",
+   "pos": [
+    0.0,
+    -0.107,
+    2.605
+   ]
+  },
+  "Neck_Att": {
+   "part": "UpperTorso_Geo",
+   "pos": [
+    0.0,
+    0.097,
+    1.6848
+   ]
+  },
+  "BodyFront_Att": {
+   "part": "UpperTorso_Geo",
+   "pos": [
+    0.0,
+    -0.3513,
+    1.33
+   ]
+  },
+  "BodyBack_Att": {
+   "part": "UpperTorso_Geo",
+   "pos": [
+    0.0,
+    0.4342,
+    1.33
+   ]
+  },
+  "Root_Att": {
+   "part": "LowerTorso_Geo",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "WaistCenter_Att": {
+   "part": "LowerTorso_Geo",
+   "pos": [
+    0.0,
+    -0.0053,
+    0.0774
+   ]
+  },
+  "WaistFront_Att": {
+   "part": "LowerTorso_Geo",
+   "pos": [
+    0.0,
+    -0.3606,
+    0.0774
+   ]
+  },
+  "WaistBack_Att": {
+   "part": "LowerTorso_Geo",
+   "pos": [
+    0.0,
+    0.3334,
+    0.0774
+   ]
+  },
+  "LeftCollar_Att": {
+   "part": "UpperTorso_Geo",
+   "pos": [
+    0.3091,
+    0.0909,
+    1.7101
+   ]
+  },
+  "LeftShoulder_Att": {
+   "part": "LeftUpperArm_Geo",
+   "pos": [
+    0.6182,
+    0.0848,
+    1.5926
+   ]
+  },
+  "LeftGrip_Att": {
+   "part": "LeftHand_Geo",
+   "pos": [
+    0.8029,
+    -0.1247,
+    -0.5721
+   ]
+  },
+  "LeftFoot_Att": {
+   "part": "LeftFoot_Geo",
+   "pos": [
+    0.4835,
+    -0.2751,
+    -2.9697
+   ]
+  },
+  "RightCollar_Att": {
+   "part": "UpperTorso_Geo",
+   "pos": [
+    -0.3091,
+    0.0909,
+    1.7101
+   ]
+  },
+  "RightShoulder_Att": {
+   "part": "RightUpperArm_Geo",
+   "pos": [
+    -0.6182,
+    0.0848,
+    1.5926
+   ]
+  },
+  "RightGrip_Att": {
+   "part": "RightHand_Geo",
+   "pos": [
+    -0.8029,
+    -0.1248,
+    -0.5721
+   ]
+  },
+  "RightFoot_Att": {
+   "part": "RightFoot_Geo",
+   "pos": [
+    -0.4833,
+    -0.2765,
+    -2.9697
+   ]
+  }
+ },
+ "cage_fit": {
+  "clearance_mean": 0.027001182428161012,
+  "clearance_min": 0.015,
+  "clearance_max": 0.038284746684581115,
+  "pushed_from_inside": 42
+ },
+ "total_tris": 43642,
+ "r15_body_tris": 27576,
+ "offset_studs": [
+  -0.0,
+  -0.0,
+  -2.9696969985961914
+ ],
+ "cages": {
+  "LowerTorso": 92,
+  "UpperTorso": 231,
+  "Head": 335,
+  "LeftUpperArm": 70,
+  "LeftLowerArm": 70,
+  "LeftHand": 63,
+  "RightUpperArm": 70,
+  "RightLowerArm": 70,
+  "RightHand": 63,
+  "LeftUpperLeg": 80,
+  "LeftLowerLeg": 80,
+  "LeftFoot": 64,
+  "RightUpperLeg": 80,
+  "RightLowerLeg": 80,
+  "RightFoot": 64
+ }
+}

@@ -1,0 +1,45 @@
+{
+  "name": "Exit6_CharacterTest",
+  "tree": {
+    "$className": "DataModel",
+    "Workspace": {
+      "$className": "Workspace",
+      "$properties": { "FilteringEnabled": true },
+      "Baseplate": {
+        "$className": "Part",
+        "$properties": {
+          "Anchored": true,
+          "Size": [512, 1, 512],
+          "CFrame": { "CFrame": { "position": [0, -0.5, 0], "orientation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]] } },
+          "Color": [0.42, 0.43, 0.45],
+          "Material": "Concrete",
+          "Locked": true
+        }
+      },
+      "SpawnLocation": {
+        "$className": "SpawnLocation",
+        "$properties": {
+          "Anchored": true,
+          "Size": [6, 1, 6],
+          "CFrame": { "CFrame": { "position": [0, 0.5, 25], "orientation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]] } },
+          "Transparency": 0.4,
+          "CanCollide": true
+        }
+      }
+    },
+    "Lighting": {
+      "$className": "Lighting",
+      "$properties": {
+        "Ambient": [0.35, 0.35, 0.37],
+        "Brightness": 2.5,
+        "ClockTime": 14,
+        "EnvironmentDiffuseScale": 1,
+        "EnvironmentSpecularScale": 1,
+        "Technology": "Future"
+      }
+    },
+    "ServerStorage": { "$className": "ServerStorage" },
+    "ServerScriptService": { "$className": "ServerScriptService" },
+    "StarterPlayer": { "$className": "StarterPlayer" }
+  }
+}

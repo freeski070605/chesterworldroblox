@@ -1,7 +1,7 @@
 """Game-ready Exit 6 male V3 from Exit6_Male_V3.blend -> Exit6_Male_V3.glb.
 
     blender -b --factory-startup assets/characters/exit6_male/Exit6_Male_V3.blend \
-        -P tools/characters/export_exit6_male_v2.py
+        -P tools/characters/export_exit6_male_v3.py
 
 In-experience target (not a Marketplace body; see docs/EXIT6_CHARACTER_MALE_V3.md):
   * Body keeps the MPFB quad topology unchanged (no decimation), split into
@@ -346,8 +346,27 @@ def main():
     src_rig.data.pose_position = "POSE"
     with open(os.path.join(OUT, "export_report_v3.json"), "w") as fh:
         json.dump(report, fh, indent=1)
-    bpy.ops.wm.save_as_mainfile(filepath=bpy.data.filepath, compress=True)
-    log("saved; total tris", total, "body", report["r15_body_tris"])
+    # The game copy (split R15 parts on the game rig, _Att markers) used to be saved back into the
+    # source .blend, where it rendered as an inverted duplicate. Save it to its own file instead and
+    # leave the source untouched.
+    save_game_only(coll, os.path.join(OUT, "Exit6_Male_V3_Game.blend"))
+    log("saved game copy; total tris", total, "body", report["r15_body_tris"])
 
 
-main()
+def save_game_only(coll, path):
+    """keep only `coll` and save the session under `path` (call last: the source file on disk is
+    never written, only this new file)"""
+    keep = set(coll.objects)
+    for o in list(bpy.data.objects):
+        if o not in keep and o.type != "LIGHT" and o.type != "CAMERA":
+            bpy.data.objects.remove(o)
+    for c in list(bpy.data.collections):
+        if c != coll and not c.objects and c.name != "Exit6_Studio":
+            bpy.data.collections.remove(c)
+    bpy.ops.outliner.orphans_purge(do_recursive=True)
+    bpy.ops.wm.save_as_mainfile(filepath=path, compress=True)
+    log("game-only file", path)
+
+
+if __name__ == "__main__":
+    main()

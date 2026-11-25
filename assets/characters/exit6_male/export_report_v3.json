@@ -1,0 +1,273 @@
+{
+ "objects": {
+  "LowerTorso_Geo": {
+   "verts": 357,
+   "tris": 612
+  },
+  "UpperTorso_Geo": {
+   "verts": 1403,
+   "tris": 2648
+  },
+  "Head_Geo": {
+   "verts": 4248,
+   "tris": 8444
+  },
+  "LeftUpperArm_Geo": {
+   "verts": 315,
+   "tris": 572
+  },
+  "LeftLowerArm_Geo": {
+   "verts": 271,
+   "tris": 494
+  },
+  "LeftHand_Geo": {
+   "verts": 1610,
+   "tris": 3194
+  },
+  "RightUpperArm_Geo": {
+   "verts": 315,
+   "tris": 572
+  },
+  "RightLowerArm_Geo": {
+   "verts": 271,
+   "tris": 494
+  },
+  "RightHand_Geo": {
+   "verts": 1610,
+   "tris": 3194
+  },
+  "LeftUpperLeg_Geo": {
+   "verts": 361,
+   "tris": 668
+  },
+  "LeftLowerLeg_Geo": {
+   "verts": 258,
+   "tris": 470
+  },
+  "LeftFoot_Geo": {
+   "verts": 1076,
+   "tris": 2128
+  },
+  "RightUpperLeg_Geo": {
+   "verts": 361,
+   "tris": 668
+  },
+  "RightLowerLeg_Geo": {
+   "verts": 261,
+   "tris": 476
+  },
+  "RightFoot_Geo": {
+   "verts": 1073,
+   "tris": 2122
+  },
+  "Hair_Geo": {
+   "verts": 5343,
+   "tris": 10454
+  },
+  "FaceDetails_Geo": {
+   "verts": 1342,
+   "tris": 2428
+  },
+  "Briefs_Geo": {
+   "verts": 1456,
+   "tris": 2920
+  }
+ },
+ "textures": {
+  "Body": {
+   "color": "assets\\characters\\exit6_male\\textures_v3\\Exit6V3_Body_Color.png",
+   "normal": "assets\\characters\\exit6_male\\textures_v3\\Exit6V3_Body_Normal.png"
+  },
+  "Hair": {
+   "color": "assets\\characters\\exit6_male\\textures_v3\\Exit6V3_Hair_Color.png",
+   "normal": "assets\\characters\\exit6_male\\textures_v3\\Exit6V3_Hair_Normal.png"
+  },
+  "FaceDetails": {
+   "color": "assets\\characters\\exit6_male\\textures_v3\\Exit6V3_FaceDetails_Color.png"
+  },
+  "Briefs": {
+   "color": "assets\\characters\\exit6_male\\textures_v3\\Exit6V3_Briefs_Color.png"
+  }
+ },
+ "attachments": {
+  "FaceCenter_Att": {
+   "part": "Head_Geo",
+   "pos": [
+    0.0,
+    -0.107,
+    2.2414
+   ]
+  },
+  "FaceFront_Att": {
+   "part": "Head_Geo",
+   "pos": [
+    0.0,
+    -0.3276,
+    2.2414
+   ]
+  },
+  "Hat_Att": {
+   "part": "Head_Geo",
+   "pos": [
+    0.0,
+    -0.107,
+    2.605
+   ]
+  },
+  "Hair_Att": {
+   "part": "Head_Geo",
+   "pos": [
+    0.0,
+    -0.107,
+    2.605
+   ]
+  },
+  "Neck_Att": {
+   "part": "UpperTorso_Geo",
+   "pos": [
+    0.0,
+    0.097,
+    1.6848
+   ]
+  },
+  "BodyFront_Att": {
+   "part": "UpperTorso_Geo",
+   "pos": [
+    0.0,
+    -0.3513,
+    1.33
+   ]
+  },
+  "BodyBack_Att": {
+   "part": "UpperTorso_Geo",
+   "pos": [
+    0.0,
+    0.4342,
+    1.33
+   ]
+  },
+  "Root_Att": {
+   "part": "LowerTorso_Geo",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "WaistCenter_Att": {
+   "part": "LowerTorso_Geo",
+   "pos": [
+    0.0,
+    -0.0053,
+    0.0774
+   ]
+  },
+  "WaistFront_Att": {
+   "part": "LowerTorso_Geo",
+   "pos": [
+    0.0,
+    -0.3606,
+    0.0774
+   ]
+  },
+  "WaistBack_Att": {
+   "part": "LowerTorso_Geo",
+   "pos": [
+    0.0,
+    0.3334,
+    0.0774
+   ]
+  },
+  "LeftCollar_Att": {
+   "part": "UpperTorso_Geo",
+   "pos": [
+    0.3091,
+    0.0909,
+    1.7101
+   ]
+  },
+  "LeftShoulder_Att": {
+   "part": "LeftUpperArm_Geo",
+   "pos": [
+    0.6182,
+    0.0848,
+    1.5926
+   ]
+  },
+  "LeftGrip_Att": {
+   "part": "LeftHand_Geo",
+   "pos": [
+    0.8029,
+    -0.1248,
+    -0.5723
+   ]
+  },
+  "LeftFoot_Att": {
+   "part": "LeftFoot_Geo",
+   "pos": [
+    0.4835,
+    -0.2755,
+    -2.9697
+   ]
+  },
+  "RightCollar_Att": {
+   "part": "UpperTorso_Geo",
+   "pos": [
+    -0.3091,
+    0.0909,
+    1.7101
+   ]
+  },
+  "RightShoulder_Att": {
+   "part": "RightUpperArm_Geo",
+   "pos": [
+    -0.6182,
+    0.0848,
+    1.5926
+   ]
+  },
+  "RightGrip_Att": {
+   "part": "RightHand_Geo",
+   "pos": [
+    -0.8029,
+    -0.1248,
+    -0.5723
+   ]
+  },
+  "RightFoot_Att": {
+   "part": "RightFoot_Geo",
+   "pos": [
+    -0.4833,
+    -0.2768,
+    -2.9697
+   ]
+  }
+ },
+ "total_tris": 42558,
+ "r15_body_tris": 26756,
+ "max_part_tris": 8444,
+ "bones": [
+  "Root",
+  "HumanoidRootNode",
+  "LowerTorso",
+  "UpperTorso",
+  "Head",
+  "LeftUpperArm",
+  "LeftLowerArm",
+  "LeftHand",
+  "RightUpperArm",
+  "RightLowerArm",
+  "RightHand",
+  "LeftUpperLeg",
+  "LeftLowerLeg",
+  "LeftFoot",
+  "RightUpperLeg",
+  "RightLowerLeg",
+  "RightFoot"
+ ],
+ "offset_studs": [
+  -0.0,
+  -0.0,
+  -2.9696969985961914
+ ]
+}

@@ -1,0 +1,146 @@
+{
+ "studs_per_ref_px": 0.006060606060606061,
+ "objects": {
+  "Exit6_Male_Body": {
+   "verts": 13380,
+   "tris": 26756
+  },
+  "Exit6_Male_Eyes": {
+   "verts": 1064,
+   "tris": 2040
+  },
+  "Exit6_Male_Briefs": {
+   "verts": 728,
+   "tris": 1352
+  },
+  "Exit6_Male_Brows": {
+   "verts": 88,
+   "tris": 168
+  },
+  "Exit6_Male_Goatee": {
+   "verts": 11852,
+   "tris": 23190
+  },
+  "Exit6_Male_Hair_Twists": {
+   "verts": 133392,
+   "tris": 266320
+  },
+  "Exit6_Male_Hair_Scalp": {
+   "verts": 12548,
+   "tris": 24548
+  },
+  "Exit6_Male_Hair_Game": {
+   "verts": 4526,
+   "tris": 8820
+  }
+ },
+ "bones": [
+  "HumanoidRootNode",
+  "LowerTorso",
+  "UpperTorso",
+  "Head",
+  "LeftUpperArm",
+  "LeftLowerArm",
+  "LeftHand",
+  "RightUpperArm",
+  "RightLowerArm",
+  "RightHand",
+  "LeftUpperLeg",
+  "LeftLowerLeg",
+  "LeftFoot",
+  "RightUpperLeg",
+  "RightLowerLeg",
+  "RightFoot"
+ ],
+ "mpfb_macro": {
+  "gender": 1.0,
+  "age": 0.42,
+  "muscle": 0.96,
+  "weight": 0.42,
+  "proportions": 0.9,
+  "height": 0.6,
+  "cupsize": 0.5,
+  "firmness": 0.5,
+  "race": {
+   "african": 1.0,
+   "asian": 0.0,
+   "caucasian": 0.0
+  }
+ },
+ "face_targets": {
+  "nose/nose-scale-vert-decr": 0.8,
+  "nose/nose-trans-up": 0.5,
+  "nose/nose-hump-decr": 0.6,
+  "nose/nose-width1-incr": 0.2,
+  "nose/nose-width2-incr": 0.1,
+  "nose/nose-point-width-incr": 0.3,
+  "nose/nose-flaring-incr": 0.3,
+  "nose/nose-nostrils-width-incr": 0.5,
+  "nose/nose-scale-depth-decr": 0.3,
+  "nose/nose-volume-decr": 0.3,
+  "nose/nose-point-up": 0.9,
+  "mouth/mouth-trans-up": 0.6,
+  "mouth/mouth-upperlip-volume-decr": 0.7,
+  "mouth/mouth-upperlip-height-decr": 0.6,
+  "mouth/mouth-cupidsbow-incr": 1.0,
+  "mouth/mouth-scale-horiz-incr": 0.6,
+  "mouth/mouth-scale-depth-decr": 0.7,
+  "mouth/mouth-trans-backward": 0.3,
+  "lr:eyes/eye-scale-incr": 0.3,
+  "lr:eyes/eye-height2-incr": 0.2,
+  "lr:eyes/eye-height1-incr": 0.3,
+  "lr:eyes/eye-corner1-up": 0.15,
+  "lr:eyes/eye-bag-decr": 0.9,
+  "lr:eyes/eye-trans-up": 0.2,
+  "lr:cheek/cheek-volume-decr": 0.25,
+  "lr:cheek/cheek-bones-incr": 0.7,
+  "lr:cheek/cheek-trans-up": 0.3,
+  "chin/chin-height-incr": 0.5,
+  "chin/chin-prominent-incr": 0.3,
+  "chin/chin-bones-incr": 0.7,
+  "chin/chin-jaw-drop-incr": 0.3,
+  "head/head-square": 0.3,
+  "head/head-fat-decr": 0.4,
+  "neck/neck-scale-horiz-decr": 0.1,
+  "neck/neck-double-decr": 1.0,
+  "lr:ears/ear-flap-decr": 0.3,
+  "head/head-age-decr": 0.5,
+  "head/head-invertedtriangular": 0.35,
+  "chin/chin-width-decr": 0.2,
+  "nose/nose-nostrils-angle-up": 0.8,
+  "lr:eyes/eye-eyefold-down": 0.4,
+  "nose/nose-width3-decr": 0.25
+ },
+ "hand_scale": 1.22,
+ "finger_close": 0.65,
+ "face_strokes": [
+  "under_jaw_hollow",
+  "gonial_angle",
+  "upper_lid_lower",
+  "lower_lid_raise",
+  "nasolabial_soften",
+  "jaw_line_relax"
+ ],
+ "body_strokes": [
+  "lat_fin_relax",
+  "lat_fin_trim",
+  "waist_taper_blend",
+  "pec_mass",
+  "pec_outer",
+  "pec_shelf",
+  "pec_lower_border",
+  "deltoid_cap",
+  "deltoid_front",
+  "upper_arm_mass",
+  "biceps_peak",
+  "forearm_mass",
+  "quad_mass",
+  "calf_mass"
+ ],
+ "hair": {
+  "SPACING": 16.5,
+  "R_TWIST": 4.7,
+  "PITCH": 9.0,
+  "PART_GAP": 3.0
+ }
+}

@@ -1,0 +1,26 @@
+{
+ "front": {
+  "silhouette_iou": 0.9042,
+  "mean_row_width_err_px": 13.86,
+  "ref_height_px": 929,
+  "render_height_px": 920
+ },
+ "three_quarter": {
+  "silhouette_iou": 0.8296,
+  "mean_row_width_err_px": 14.84,
+  "ref_height_px": 929,
+  "render_height_px": 920
+ },
+ "side": {
+  "silhouette_iou": 0.9155,
+  "mean_row_width_err_px": 5.69,
+  "ref_height_px": 929,
+  "render_height_px": 920
+ },
+ "back": {
+  "silhouette_iou": 0.901,
+  "mean_row_width_err_px": 13.69,
+  "ref_height_px": 930,
+  "render_height_px": 920
+ }
+}

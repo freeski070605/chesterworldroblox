@@ -76,8 +76,9 @@ local function meshVisual(parent, name, id, cf, scale)
 	local mesh = Instance.new("SpecialMesh")
 	mesh.MeshType = Enum.MeshType.FileMesh
 	mesh.MeshId = "rbxassetid://" .. id
-	if SportsMeshes.sportsPalette ~= "" then
-		mesh.TextureId = "rbxassetid://" .. SportsMeshes.sportsPalette
+	local textureId = SportsMeshes.textures[id] or SportsMeshes.sportsPalette
+        if textureId ~= "" then
+		mesh.TextureId = "rbxassetid://" .. textureId
 	end
 	mesh.Scale = scale
 	mesh.Parent = carrier
@@ -115,9 +116,9 @@ local function circleLine(parent, frame, radius, lift)
 	end
 end
 
-local function hoop(parent, frame, x, facing)
+local function hoop(parent, frame, x, facing, useMeshes)
 	local yaw = facing == 1 and 0 or math.pi
-	local hasMesh = meshVisual(parent, "HoopMesh", SportsMeshes.streetHoop,
+	local hasMesh = useMeshes and meshVisual(parent, "HoopMesh", SportsMeshes.streetHoop,
 		frame * CFrame.new(x, 0.6, 0) * CFrame.Angles(0, yaw, 0), Vector3.one)
 	if not hasMesh then
 		counted(part(parent, "HoopPole", Vector3.new(0.6, 12, 0.6), frame * CFrame.new(x, 6, 0), Enum.Material.Metal, POST))
@@ -149,18 +150,25 @@ end
 
 local BUILDERS = {}
 
-BUILDERS.basketball = function(model, frame, L, W)
+BUILDERS.basketball = function(model, frame, L, W, item)
+        local useMeshes = math.abs(item.box[1] + 3438) < 8
+            and math.abs(item.box[2] - 5798) < 8
+
+        if useMeshes then
+            model:SetAttribute("SportsMeshPilot", true)
+            print("[Exit6 Sports] Memorial basketball pilot:", frame.Position)
+        end
 	-- Do not destructively carve terrain on a citywide park pass. Court geometry
 	-- is playable without altering underlying terrain; any grass fix needs a
 	-- separately validated, reversible site-specific conforming operation.
 	slab(model, "Court", frame, 0, 0, L, W, 0.6, Enum.Material.Asphalt, rgb(58, 60, 62))
-	if not meshVisual(model, "CourtPaintMesh", SportsMeshes.courtPaint,
+	if not useMeshes or not meshVisual(model, "CourtPaintMesh", SportsMeshes.courtPaint,
 		frame * CFrame.new(0, 0.65, 0), Vector3.new(L / 100, 1, W / 60)) then
 		lines(model, frame, L - 2, W - 2, 0.6, { 0 })
 		circleLine(model, frame, math.min(W * 0.12, 6), 0.6)
 	end
-	hoop(model, frame, L / 2 - 1, 1)
-	hoop(model, frame, -L / 2 + 1, -1)
+	hoop(model, frame, L / 2 - 1, 1, useMeshes)
+	hoop(model, frame, -L / 2 + 1, -1, useMeshes)
 end
 
 BUILDERS.tennis = function(model, frame, L, W)

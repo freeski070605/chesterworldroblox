@@ -1,6 +1,6 @@
 # Exit 6 male V3.1: approved V3, made playable
 
-Status: **V3 approved as the base character (2026-11-25). V3.1 = V3 + polish, R15 prep, wear. Tested in a separate Studio test place. Not in the live Exit 6 place.**
+Status: **V3.1 appearance approved (2026-11-25). Tested in a separate Studio test place. Not in the live Exit 6 place.**
 
 V3.1 does not rebuild the face or the body. The face shape, body shape, proportions, rig, weights and hair are V3's, byte for byte. V3.1 adds the following:
 
@@ -12,7 +12,8 @@ V3.1 does not rebuild the face or the body. The face shape, body shape, proporti
 
 ## 1. Approved base and backup
 
-- The git tag `exit6-male-v3-approved` marks commit `f615af5`. That commit holds V3's `.blend`, `.glb`, textures and reports.
+- The git tag `exit6-male-v3-approved` marks commit `f615af5`. That commit holds V3's `.blend`, `.glb`, textures and reports. The approved V3 source files on this branch were restored byte for byte from that tag.
+- The tag `exit6-male-v3.1-approved` marks the approved V3.1 appearance and initial wear assets before the further clothing and integration work.
 - A local copy with SHA-256 sums is in `build/backups/exit6_male_v3_approved/`. That folder is gitignored.
 - `Exit6_Male_V3.blend` stays the approved source. Every V3.1 step reads it and writes new files.
 
@@ -64,13 +65,13 @@ Review renders of the game mesh with its baked maps are in `build/exit6_v3/polis
 
 - **Cause:** `export_exit6_male_v3.py` saved its game copy (collection `Exit6_Male_V3_Game`: split parts on a game rig moved 2.97 studs down, plus `_Att` cubes) back into the source `.blend`.
 - **Fix:** the export now writes the game copy only to `Exit6_Male_V3_Game.blend` and never saves the source. The V3.1 export does the same, writing `Exit6_Male_V3_1_Game.blend`.
-- **Cleanup:** `polish_exit6_male_v31.py --strip-only` removes an old game copy from any source file. It was run on the approved `Exit6_Male_V3.blend` (38 objects removed; only the `Exit6_Male_V3` and `Exit6_Studio` collections remain). `Exit6_Male_V3_1.blend` is clean. The tagged commit and the backup keep the original file.
+- **Cleanup:** `polish_exit6_male_v31.py --strip-only` removes an old game copy from any source file. It was run during V3.1 preparation, but this branch restores `Exit6_Male_V3.blend` from the V3 approval tag. `Exit6_Male_V3_1.blend` is clean. The V3 approval tag keeps the original source.
 
 ## 5. R15 body preparation (`Exit6_Male_V3_1_Body.glb`)
 
 - **Parts:** 15 `<Part>_Geo` meshes on the standard R15 rig (Root, HumanoidRootNode, 15 bones), with at most 4 influences per vertex and no root influence.
 - **Closed boundaries:** every part is capped with fans. The caps are oriented from the adjacent face and use a skin texel for UVs. The export report shows 0 open edges and 0 non-manifold edges on all 15 parts.
-- **Attachments:** 19 `<Name>_Att` markers. The importer put them on HumanoidRootPart. The test-place installer moves them to the right parts, and the exporter now parents them to their R15 bone, as Roblox's templates do. That change takes effect on the next export.
+- **Attachments:** 19 `<Name>_Att` markers. The exporter parents them to their R15 bones. The approved GLB's mesh buffers are kept byte for byte, while the corrected attachment hierarchy is applied to the GLB. The test-place installer retains a repair step for older imports.
 - **Cages:** 15 `<Part>_OuterCage` meshes, built from Roblox's **Body Cage Template**, so the topology and UVs are Roblox's own. The fit runs in two steps:
   1. A bone warp maps the template's A-pose onto V3.1's pose, with feet mapped box to box.
   2. 40 rounds of surface projection, each part onto its own part, keep the cage 0.015 to 0.038 studs outside the skin, with Taubin smoothing between rounds. Each part cage copies the displacement of its matching template vertex, as the template's own Geometry Nodes setup does.
@@ -96,6 +97,8 @@ The test place is `E:\RobloxStudio\Exit6_CharacterTest.rbxl`, built from `tools/
 | Sneakers | 131700232142869 | r2 |
 | Briefs | 121101325988526 | |
 | Jewelry | 136482874183839 | |
+
+These IDs refer to the earlier test uploads. The corrected GLBs in `assets/wear/exit6_male_v31/` need new test-place uploads before the checks below can run.
 
 The installers are run from Studio in this order:
 
@@ -153,21 +156,30 @@ The Roblox templates are downloaded to `build/roblox_templates/` (gitignored), f
 
 ## Known gaps / next steps
 
-**Puffer**
+**Clothing revision (2026-11-25), offline-verified, awaiting Studio Play review**
 
-- A dark crease where the sleeves press against the body shell at the armpits. It needs separate sleeve and body shells, or an armpit gap.
+Checked with `tools/characters/check_exit6_wear_v31.py` (poses: rest, stride, squat, sit 90/90, arms raised) and `tools/harness/render_wear_closeups.py`. "Seen" = under-layer points visible from an axis view through the outer layer.
 
-**Sneakers**
+| Check | Before | Now |
+|---|---|---|
+| Briefs seen through cargos (rest / stride / squat / sit / arms up) | 44 / - / - / - / - | 0 / 11 / 10 / 22 / 0 |
+| Skin through cargo crotch and seat, rest | visible | none |
+| Sneaker toe-box edge angle p99 / max | 52 / 89 deg | 31 / 44 deg |
+| Puffer armpit tearing with arms raised | panels torn open | minor facets |
+| Cargo tearing at the knees when seated | kneecaps through | covered |
 
-- The toes are slightly lumpy under the cupsole. A purpose-built shoe last would be cleaner than a smoothed foot.
+- Cargos: inner cage = briefs' outer cage; the cargo surface is pushed clear of the briefs (0.045) and of convex hulls over the briefs' front and seat panels, because the nearest-point push follows the inner-thigh and cleft normals sideways in those concave spots. Over the briefs the cargo takes the briefs' skin weights so the two layers move together.
+- Skin weights: every garment is limited to the bones it may follow (no hand weights on the cargo hips, which tore it open whenever the arms moved), smoothed over the garment surface, and never crosses the midline.
+- Puffer: a soft sleeve/body blend band replaces the hard `is_arm` switch that stepped the offset and quilt phase in one edge loop (the sleeve crease).
+- Sneakers: the shell is a voxel-remeshed convex hull of each foot, not a copy of the foot surface, so no toe contours survive; the old pass re-imprinted every toe when it pushed the shoe out of the body.
+- Chains: `Exit6_Chain` (skin-fitted) stays inside the puffer's inner wall everywhere (min 0.003), `Exit6_Chain_Over` sits outside its outer wall (min 0.006). `Exit6V31Style.ChainFit` lists which tops support over / under; players pick in the phone Closet (saved as `style.chainLayer`, also per outfit). Tops not listed hide the chain instead of clipping.
+- Remaining: cloth bunching behind the raised thigh in a deep stride (Blender linear skinning; judge in Studio Play).
+- After each wear build run `python tools/characters/sync_v31_wear_bbox.py`: the installer's BBOX table must match the GLBs.
 
-**Briefs**
+**Exporter attachment fix**
 
-- The briefs' outer cage is coarse, so under the cargos their hem pokes through. The test place wears the briefs only when no pants are on (`OnlyWithoutPants` attribute). The builder now uses a 0.035 gap for the next export.
-
-**Chain**
-
-- The chain sits under the puffer collar. It reads best with no jacket or with the jacket open.
+- `export_exit6_male_v31.py` read the marker transforms before the depsgraph had evaluated them, so the first marker (`FaceCenter_Att`) was re-parented onto the rig origin, 2.24 studs below the face. It now updates first, captures all markers, re-parents, restores and asserts each marker against its intended position. The approved body GLB was re-grafted by `reparent_v31_approved_body_glb.py` from its own world transforms (BIN chunk untouched).
+- `verify_v31_body_lock.py` now also checks skin joints and bind matrices, textures, rig nodes, all 19 marker world positions and the face/hair parts against `exit6-male-v3.1-approved`.
 
 **Tinting**
 
@@ -176,5 +188,6 @@ The Roblox templates are downloaded to `build/roblox_templates/` (gitignored), f
 **Before integrating into Exit 6**
 
 - The current Exit6Style / premium system (`px_*`) fits the standard R15 body. V3.1 wear is layered clothing for the V3.1 body, so the integration has to switch the player look to the V3.1 rig and these WrapLayer accessories.
-- Before integrating, re-export the body with bone-parented `_Att`, and upload it as a new version of 117787451658215.
+- Upload the corrected body, wear and jewelry GLBs to the separate character test place, run the two installers and `tools/character_test/verify_exit6_v31.luau`, then test deformation and movement there.
+- The isolated integration branch has a reversible place attribute `Exit6V31CharacterEnabled`; leave it false until test-place approval.
 - The importer lists the outer cages' InitialPoses `_Node` names. This is harmless.

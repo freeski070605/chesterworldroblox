@@ -19,6 +19,7 @@ local Wardrobe = require(Shared:WaitForChild("Exit6Wardrobe"))
 local Meshes = require(Shared:WaitForChild("Exit6WearMeshes"))
 local PremiumMeshes = require(Shared:WaitForChild("Exit6PremiumMeshes"))
 local Profile = require(script.Parent:WaitForChild("Exit6Profile"))
+local V31 = require(script.Parent:WaitForChild("Exit6V31Style"))
 
 local Style = {}
 
@@ -77,6 +78,10 @@ end
 function Style.ItemReady(itemId)
 	local it = Catalog.Items[itemId]
 	if not it or it.kind ~= "wear" then return false end
+	if game:GetAttribute("Exit6V31CharacterEnabled") == true then
+		return it.v31Empty == true or (it.v31Asset ~= nil and V31.Ready(it.v31Asset))
+	end
+	if it.v31Only then return false end
 	for _, piece in ipairs(it.pieces) do
 		if not meshInfo(piece.mesh) or not template(piece.mesh) then return false, piece.mesh end
 	end
@@ -270,6 +275,13 @@ function Style.Apply(player)
 	local p = Profile.Get(player)
 	if not char or not p or not char:FindFirstChild("Head") then return end
 	local look = lookFor(player)
+	if char:GetAttribute("Exit6V31") == true then
+		V31.Apply(char, look, p.style, Catalog)
+		local worn = {}
+		for _, slot in ipairs(Wardrobe.Slots) do worn[slot] = look[slot] end
+		player:SetAttribute("Exit6Wearing", game:GetService("HttpService"):JSONEncode(worn))
+		return
+	end
 	for _, slot in ipairs(Wardrobe.Slots) do
 		buildSlot(char, slot, look[slot], look)
 	end
@@ -295,7 +307,7 @@ end
 -- try an item on for this session only (shop counter)
 function Style.Preview(player, itemId)
 	local it = wearable(itemId)
-	if not it or not player.Character then return false end
+	if not it or not Style.ItemReady(itemId) or not player.Character then return false end
 	previews[player] = { [it.slot] = itemId }
 	Style.Apply(player)
 	return true
@@ -308,7 +320,7 @@ function Style.PreviewLook(player, look)
 	local pv = {}
 	for slot, id in pairs(look) do
 		local it = wearable(id)
-		if not it or it.slot ~= slot then return false end
+		if not it or it.slot ~= slot or not Style.ItemReady(id) then return false end
 		pv[slot] = id
 	end
 	previews[player] = pv
@@ -334,8 +346,9 @@ end
 function Style.Equip(player, itemId)
 	local it = wearable(itemId)
 	local p = Profile.Get(player)
-	if not it or not p or not p.style.owned[itemId] then return false end
+	if not it or not Style.ItemReady(itemId) or not p or not p.style.owned[itemId] then return false end
 	p.style[it.slot] = itemId
+	if p.style.tints then p.style.tints[it.slot] = nil end
 	previews[player] = nil
 	Profile.Publish(player)
 	Style.Apply(player)
@@ -346,6 +359,7 @@ function Style.Unequip(player, slot)
 	local p = Profile.Get(player)
 	if not p or not Wardrobe.SlotNames[slot] then return false end
 	p.style[slot] = nil
+	if p.style.tints then p.style.tints[slot] = nil end
 	previews[player] = nil
 	Profile.Publish(player)
 	Style.Apply(player)
@@ -369,7 +383,33 @@ function Style.SetSkin(player, index)
 	local p = Profile.Get(player)
 	if not p or type(index) ~= "number" or index % 1 ~= 0
 		or index < 0 or index > #Wardrobe.SkinTones then return false end
+	if player.Character and player.Character:GetAttribute("Exit6V31") == true
+		and index > 0 and not V31.SkinReady(index) then return false end
 	p.style.skin = index > 0 and index or nil
+	Profile.Publish(player)
+	Style.Apply(player)
+	return true
+end
+
+function Style.Recolor(player, slot, index)
+	local p = Profile.Get(player)
+	local id = p and p.style[slot]
+	local item = id and Catalog.Items[id]
+	if not item or not item.v31TintPalette or not Style.Owns(player, id)
+		or type(index) ~= "number" or index % 1 ~= 0 or index < 1
+		or index > #item.v31TintPalette then return false end
+	p.style.tints = p.style.tints or {}
+	p.style.tints[slot] = index
+	Profile.Publish(player)
+	Style.Apply(player)
+	return true
+end
+
+-- chain over or under a compatible top (V3.1 layered wear; saved with the style and outfits)
+function Style.SetChainLayer(player, layer)
+	local p = Profile.Get(player)
+	if not p or (layer ~= "over" and layer ~= "under") then return false end
+	p.style.chainLayer = layer
 	Profile.Publish(player)
 	Style.Apply(player)
 	return true
@@ -383,6 +423,8 @@ function Style.SaveOutfit(player, index)
 	for _, slot in ipairs(Wardrobe.Slots) do
 		if p.style[slot] then look[slot] = p.style[slot] end
 	end
+	look.tints = table.clone(p.style.tints or {})
+	look.chainLayer = p.style.chainLayer
 	p.style.outfits = p.style.outfits or {}
 	p.style.outfits[tostring(index)] = look
 	Profile.Publish(player)
@@ -400,6 +442,8 @@ function Style.WearOutfit(player, index)
 		local it = id and wearable(id)
 		p.style[slot] = (it and it.slot == slot and p.style.owned[id]) and id or nil
 	end
+	p.style.tints = table.clone(look.tints or {})
+	p.style.chainLayer = look.chainLayer
 	previews[player] = nil
 	Profile.Publish(player)
 	Style.Apply(player)
@@ -443,6 +487,7 @@ function Style.WearStarter(player)
 end
 
 local function hook(player)
+	player.CharacterAdded:Connect(function() task.defer(Style.Apply, player) end)
 	player.CharacterAppearanceLoaded:Connect(function() task.defer(Style.Apply, player) end)
 end
 Players.PlayerAdded:Connect(hook)

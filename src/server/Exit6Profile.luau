@@ -55,6 +55,17 @@ local function importStyle(dst, src)
 			end
 		end
 	end
+	if src.chainLayer == "over" or src.chainLayer == "under" then dst.chainLayer = src.chainLayer end
+	if type(src.tints) == "table" then
+		dst.tints = {}
+		for _, slot in ipairs(Wardrobe.Slots) do
+			local it = dst[slot] and Catalog.Items[dst[slot]]
+			local n = tonumber(src.tints[slot])
+			if it and it.v31TintPalette and n and n % 1 == 0 and n >= 1 and n <= #it.v31TintPalette then
+				dst.tints[slot] = n
+			end
+		end
+	end
 	if type(src.outfits) == "table" then
 		dst.outfits = {}
 		for i = 1, Wardrobe.OutfitSlots do
@@ -65,6 +76,17 @@ local function importStyle(dst, src)
 					local id = look[slot]
 					local it = type(id) == "string" and Catalog.Items[id]
 					if it and it.kind == "wear" and it.slot == slot then clean[slot] = id end
+				end
+				if look.chainLayer == "over" or look.chainLayer == "under" then clean.chainLayer = look.chainLayer end
+				if type(look.tints) == "table" then
+					clean.tints = {}
+					for _, slot in ipairs(Wardrobe.Slots) do
+						local it = clean[slot] and Catalog.Items[clean[slot]]
+						local n = tonumber(look.tints[slot])
+						if it and it.v31TintPalette and n and n % 1 == 0 and n >= 1 and n <= #it.v31TintPalette then
+							clean.tints[slot] = n
+						end
+					end
 				end
 				dst.outfits[tostring(i)] = clean
 			end

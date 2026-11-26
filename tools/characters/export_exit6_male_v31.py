@@ -521,13 +521,22 @@ def main():
     bpy.context.view_layer.update()
     report["attachments"] = E.make_attachments(parts, rig, coll)
     # Roblox's templates parent the _Att markers to the R15 bones; mesh-parented markers import onto
-    # HumanoidRootPart (seen in the V3.1 test import), so re-parent them to their part's bone
+    # HumanoidRootPart (seen in the V3.1 test import), so re-parent them to their part's bone.
+    # make_attachments leaves the new markers unevaluated: without this update the first marker's
+    # matrix_world reads as identity and it lands on the rig origin (FaceCenter_Att did, 2.24 studs off).
+    bpy.context.view_layer.update()
+    worlds = {name: bpy.data.objects[name].matrix_world.copy() for name in report["attachments"]}
     for name, info in report["attachments"].items():
         att = bpy.data.objects[name]
-        wm = att.matrix_world.copy()
         att.parent = rig; att.parent_type = "BONE"; att.parent_bone = info["part"].replace("_Geo", "")
-        bpy.context.view_layer.update()
-        att.matrix_world = wm
+    bpy.context.view_layer.update()
+    for name in report["attachments"]:
+        bpy.data.objects[name].matrix_world = worlds[name]
+    bpy.context.view_layer.update()
+    for name, info in report["attachments"].items():
+        got = bpy.data.objects[name].matrix_world.translation
+        err = (got - Vector(info["pos"])).length
+        assert err < 1e-3, f"{name} placed {err:.4f} studs from its marker position"
     # cages
     tmpl = load_template()
     X, T, pm, fitrep = fit_cage(tmpl, rig, parts, None)

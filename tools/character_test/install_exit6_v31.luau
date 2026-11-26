@@ -33,6 +33,7 @@ local ATT_PART = {
 
 local char = body0:Clone()
 char.Name = "Exit6_V31_Character"
+char:SetAttribute("Exit6V31", true)
 for _, d in char:GetDescendants() do
 	if d:IsA("PackageLink") then d:Destroy() end
 end

@@ -28,6 +28,10 @@ Premium.Products = {
 	puffer = { name = "Oversized Winter Puffer", robux = 299, productId = 0, category = "clothing", focus = "body",
 		flagship = true, grants = { "p_puffer_black" },
 		blurb = "Deep-baffle black puffer, tall collar, charcoal hood out over the top." },
+	v31_cargo = { name = "V3.1 Premium Cargos", robux = 149, productId = 0, category = "clothing", focus = "body",
+		grants = { "p_v31_cargo" }, blurb = "Tailored black cargos fitted to the V3.1 avatar." },
+	v31_sneakers = { name = "V3.1 Premium Sneakers", robux = 99, productId = 0, category = "shoes", focus = "feet",
+		grants = { "p_v31_sneakers" }, blurb = "Original low-top sneakers fitted to the V3.1 avatar." },
 	hightops = { name = "EXIT 6 High-Tops", robux = 199, productId = 0, category = "shoes", focus = "feet",
 		flagship = true, grants = { "p_hightops" },
 		blurb = "White leather high-tops, black overlays, silver hex '6' patch." },
@@ -65,7 +69,7 @@ Premium.Products = {
 }
 
 -- boutique order
-Premium.Order = { "founders_fit", "cuban_diamond", "puffer", "hightops", "long_locs", "vip_nightlife", "tracksuit",
+Premium.Order = { "founders_fit", "cuban_diamond", "puffer", "v31_cargo", "v31_sneakers", "hightops", "long_locs", "vip_nightlife", "tracksuit",
 	"watch", "pendant_silver", "cornrows", "studs", "cap" }
 Premium.Categories = { "outfit", "clothing", "shoes", "hair", "jewelry" }
 Premium.CategoryNames = { outfit = "Outfits", clothing = "Clothing", shoes = "Shoes", hair = "Hair", jewelry = "Jewelry" }

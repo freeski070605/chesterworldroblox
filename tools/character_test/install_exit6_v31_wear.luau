@@ -14,12 +14,13 @@ assert(char, "run install_exit6_v31.luau first")
 local root = char.LowerTorso.RootRigAttachment.WorldCFrame
 
 local BBOX = { -- Blender game-frame bbox centres (studs)
-	Exit6_Puffer = Vector3.new(0.0008, 0.0212, 0.8301),
-	Exit6_Cargo = Vector3.new(0.0, -0.008, -1.1892),
-	Exit6_Sneakers = Vector3.new(0.0, -0.0694, -2.8035),
+	Exit6_Puffer = Vector3.new(-0.0004, 0.0228, 0.8297),
+	Exit6_Cargo = Vector3.new(0.0004, -0.0040, -1.1728),
+	Exit6_Sneakers = Vector3.new(0.0000, -0.0655, -2.7643),
 	Exit6_Briefs = Vector3.new(0.0001, 0.0005, -0.2182),
 	Exit6_Chain = Vector3.new(0.0006, 0.0175, 1.5838),
-	Exit6_Watch = Vector3.new(0.8483, -0.031, -0.1086),
+	Exit6_Chain_Over = Vector3.new(0.0003, -0.0007, 1.6100),
+	Exit6_Watch = Vector3.new(0.8483, -0.0310, -0.1086),
 }
 local ITEMS = {
 	-- mesh, import model, attachment, type, layer order, tint (nil = keep colours), default on
@@ -27,7 +28,8 @@ local ITEMS = {
 	{ "Exit6_Sneakers", "Imp_Exit6_Sneakers", "LeftFootAttachment", Enum.AccessoryType.Unknown, 3, nil, true },
 	{ "Exit6_Cargo", "Imp_Exit6_Cargo", "WaistCenterAttachment", Enum.AccessoryType.Pants, 4, Color3.fromRGB(92, 96, 70), true },
 	{ "Exit6_Puffer", "Imp_Exit6_Puffer", "BodyFrontAttachment", Enum.AccessoryType.Jacket, 6, Color3.fromRGB(34, 34, 38), true },
-	{ "Exit6_Chain", "Imp_Exit6_Jewelry", "NeckAttachment", Enum.AccessoryType.Neck, nil, nil, true },
+	{ "Exit6_Chain", "Imp_Exit6_Jewelry", "NeckAttachment", Enum.AccessoryType.Neck, nil, nil, false },
+	{ "Exit6_Chain_Over", "Imp_Exit6_Jewelry", "NeckAttachment", Enum.AccessoryType.Neck, nil, nil, true },
 	{ "Exit6_Watch", "Imp_Exit6_Jewelry", "Exit6WatchAttachment", Enum.AccessoryType.Unknown, nil, nil, true },
 }
 

@@ -1,12 +1,16 @@
 {
  "items": {
+  "Exit6_Briefs": {
+   "tris": 2920,
+   "textures": "textures_v3_1/Exit6V31_Briefs_Color.png"
+  },
   "Exit6_Puffer": {
    "hi_verts": 39390,
    "textures": {
     "color": "assets\\characters\\exit6_male\\wear_v31\\Exit6_Puffer_Color.png",
     "normal": "assets\\characters\\exit6_male\\wear_v31\\Exit6_Puffer_Normal.png"
    },
-   "tris": 9284
+   "tris": 9292
   },
   "Exit6_Cargo": {
    "hi_verts": 21451,
@@ -14,25 +18,27 @@
     "color": "assets\\characters\\exit6_male\\wear_v31\\Exit6_Cargo_Color.png",
     "normal": "assets\\characters\\exit6_male\\wear_v31\\Exit6_Cargo_Normal.png"
    },
-   "tris": 7180
+   "tris": 7172
   },
   "Exit6_Sneakers": {
-   "hi_verts": 34634,
+   "hi_verts": 8680,
    "textures": {
     "color": "assets\\characters\\exit6_male\\wear_v31\\Exit6_Sneakers_Color.png",
     "normal": "assets\\characters\\exit6_male\\wear_v31\\Exit6_Sneakers_Normal.png"
    },
    "tris": 3999
   },
-  "Exit6_Briefs": {
-   "tris": 2920,
-   "textures": "textures_v3_1/Exit6V31_Briefs_Color.png"
-  },
   "Exit6_Chain": {
    "textures": {
     "color": "assets\\characters\\exit6_male\\wear_v31\\Exit6_Chain_Color.png"
    },
    "tris": 3840
+  },
+  "Exit6_Chain_Over": {
+   "textures": {
+    "color": "assets\\characters\\exit6_male\\wear_v31\\Exit6_Chain_Over_Color.png"
+   },
+   "tris": 4928
   },
   "Exit6_Watch": {
    "textures": {
@@ -43,6 +49,7 @@
  },
  "jewelry_frame": {
   "Exit6_Chain": "NeckAttachment",
+  "Exit6_Chain_Over": "NeckAttachment",
   "Exit6_Watch": "LeftWristRigAttachment",
   "bones": {
    "Root": [

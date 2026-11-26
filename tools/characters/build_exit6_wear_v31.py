@@ -30,6 +30,7 @@ import bpy, bmesh, os, sys, json, math, time
 import numpy as np
 from mathutils import Vector, Matrix
 from mathutils.bvhtree import BVHTree
+from mathutils.kdtree import KDTree
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -47,6 +48,13 @@ BONES = ["LowerTorso", "UpperTorso", "Head", "LeftUpperArm", "LeftLowerArm", "Le
          "RightLowerArm", "RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "RightUpperLeg",
          "RightLowerLeg", "RightFoot"]
 REPORT = {"items": {}}
+LEGS = ["LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "RightUpperLeg", "RightLowerLeg", "RightFoot"]
+SKIN_BONES = {   # bones each layered garment may follow (see skin_to)
+    "puffer": ["LowerTorso", "UpperTorso", "LeftUpperArm", "LeftLowerArm", "RightUpperArm", "RightLowerArm"],
+    "cargo": ["LowerTorso"] + LEGS,
+    "sneakers": ["LeftLowerLeg", "LeftFoot", "RightLowerLeg", "RightFoot"],
+}
+SKIN_SMOOTH = {"puffer": 16, "cargo": 4, "sneakers": 4}   # weight-smoothing passes over the game mesh
 
 
 def log(*a):
@@ -162,6 +170,61 @@ def push_out(P, bvh, gap):
     return P, out
 
 
+def push_out_near(P, bvh, gap, radius, facing=None):
+    """push_out limited to points within `radius` of the surface (a garment over another garment);
+    with `facing`, only where the surface normal points that way (dot > 0.3)"""
+    out = 0
+    for i in range(len(P)):
+        loc, n, _, dist = bvh.find_nearest(Vector(P[i]), radius)
+        if loc is None:
+            continue
+        loc = np.array(loc); n = np.array(n)
+        if facing is not None and n @ facing < 0.3:
+            continue
+        sd = (P[i] - loc) @ n
+        if sd < gap:
+            P[i] = P[i] + n * (gap - sd); out += 1
+    return P, out
+
+
+def world_bvh(ob):
+    """BVH of a mesh object in world space (rest pose)"""
+    M = np.array(ob.matrix_world)
+    V = get_P(ob.data) @ M[:3, :3].T + M[:3, 3]
+    return BVHTree.FromPolygons([Vector(v) for v in V], [tuple(f.vertices) for f in ob.data.polygons])
+
+
+def hull_bvh(points):
+    """BVH of the convex hull of a point set: one smooth volume around e.g. all five toes"""
+    bm = bmesh.new()
+    for v in points:
+        bm.verts.new(Vector(v))
+    res = bmesh.ops.convex_hull(bm, input=bm.verts)
+    loose = {g for g in res["geom_interior"] + res["geom_unused"] if isinstance(g, bmesh.types.BMVert)}
+    bmesh.ops.delete(bm, geom=list(loose), context="VERTS")
+    bm.normal_update()
+    return BVHTree.FromBMesh(bm)
+
+
+def hull_shell(point_sets, name, cut_z, voxel):
+    """closed convex hull per point set, voxel-remeshed to even quads, opened above cut_z"""
+    bm = bmesh.new()
+    for pts in point_sets:
+        vs = [bm.verts.new(Vector(p)) for p in pts]
+        res = bmesh.ops.convex_hull(bm, input=vs)
+        loose = {g for g in res["geom_interior"] + res["geom_unused"] if isinstance(g, bmesh.types.BMVert)}
+        bmesh.ops.delete(bm, geom=list(loose), context="VERTS")
+    me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
+    ob = bpy.data.objects.new(name, me); bpy.context.scene.collection.objects.link(ob)
+    rm = ob.modifiers.new("remesh", "REMESH"); rm.mode = "VOXEL"; rm.voxel_size = voxel
+    activate(ob); bpy.ops.object.modifier_apply(modifier="remesh")
+    bm = bmesh.new(); bm.from_mesh(ob.data)
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.calc_center_median().z > cut_z], context="FACES")
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+    bm.to_mesh(ob.data); bm.free()
+    return ob
+
+
 # ------------------------------------------------------------------ garment shell
 def shell_from_body(body, vmask, name, subdiv=2, pre_smooth=0):
     ob = body.copy(); ob.data = body.data.copy(); ob.name = ob.data.name = name
@@ -253,28 +316,37 @@ def build_puffer(body, part, bvh, rig):
     P = taubin(P, E, 8)
     N = get_N_from(P, me)
     z = P[:, 2]
-    is_arm = np.abs(P[:, 0]) > 0.52 + 0.1 * np.clip((1.2 - z) / 1.0, 0, 1)
-    t = np.where(is_arm, 0.055, 0.07)
+    # sleeve weight: a soft band across the sleeve/body boundary. The old hard is_arm switch jumped the
+    # offset (0.055 -> 0.07) and the quilt pitch/phase in one edge loop, which creased the sleeve seam.
+    edge_x = 0.52 + 0.1 * np.clip((1.2 - z) / 1.0, 0, 1)
+    wa = smoothstep(edge_x - 0.06, edge_x + 0.06, np.abs(P[:, 0]))
+    is_arm = wa > 0.5                                             # labels only (colour bands), never geometry
+    t = 0.07 * (1 - wa) + 0.055 * wa
     t = np.where(z > 1.62, 0.06, t)                              # collar
     cuff = is_arm & (z < -0.17 + 0.1)
     hem = (~is_arm) & (z < HEM + 0.09)
-    wc = is_arm * smoothstep(-0.05, -0.09, z)                     # soft bands: hard steps fold the shell
-    wh = (~is_arm) * smoothstep(HEM + 0.11, HEM + 0.07, z)
+    wc = wa * smoothstep(-0.05, -0.09, z)                         # soft bands: hard steps fold the shell
+    wh = (1 - wa) * smoothstep(HEM + 0.11, HEM + 0.07, z)
     t = t * (1 - wc) + 0.03 * wc
     t = t * (1 - wh) + 0.04 * wh
     P = P + N * t[:, None]
-    # quilted channels: horizontal on the body, around the sleeve
-    pitch = np.where(is_arm, 0.21, 0.27)
-    s = np.where(is_arm, (z - (-0.07)) / pitch, (z - (HEM + 0.09)) / pitch)
-    puff = 0.042 * np.sin(np.pi * np.mod(s, 1.0)) ** 0.6
+    # Fade quilting where the sleeve joins the body to avoid a pinched armpit.
+    seam_blend = np.exp(-((np.abs(P[:, 0]) - 0.70) / 0.22) ** 2) * np.exp(-((z - 0.65) / 0.62) ** 2)
+    seam_blend = np.maximum(seam_blend, 1 - np.abs(2 * wa - 1))   # and flat across the blend band itself
+    # quilted channels: horizontal on the body, around the sleeve; the two patterns cross-fade
+    s_arm, s_body = (z - (-0.07)) / 0.21, (z - (HEM + 0.09)) / 0.27
+    s = np.where(is_arm, s_arm, s_body)
+    puff = 0.042 * (wa * np.sin(np.pi * np.mod(s_arm, 1.0)) ** 0.6 +
+                    (1 - wa) * np.sin(np.pi * np.mod(s_body, 1.0)) ** 0.6)
     puff *= (1 - wc) * (1 - wh)
+    puff *= 1 - 0.85 * seam_blend
     puff *= np.where(z > 1.5, np.clip((1.62 - z) / 0.12, 0, 1), 1)  # no channels into the collar
     front = N[:, 1] < -0.3
-    wz = smoothstep(-0.15, -0.35, N[:, 1]) * (~is_arm) * smoothstep(0.04, 0.012, np.abs(P[:, 0]))
+    wz = smoothstep(-0.15, -0.35, N[:, 1]) * (1 - wa) * smoothstep(0.04, 0.012, np.abs(P[:, 0]))
     puff *= 1 - wz
     N = get_N_from(P, me)
     P = P + N * puff[:, None]
-    P = taubin(P, E, 3)
+    P = taubin(P, E, 5)
     P, nout = push_out(P, bvh, 0.03)
     P = taubin(P, E, 1)
     set_P(me, P)
@@ -309,6 +381,8 @@ def build_cargo(body, part, bvh, rig):
     N = get_N_from(P, me)
     x, y, z = P[:, 0], P[:, 1], P[:, 2]
     t = 0.035 + 0.035 * smoothstep(-0.2, -0.7, z) - 0.02 * smoothstep(-2.25, -2.5, z)
+    # Keep the inner-thigh and crotch shell clear of the body during leg motion.
+    t += 0.016 * np.exp(-((np.abs(x) - 0.14) / 0.18) ** 2) * np.exp(-((z + 0.38) / 0.50) ** 2)
     band = z > WAIST - 0.11
     wb = smoothstep(WAIST - 0.13, WAIST - 0.10, z)
     t = t * (1 - wb) + 0.028 * wb
@@ -353,6 +427,32 @@ def build_cargo(body, part, bvh, rig):
     P = taubin(P, E, 2)
     P, nout = push_out(P, bvh, 0.022)
     P = taubin(P, E, 1)
+    P, _ = push_out(P, bvh, 0.035)
+    # Cargos are authored over the briefs (their inner cage is the briefs' outer cage), so Roblox adds
+    # no layering offset when both are worn: the cargo surface itself must clear the briefs. 0.045 =
+    # 0.01 solidify wall + ~0.015 relative slide in a deep squat + margin (check_exit6_wear_v31.py).
+    briefs = bpy.data.objects.get("Exit6_Briefs") or bpy.data.objects.get("Briefs_Geo")
+    if briefs is not None:
+        bb = world_bvh(briefs)
+        # The crotch and the seat are concave: the nearest-point push follows the inner-thigh / cleft
+        # normals sideways and leaves the pelvis (and the briefs over it) poking through the centre
+        # seams. Bridge each with the convex hull of the briefs' front / back panel, pushing only
+        # outwards through that panel.
+        M = np.array(briefs.matrix_world)
+        BV = get_P(briefs.data) @ M[:3, :3].T + M[:3, 3]
+        ymid = np.median(BV[:, 1])
+        box = (np.abs(BV[:, 0]) < 0.24) & (BV[:, 2] > -0.8) & (BV[:, 2] < 0.2)
+        panels = [(hull_bvh(BV[box & (BV[:, 1] < ymid)]), np.array([0.0, -1.0, 0.0])),   # front
+                  (hull_bvh(BV[box & (BV[:, 1] > ymid)]), np.array([0.0, 1.0, 0.0]))]    # seat
+        nfr = 0
+        for hb, way in panels:
+            P, k = push_out_near(P, hb, 0.045, 0.15, facing=way); nfr += k
+        P, nbr = push_out_near(P, bb, 0.045, 0.2)
+        P = taubin(P, E, 2)
+        for hb, way in panels:
+            P, _ = push_out_near(P, hb, 0.04, 0.15, facing=way)
+        P, _ = push_out_near(P, bb, 0.04, 0.2)
+        log("cargo: %d verts lifted clear of the briefs, %d over the front/seat panels" % (nbr, nfr))
     set_P(me, P)
     col = np.ones((n, 3)) * 0.9
     col[band] *= 0.82
@@ -375,10 +475,27 @@ def build_sneakers(body, part, bvh, rig):
     ll = np.isin(part, ["LeftLowerLeg", "RightLowerLeg"])
     COLLAR = -2.60
     m = feet | (ll & (P0[:, 2] < COLLAR))
-    ob = shell_from_body(body, m, "Exit6_Sneakers", subdiv=2, pre_smooth=30)
+    # Shell = voxel-remeshed convex hull of each foot + ankle, not a copy of the foot surface: the
+    # copied surface kept folded faces between the toes, and no amount of smoothing unfolds those.
+    ob = hull_shell([P0[m & (np.sign(P0[:, 0]) == sx)] for sx in (1, -1)], "Exit6_Sneakers",
+                    cut_z=COLLAR - 0.005, voxel=0.016)
     me = ob.data; P = get_P(me); E = edges_of(me); n = len(P)
     SOLE = -2.97
-    P = taubin(P, E, 20)                                         # toes -> one shoe volume
+    P = taubin(P, E, 8)                                          # round the hull's flat facets
+    # A smooth last at the front replaces the individual toe contours.
+    for sx in (1, -1):
+        sel = np.sign(P[:, 0]) == sx
+        if not np.any(sel):
+            continue
+        toe_y = np.min(P[sel, 1])
+        blend = smoothstep(toe_y + 0.32, toe_y + 0.08, P[sel, 1])
+        center_x = np.median(P[sel, 0])
+        P[sel, 0] = center_x + (P[sel, 0] - center_x) * (1 - 0.30 * blend)
+        half_width = max(np.quantile(np.abs(P[sel, 0] - center_x), 0.95), 0.12)
+        last_front = toe_y + 0.17 * ((P[sel, 0] - center_x) / half_width) ** 2
+        P[sel, 1] = np.maximum(P[sel, 1], last_front * blend + P[sel, 1] * (1 - blend))
+        P[sel, 2] += 0.008 * blend
+    P = taubin(P, E, 5)
     N = get_N_from(P, me)
     z = P[:, 2]
     t = np.full(n, 0.045)
@@ -395,7 +512,17 @@ def build_sneakers(body, part, bvh, rig):
         ymin = P[sel, 1].min()
         toe = smoothstep(ymin + 0.16, ymin, P[sel, 1])
         P[sel, 2] += 0.03 * toe * smoothstep(SOLE + 0.06, SOLE - 0.03, P[sel, 2])
-    P, nout = push_out(P, bvh, 0.03)
+    # Clear each foot's convex hull, not the body: pushing out of the body re-imprinted every toe
+    # onto the toe box. The hull spans all five toes (and the arch) with one smooth surface.
+    for foot in ("LeftFoot", "RightFoot"):
+        fp = P0[part == foot]
+        hb = hull_bvh(fp)
+        sel = np.where(np.sign(P[:, 0]) == np.sign(fp[:, 0].mean()))[0]
+        Ps, _ = push_out(P[sel], hb, 0.03)
+        P[sel] = Ps
+    P = taubin(P, E, 3)
+    P[:, 2] = np.maximum(P[:, 2], SOLE - 0.025)
+    P, nout = push_out(P, bvh, 0.02)                             # ankle/collar still clears the skin
     set_P(me, P)
     N = get_N_from(P, me)
     z = P[:, 2]
@@ -456,7 +583,7 @@ def make_mesh(name, V, F, coll=None):
     return ob
 
 
-def build_chain(body, bvh):
+def build_chain(body, bvh, name="Exit6_Chain", clearance=0.022):
     """curb chain lying on the trapezius at the back and dipping onto the chest in front"""
     neck_c = np.array([0.0, 0.08, 1.66])
     path = []
@@ -471,7 +598,7 @@ def build_chain(body, bvh):
         loc, nrm, _, _ = bvh.ray_cast(Vector(o), Vector(d), 3.0)
         if loc is None:
             continue
-        path.append(np.array(loc) + np.array(nrm) * 0.022)
+        path.append(np.array(loc) + np.array(nrm) * clearance)
     path = np.array(path)
     for _ in range(30):                                # smooth the drape
         path = 0.5 * path + 0.25 * (np.roll(path, 1, 0) + np.roll(path, -1, 0))
@@ -490,7 +617,7 @@ def build_chain(body, bvh):
         nrm = out if i % 2 == 0 else side             # alternate link planes (curb twist)
         v, f = torus_link(c, tan, nrm, 0.016, 0.0065)
         F += [tuple(x + len(V) for x in ff) for ff in f]; V += list(v)
-    ob = make_mesh("Exit6_Chain", V, F)
+    ob = make_mesh(name, V, F)
     col = np.tile(srgb_lin((214, 168, 72)), (len(V), 1))
     set_colors(ob, col)
     ob.data.materials.append(vc_material("M_Chain", rough=0.22, spec=0.6, metal=1.0))
@@ -634,7 +761,10 @@ def bake_maps(low, hi, size, name, normal=True, fill_misses=False):
     return out
 
 
-def skin_to(ob, body, rig):
+def skin_to(ob, body, rig, allowed=None, smooth=0, follow=None):
+    """copy body weights (nearest surface), keep 4 influences. `allowed` limits the bones: the nearest
+    body surface to a hip or thigh point is often the hanging hand, and hand weights tore the cargo
+    open whenever the arms moved. Vertices left without weight take the nearest allowed bone."""
     for vg in list(ob.vertex_groups):
         ob.vertex_groups.remove(vg)
     for b in BONES:
@@ -649,6 +779,72 @@ def skin_to(ob, body, rig):
     for v in ob.data.vertices:
         for g in v.groups:
             W[v.index, g.group] = g.weight
+    if allowed is not None:
+        keep = np.array([nm in allowed for nm in names])
+        W[:, ~keep] = 0
+        empty = W.sum(1) < 1e-6
+        if empty.any():
+            mw = np.array(ob.matrix_world)
+            V = np.array([v.co for v in ob.data.vertices])[empty] @ mw[:3, :3].T + mw[:3, 3]
+            rw = np.array(rig.matrix_world)
+            best, bi = np.full(len(V), np.inf), np.zeros(len(V), int)
+            for j, nm in enumerate(names):
+                if not keep[j] or nm not in rig.data.bones:
+                    continue
+                bn = rig.data.bones[nm]
+                a = np.array(bn.head_local) @ rw[:3, :3].T + rw[:3, 3]
+                b = np.array(bn.tail_local) @ rw[:3, :3].T + rw[:3, 3]
+                ab = b - a
+                u = np.clip(((V - a) @ ab) / max(ab @ ab, 1e-9), 0, 1)
+                d = np.linalg.norm(V - (a + u[:, None] * ab), axis=1)
+                closer = d < best; best[closer] = d[closer]; bi[closer] = j
+            rows = np.where(empty)[0]
+            W[rows, bi] = 1.0
+    # Smooth the weights over the garment's own surface. Nearest-point copies change bone abruptly
+    # where the garment stands off the body (armpit, hip crease, back of the knee), and those steps
+    # tore the puffer and cargo open in raised-arm, stride and seated poses.
+    if smooth:
+        Eg = np.array([tuple(e.vertices) for e in ob.data.edges])
+        deg = np.zeros(len(W)); np.add.at(deg, Eg[:, 0], 1); np.add.at(deg, Eg[:, 1], 1)
+        for _ in range(smooth):
+            S = np.zeros_like(W); np.add.at(S, Eg[:, 0], W[Eg[:, 1]]); np.add.at(S, Eg[:, 1], W[Eg[:, 0]])
+            W = 0.5 * W + 0.5 * S / np.maximum(deg, 1)[:, None]
+        # never let one leg's (or arm's) weight drift across the midline onto the other side
+        mw = np.array(ob.matrix_world)
+        X = (np.array([v.co for v in ob.data.vertices]) @ mw[:3, :3].T + mw[:3, 3])[:, 0]
+        for j, nm in enumerate(names):
+            if nm.startswith("Left"):
+                W[X < -0.01, j] = 0
+            elif nm.startswith("Right"):
+                W[X > 0.01, j] = 0
+        W /= np.maximum(W.sum(1, keepdims=True), 1e-9)
+    # Over an under-layer (cargo over the briefs) take that layer's weights, so the two move together
+    # instead of sliding through each other in a stride or squat.
+    if follow is not None:
+        fm = np.array(follow.matrix_world)
+        FP = np.array([v.co for v in follow.data.vertices]) @ fm[:3, :3].T + fm[:3, 3]
+        FW = np.zeros((len(FP), len(names)))
+        gidx = {g.index: g.name for g in follow.vertex_groups}
+        for v in follow.data.vertices:
+            for g in v.groups:
+                nm = gidx.get(g.group)
+                if nm in names:
+                    FW[v.index, names.index(nm)] = g.weight
+        FW /= np.maximum(FW.sum(1, keepdims=True), 1e-9)
+        kd = KDTree(len(FP))
+        for i, q in enumerate(FP):
+            kd.insert(Vector(q), i)
+        kd.balance()
+        mw = np.array(ob.matrix_world)
+        V = np.array([v.co for v in ob.data.vertices]) @ mw[:3, :3].T + mw[:3, 3]
+        for i, q in enumerate(V):
+            _, j, d = kd.find(Vector(q))
+            f = float(smoothstep(0.14, 0.06, np.array(d)))
+            if f > 0:
+                W[i] = (1 - f) * W[i] + f * FW[j]
+        if allowed is not None:
+            W[:, ~keep] = 0
+        W /= np.maximum(W.sum(1, keepdims=True), 1e-9)
     order = np.argsort(-W, 1); mask = np.zeros_like(W, bool); np.put_along_axis(mask, order[:, :4], True, 1)
     W = np.where(mask & (W > 0.01), W, 0); W /= np.maximum(W.sum(1, keepdims=True), 1e-9)
     for vg in list(ob.vertex_groups):
@@ -677,11 +873,16 @@ def cage_normals(P, me):
     return N / np.maximum(np.linalg.norm(N, axis=1, keepdims=True), 1e-12)
 
 
-def make_item_cages(item, garment, body_cage, inner_in=0.004, gap=0.02):
+def make_item_cages(item, garment, body_cage, inner_in=0.004, gap=0.02, under_cage=None):
     """inner = the fitted body cage (slightly in), outer = inner inflated to enclose the garment"""
     C = get_P(body_cage.data) @ np.array(body_cage.matrix_world)[:3, :3].T + np.array(body_cage.matrix_world)[:3, 3]
     Nc = cage_normals(C, body_cage.data)
     inner = C - Nc * inner_in
+    if under_cage is not None:
+        # The pants' inner cage must enclose the underwear's outer cage.
+        U = get_P(under_cage.data)
+        assert len(U) == len(C), "clothing cages must share the body template topology"
+        inner = U + Nc * 0.004
     Pg = get_P(garment.data)
     gb = BVHTree.FromPolygons([Vector(p) for p in Pg], [tuple(p.vertices) for p in garment.data.polygons])
     outer = inner + Nc * 0.004
@@ -745,33 +946,44 @@ def main():
     body = whole_body()
     part, _ = part_of(body)
     bvh = body_bvh(body)
+    briefs_outer = None
+    if not ONLY or "briefs" in ONLY or "cargo" in ONLY:
+        br = bpy.data.objects["Briefs_Geo"]
+        br.name = br.data.name = "Exit6_Briefs"
+        inner, briefs_outer = make_item_cages("Exit6_Briefs", br, body_cage, gap=0.012)
+        export_glb([rig, br, inner, briefs_outer], os.path.join(OUT, "Exit6_Briefs.glb"))
+        REPORT["items"]["Exit6_Briefs"] = {"tris": tris(br), "textures": "textures_v3_1/Exit6V31_Briefs_Color.png"}
     layered = {"puffer": ("Exit6_Puffer", build_puffer, 9000, 0.012, True),
                "cargo": ("Exit6_Cargo", build_cargo, 7000, 0.01, True),
                "sneakers": ("Exit6_Sneakers", build_sneakers, 4000, 0.0, True)}
+    puffer_surface = None
     for key, (item, fn, budget, solid, normal) in layered.items():
         if ONLY and key not in ONLY:
             continue
         hi = fn(body, part, bvh, rig)
+        if key == "puffer":
+            puffer_surface = hi
         low = game_mesh(hi, budget, item, solid=solid)
         rep = {"hi_verts": len(hi.data.vertices)}
         if BAKE:
-            rep["textures"] = bake_maps(low, hi, 1024, item, normal=normal, fill_misses=key in ("puffer", "cargo"))
-        skin_to(low, body, rig)
-        inner, outer = make_item_cages(item, low, body_cage)
+            rep["textures"] = bake_maps(low, hi, 1024, item, normal=normal, fill_misses=key in ("puffer", "cargo", "sneakers"))
+        skin_to(low, body, rig, SKIN_BONES[key], smooth=SKIN_SMOOTH[key],
+                follow=bpy.data.objects.get("Exit6_Briefs") if key == "cargo" else None)
+        inner, outer = make_item_cages(item, low, body_cage,
+            under_cage=briefs_outer if key == "cargo" else None)
         rep["tris"] = tris(low)
         export_glb([rig, low, inner, outer], os.path.join(OUT, item + ".glb"))
         REPORT["items"][item] = rep
         hi.hide_render = True
-    if not ONLY or "briefs" in ONLY:
-        br = bpy.data.objects["Briefs_Geo"]
-        br.name = br.data.name = "Exit6_Briefs"
-        inner, outer = make_item_cages("Exit6_Briefs", br, body_cage, gap=0.035)   # coarse cage: generous gap
-        export_glb([rig, br, inner, outer], os.path.join(OUT, "Exit6_Briefs.glb"))
-        REPORT["items"]["Exit6_Briefs"] = {"tris": tris(br), "textures": "textures_v3_1/Exit6V31_Briefs_Color.png"}
     if not ONLY or "jewelry" in ONLY:
         chain = build_chain(body, bvh)
+        if puffer_surface is None:
+            puffer_surface = build_puffer(body, part, bvh, rig)
+        jacket_bvh = (BVHTree.FromObject(puffer_surface, bpy.context.evaluated_depsgraph_get())
+                      if puffer_surface is not None else bvh)
+        chain_over = build_chain(body, jacket_bvh, "Exit6_Chain_Over", 0.035)
         watch = build_watch(body, part, bvh, rig)
-        for ob, size in ((chain, 256), (watch, 256)):
+        for ob, size in ((chain, 256), (chain_over, 256), (watch, 256)):
             hi = ob.copy(); hi.data = ob.data.copy(); sc.collection.objects.link(hi); hi.name = ob.name + "_Hi"
             E_ = ob.modifiers.new("bev", "BEVEL")
             activate(ob)
@@ -783,12 +995,13 @@ def main():
                 REPORT["items"][ob.name] = {"textures": bake_maps(ob, hi, size, ob.name, normal=False)}
             REPORT["items"].setdefault(ob.name, {})["tris"] = tris(ob)
             hi.hide_render = True
-        export_glb([chain, watch], os.path.join(OUT, "Exit6_Jewelry.glb"))
+        export_glb([chain, chain_over, watch], os.path.join(OUT, "Exit6_Jewelry.glb"))
         att = {}
         for b in ("LeftLowerArm", "LeftHand"):
             pass
         bones = {b.name: (list(b.head_local), list(b.tail_local)) for b in rig.data.bones}
-        REPORT["jewelry_frame"] = {"Exit6_Chain": "NeckAttachment", "Exit6_Watch": "LeftWristRigAttachment",
+        REPORT["jewelry_frame"] = {"Exit6_Chain": "NeckAttachment", "Exit6_Chain_Over": "NeckAttachment",
+                                   "Exit6_Watch": "LeftWristRigAttachment",
                                    "bones": bones}
     with open(os.path.join(OUT, "wear_report_v31.json"), "w") as fh:
         json.dump(REPORT, fh, indent=1)

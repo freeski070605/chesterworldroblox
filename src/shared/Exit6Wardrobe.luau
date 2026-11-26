@@ -8,9 +8,9 @@
 -- roles pick material + colour: main / trim / sole / hair / fade / metal / gem / lens
 local Wardrobe = {}
 
-Wardrobe.Slots = { "hair", "hat", "top", "bottom", "shoes", "chain", "neck", "watch", "bracelet", "ears", "eyes" }
+Wardrobe.Slots = { "hair", "facialHair", "hat", "top", "bottom", "shoes", "chain", "neck", "watch", "bracelet", "ears", "eyes" }
 Wardrobe.SlotNames = {
-	hair = "Hair", hat = "Headwear", top = "Top", bottom = "Bottoms", shoes = "Shoes", chain = "Chain",
+	hair = "Hair", facialHair = "Facial Hair", hat = "Headwear", top = "Top", bottom = "Bottoms", shoes = "Shoes", chain = "Chain",
 	neck = "Neck", watch = "Watch", bracelet = "Bracelet", ears = "Earrings", eyes = "Eyewear",
 }
 
@@ -210,6 +210,7 @@ premium("p_watch_iced", { name = "Iced Octagon Watch", slot = "watch",
 local PUFFER_P = { R("px_puffer_body", "shell"), R("px_puffer_upper", "shell"), R("px_puffer_lower", "shell"),
 	R("px_puffer_cuff", "knit"), R("px_puffer_knit", "knit"), R("px_puffer_zip", "silver"), R("px_puffer_hood", "fleece") }
 premium("p_puffer_black", { name = "Oversized Winter Puffer", slot = "top", pieces = PUFFER_P, depth = 0.1,
+	v31Asset = "Exit6_Puffer", v31Tint = { 34, 34, 38 },
 	colors = { shell = { 18, 18, 21 }, knit = BLK, silver = CHROME, fleece = CHAR } })
 
 local TRACK_TOP = { R("px_track_jacket", "fleece"), R("px_track_rib", "knit"), R("px_track_panels", "accent"),
@@ -226,6 +227,7 @@ premium("p_track_top_nightlife", { name = "Nightlife Track Jacket (VIP)", slot =
 premium("p_track_pants_nightlife", { name = "Nightlife Track Pants (VIP)", slot = "bottom", pieces = TRACK_PANTS,
 	bundleOnly = true, colors = { fleece = { 14, 14, 17 }, accent = CHROME } })
 premium("p_cargo_black", { name = "Founder's Stacked Cargos", slot = "bottom", bundleOnly = true,
+	v31Asset = "Exit6_Cargo", v31Tint = { 34, 34, 38 },
 	pieces = { { mesh = "pants_waist", role = "fleece", underTop = true }, R("px_cargo_upper", "fleece"),
 		R("px_cargo_snaps", "silver"), R("px_cargo_lower", "fleece") },
 	colors = { fleece = BLK, silver = CHROME } })
@@ -247,6 +249,11 @@ premium("p_long_locs", { name = "Long Locs", slot = "hair", showsUnderCap = true
 premium("p_designer_cornrows", { name = "Designer Cornrows", slot = "hair", showsUnderCap = true,
 	pieces = { R("px_hair_designer_cornrows", "locs") }, colors = { locs = { 30, 22, 18 } } })
 
+premium("p_v31_cargo", { name = "V3.1 Premium Cargos", slot = "bottom", v31Only = true,
+	pieces = {}, v31Asset = "Exit6_Cargo", v31Tint = { 34, 34, 38 } })
+premium("p_v31_sneakers", { name = "V3.1 Premium Sneakers", slot = "shoes", v31Only = true,
+	pieces = {}, v31Asset = "Exit6_Sneakers" })
+
 -- skin tones (free, Closet): profile style.skin = index, 0 / nil = the avatar's own colours
 Wardrobe.SkinTones = {
 	{ name = "Espresso", rgb = { 58, 36, 26 } },
@@ -260,6 +267,32 @@ Wardrobe.SkinTones = {
 	{ name = "Light", rgb = { 238, 206, 176 } },
 	{ name = "Fair", rgb = { 248, 224, 204 } },
 }
+
+-- First V3.1-native catalog entries. They reuse the original fitted meshes
+-- and only appear when the isolated V3.1 character system is enabled.
+local function v31(id, def)
+	def.v31Only = true
+	def.pieces = {}
+	item(id, def)
+end
+v31("v31_twists", { name = "V3.1 Twists", slot = "hair", store = "barber", price = 40,
+	v31Asset = "Exit6_Hair_Twists" })
+v31("v31_goatee", { name = "Sculpted Goatee", slot = "facialHair", store = "barber", price = 20,
+	v31Asset = "Exit6_Goatee" })
+v31("v31_clean_shaven", { name = "Clean Shaven", slot = "facialHair", store = "barber", price = 0,
+	v31Empty = true })
+v31("v31_puffer_cream", { name = "V3.1 Quilted Puffer", slot = "top", store = "clothing", price = 280,
+	v31Asset = "Exit6_Puffer", v31Tint = { 235, 232, 224 },
+	v31TintPalette = { { 235, 232, 224 }, { 76, 95, 119 }, { 117, 62, 64 } } })
+v31("v31_cargo_olive", { name = "V3.1 Cargos", slot = "bottom", store = "clothing", price = 180,
+	v31Asset = "Exit6_Cargo", v31Tint = { 92, 96, 70 },
+	v31TintPalette = { { 92, 96, 70 }, { 44, 46, 50 }, { 152, 134, 106 } } })
+v31("v31_sneakers", { name = "V3.1 Sneakers", slot = "shoes", store = "clothing", price = 150,
+	v31Asset = "Exit6_Sneakers" })
+v31("v31_chain_gold", { name = "Gold Curb Chain", slot = "chain", store = "jewelry", price = 300,
+	repRequired = 10, v31Asset = "Exit6_Chain" })
+v31("v31_watch_gold", { name = "Gold Wristwatch", slot = "watch", store = "jewelry", price = 240,
+	repRequired = 5, v31Asset = "Exit6_Watch" })
 
 -- free starter fit every player owns (worn by default; Closet can switch to the Roblox avatar)
 Wardrobe.Starter = { top = "w_tee_white", bottom = "w_joggers_black", shoes = "w_sneakers_white" }

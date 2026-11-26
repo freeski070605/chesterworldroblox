@@ -352,8 +352,8 @@ drawPhone = function()
 			if fn then table.insert(listRows, b) end
 			return b
 		end
-		local function closet(verb, a)
-			return act(function() StyleAction:InvokeServer(verb, a) end)
+		local function closet(verb, a, b)
+			return act(function() StyleAction:InvokeServer(verb, a, b) end)
 		end
 		-- skin tone (free): step through the palette; 0 = the avatar's own
 		local tones = Wardrobe.SkinTones
@@ -371,11 +371,15 @@ drawPhone = function()
 		add("Lighter", skin < #tones and "SET" or "", skin < #tones and closet("skin", skin == 0 and 6 or skin + 1) or nil)
 		add("Darker", skin ~= 1 and "SET" or "", skin ~= 1 and closet("skin", skin == 0 and 5 or skin - 1) or nil)
 		if skin > 0 then add("Use my avatar's skin", "", closet("skin", 0)) end
+		local v31 = player.Character and player.Character:GetAttribute("Exit6V31") == true
 		for _, slot in ipairs(Wardrobe.Slots) do
 			local ids = {}
 			for id in pairs(owned) do
 				local it = Catalog.Items[id]
-				if it and it.kind == "wear" and it.slot == slot then table.insert(ids, id) end
+				if it and it.kind == "wear" and it.slot == slot
+					and ((v31 and (it.v31Asset or it.v31Empty)) or (not v31 and not it.v31Only)) then
+					table.insert(ids, id)
+				end
 			end
 			if #ids > 0 then
 				table.sort(ids, function(x, y) return Catalog.Items[x].name < Catalog.Items[y].name end)
@@ -385,6 +389,20 @@ drawPhone = function()
 					local on = st[slot] == id
 					local b = add(Catalog.Items[id].name, on and "ON" or "WEAR", on and closet("unequip", slot) or closet("equip", id))
 					if on then b.BackgroundColor3 = Color3.fromRGB(70, 58, 30) end
+				end
+				if v31 and slot == "chain" and st.chain and st.top then
+					local layer = st.chainLayer == "under" and "under" or "over"
+					add("  Wear over top", layer == "over" and "ON" or "SET", layer ~= "over" and closet("chainlayer", "over") or nil)
+					add("  Wear under top", layer == "under" and "ON" or "SET", layer ~= "under" and closet("chainlayer", "under") or nil)
+				end
+				local worn = st[slot] and Catalog.Items[st[slot]]
+				if v31 and worn and worn.v31TintPalette then
+					local current = type(st.tints) == "table" and tonumber(st.tints[slot]) or 1
+					for index, rgb in ipairs(worn.v31TintPalette) do
+						local swatch = add("  Color " .. index, index == current and "ON" or "SET",
+							index ~= current and closet("recolor", slot, index) or nil)
+						swatch.BackgroundColor3 = Color3.fromRGB(rgb[1], rgb[2], rgb[3])
+					end
 				end
 			end
 		end

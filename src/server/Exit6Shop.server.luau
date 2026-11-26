@@ -103,7 +103,9 @@ local function menuFor(store)
 	local list = {}
 	for _, id in ipairs(Catalog.Menus[store.kind] or Catalog.Menus.market) do
 		local item = Catalog.Items[id]
-		table.insert(list, { id = id, name = item.name, price = item.price, slot = item.kind == "wear" and item.slot or nil })
+		if item.kind ~= "wear" or Style.ItemReady(id) then
+			table.insert(list, { id = id, name = item.name, price = item.price, slot = item.kind == "wear" and item.slot or nil })
+		end
 	end
 	return list
 end
@@ -118,6 +120,7 @@ local function purchase(player, storeId, itemId)
 		if id == itemId then onMenu = true break end
 	end
 	if not onMenu then return false, "Not sold here" end
+	if item.kind == "wear" and not Style.ItemReady(itemId) then return false, "This item is unavailable for this character" end
 	if not inReach(player, store.counter, REACH) then return false, "Walk up to the counter" end
 	if item.kind == "vehicle" then
 		-- dealership: rep gate, cash, no duplicates -> the saved garage (Exit6Garage)
@@ -199,6 +202,10 @@ StyleAction.OnServerInvoke = function(player, verb, a, b)
 		return Style.WearStarter(player)
 	elseif verb == "skin" then
 		return Style.SetSkin(player, a)
+	elseif verb == "chainlayer" then
+		return Style.SetChainLayer(player, a)
+	elseif verb == "recolor" then
+		return Style.Recolor(player, a, b)
 	elseif verb == "outfit_save" then
 		return Style.SaveOutfit(player, a)
 	elseif verb == "outfit_wear" then

@@ -5,7 +5,17 @@ local DataStoreService = game:GetService("DataStoreService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Exit6Config"))
-local store = DataStoreService:GetDataStore(Config.DataStoreName)
+local store
+local storeOK, storeError = pcall(function()
+    if RunService:IsStudio() then
+        error("Isolated Studio test session")
+    end
+    store = DataStoreService:GetDataStore(Config.DataStoreName)
+end)
+
+if not storeOK then
+    warn("[EXIT6] DataStore unavailable:", storeError)
+end
 -- the bag is saved with cash / reputation (one save manager for the player)
 local Inventory = require(script.Parent:WaitForChild("Exit6Inventory"))
 local Profile = require(script.Parent:WaitForChild("Exit6Profile"))
@@ -15,6 +25,7 @@ local cashCodeRemote = Instance.new("RemoteEvent")
 cashCodeRemote.Name = "Exit6CashCode"
 cashCodeRemote.Parent = ReplicatedStorage
 cashCodeRemote.OnServerEvent:Connect(function(player)
+    if not RunService:IsStudio() then return end
  local data = sessions[player]
  if not data or player:GetAttribute("Exit6DataReady") ~= true then return end
  local now = os.clock()
@@ -49,7 +60,10 @@ local function save(player)
 end
 Players.PlayerAdded:Connect(function(player)
  local data = {cash = Config.StartingCash, reputation = Config.StartingReputation}
- local ok, loaded = pcall(function() return store:GetAsync(key(player)) end)
+ local ok, loaded = pcall(function()
+    if not store then error("DataStore unavailable") end
+    return store:GetAsync(key(player))
+end)
  if ok and type(loaded) == "table" then
   data.cash = math.max(0, math.floor(tonumber(loaded.cash) or data.cash))
   data.reputation = math.max(0, math.floor(tonumber(loaded.reputation) or data.reputation))
